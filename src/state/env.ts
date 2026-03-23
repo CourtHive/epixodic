@@ -417,6 +417,13 @@ export function updateAppState() {
 }
 
 export function setOrientation() {
+  // When running inside a scoring modal iframe, force portrait
+  const forcePortrait = globalThis.location.hash.includes('forcePortrait');
+  if (forcePortrait) {
+    env.orientation = 'portrait';
+    return;
+  }
+
   if (device.isMobile) {
     env.orientation = globalThis.screen.orientation.type == 'landscape-primary' ? 'landscape' : 'portrait';
   } else {

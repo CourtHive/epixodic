@@ -34,4 +34,14 @@ export interface RelayConfig {
   factoryServerUrl?: string;
   persistScores: boolean;
   corsOrigin: string | string[];
+  staleMatchHours: number;
+  pruneIntervalMinutes: number;
+}
+
+export interface RelayMetrics {
+  trackers: number;
+  listeners: number;
+  activeMatches: number;
+  scoresRelayed: number;
+  uptimeSeconds: number;
 }

@@ -64,6 +64,8 @@
   }
   .section-content {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
   }
 </style>

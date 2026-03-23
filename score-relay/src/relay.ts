@@ -1,17 +1,34 @@
 import { Server, Socket } from 'socket.io';
 import { updateMatch, setMatchHistory, getMatch, getActiveMatchIds, pruneStaleMatches } from './matchStore.js';
 import { persistMatchHistory } from './persistence.js';
-import type { ScoreUpdate, MatchHistory } from './types.js';
+import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
 
-const STALE_MATCH_AGE_MS = 4 * 60 * 60 * 1000; // 4 hours
-const PRUNE_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+// Metrics counters
+let trackerCount = 0;
+let listenerCount = 0;
+let scoresRelayed = 0;
+const startTime = Date.now();
 
-export function createRelay(io: Server): void {
+export function getMetrics(): RelayMetrics {
+  return {
+    trackers: trackerCount,
+    listeners: listenerCount,
+    activeMatches: getActiveMatchIds().length,
+    scoresRelayed,
+    uptimeSeconds: Math.floor((Date.now() - startTime) / 1000),
+  };
+}
+
+export function createRelay(io: Server, config: RelayConfig): void {
+  const staleMatchAgeMs = config.staleMatchHours * 60 * 60 * 1000;
+  const pruneIntervalMs = config.pruneIntervalMinutes * 60 * 1000;
+
   // --- Tracker namespace: mobile trackers push scores here ---
   const tracker = io.of('/tracker');
 
   tracker.on('connection', (socket: Socket) => {
-    console.log(`[tracker] connected: ${socket.id}`);
+    trackerCount++;
+    console.log(`[tracker] connected: ${socket.id} (${trackerCount} active)`);
 
     socket.on('score', (data: ScoreUpdate) => {
       if (!data?.matchUpId) {
@@ -20,6 +37,7 @@ export function createRelay(io: Server): void {
       }
 
       updateMatch(data);
+      scoresRelayed++;
       socket.emit('ack', { matchUpId: data.matchUpId, received: true });
 
       // Fan out to all listeners subscribed to this match
@@ -46,7 +64,8 @@ export function createRelay(io: Server): void {
     });
 
     socket.on('disconnect', () => {
-      console.log(`[tracker] disconnected: ${socket.id}`);
+      trackerCount--;
+      console.log(`[tracker] disconnected: ${socket.id} (${trackerCount} active)`);
     });
   });
 
@@ -54,7 +73,8 @@ export function createRelay(io: Server): void {
   const listeners = io.of('/live');
 
   listeners.on('connection', (socket: Socket) => {
-    console.log(`[live] connected: ${socket.id}`);
+    listenerCount++;
+    console.log(`[live] connected: ${socket.id} (${listenerCount} active)`);
 
     // Subscribe to score updates for a specific match
     socket.on('subscribe', (matchUpId: string) => {
@@ -85,15 +105,16 @@ export function createRelay(io: Server): void {
     });
 
     socket.on('disconnect', () => {
-      console.log(`[live] disconnected: ${socket.id}`);
+      listenerCount--;
+      console.log(`[live] disconnected: ${socket.id} (${listenerCount} active)`);
     });
   });
 
   // Periodically prune stale matches
   setInterval(() => {
-    const pruned = pruneStaleMatches(STALE_MATCH_AGE_MS);
+    const pruned = pruneStaleMatches(staleMatchAgeMs);
     if (pruned > 0) {
       console.log(`[relay] pruned ${pruned} stale matches`);
     }
-  }, PRUNE_INTERVAL_MS);
+  }, pruneIntervalMs);
 }

@@ -73,8 +73,22 @@ export async function fetchEventMatchUps(tid: string, eid: string) {
   }
 
   if (result.data) {
-    matchUps = result.data.matchUps || [];
+    // Server returns { eventData: { drawsData: [{ structures: [{ roundMatchUps }] }] }, participants }
+    const eventData = result.data.eventData || result.data;
+    const allMatchUps: HydratedMatchUp[] = [];
+
+    // Extract matchUps from all structures across all draws
+    for (const draw of eventData.drawsData || []) {
+      for (const structure of draw.structures || []) {
+        for (const roundMatchUps of Object.values(structure.roundMatchUps || {})) {
+          allMatchUps.push(...(roundMatchUps as HydratedMatchUp[]));
+        }
+      }
+    }
+
+    matchUps = allMatchUps;
     participants = result.data.participants || [];
+    console.log('[eventData] loaded', matchUps.length, 'matchUps,', participants.length, 'participants');
   }
 
   loading = false;

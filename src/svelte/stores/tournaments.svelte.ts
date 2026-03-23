@@ -39,10 +39,36 @@ export async function fetchTournamentInfo(tournamentId: string): Promise<Tournam
   }
 
   if (result.data) {
-    list = [...list, result.data];
+    // Ensure tournamentId is set (server may nest it differently)
+    const info: TournamentInfo = { ...result.data, tournamentId: result.data.tournamentId || tournamentId };
+    console.log('[tournaments] adding tournament:', info.tournamentId, info);
+    list = [...list, info];
     saveTournamentIds();
     loading = false;
-    return result.data;
+    return info;
+  }
+
+  loading = false;
+  return undefined;
+}
+
+export async function refreshTournamentInfo(tournamentId: string): Promise<TournamentInfo | undefined> {
+  loading = true;
+  error = undefined;
+
+  const result = await getTournamentInfo(tournamentId);
+
+  if (result.error) {
+    error = result.error;
+    loading = false;
+    return undefined;
+  }
+
+  if (result.data) {
+    const info: TournamentInfo = { ...result.data, tournamentId: result.data.tournamentId || tournamentId };
+    list = list.map((t) => (t.tournamentId === tournamentId ? info : t));
+    loading = false;
+    return info;
   }
 
   loading = false;

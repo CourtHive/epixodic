@@ -45,7 +45,13 @@ describe('Score Relay Integration', () => {
   beforeAll(async () => {
     httpServer = createServer();
     ioServer = new Server(httpServer, { cors: { origin: '*' } });
-    createRelay(ioServer);
+    createRelay(ioServer, {
+      port: 0,
+      persistScores: false,
+      corsOrigin: '*',
+      staleMatchHours: 4,
+      pruneIntervalMinutes: 30,
+    });
 
     await new Promise<void>((resolve) => {
       httpServer.listen(0, () => {

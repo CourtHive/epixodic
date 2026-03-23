@@ -3,7 +3,7 @@
   import LoadingSpinner from '../shared/LoadingSpinner.svelte';
   import ErrorMessage from '../shared/ErrorMessage.svelte';
   import EmptyState from '../shared/EmptyState.svelte';
-  import { getTournamentsState, fetchTournamentInfo, loadSavedTournaments } from '../../stores/tournaments.svelte';
+  import { getTournamentsState, fetchTournamentInfo, refreshTournamentInfo, removeTournament, loadSavedTournaments } from '../../stores/tournaments.svelte';
   import { onMount } from 'svelte';
 
   const tournaments = getTournamentsState();
@@ -34,8 +34,11 @@
 <div class="tournament-input-row">
   <input
     type="text"
+    id="tournament-id-input"
+    name="tournamentId"
     class="tournament-input"
     placeholder="Enter tournament ID"
+    aria-label="Tournament ID"
     bind:value={inputValue}
     onkeydown={handleKeydown}
   />
@@ -56,10 +59,12 @@
   <EmptyState message="No tournaments loaded. Enter a tournament ID above." />
 {:else}
   <div class="tournament-list">
-    {#each tournaments.list as tournament (tournament.tournamentId)}
+    {#each tournaments.list.filter(t => t.tournamentId) as tournament (tournament.tournamentId)}
       <TournamentCard
         {tournament}
         onclick={() => navigateToTournament(tournament.tournamentId)}
+        onrefresh={() => refreshTournamentInfo(tournament.tournamentId)}
+        onremove={() => removeTournament(tournament.tournamentId)}
       />
     {/each}
   </div>
