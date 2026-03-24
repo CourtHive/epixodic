@@ -30,8 +30,8 @@ importers:
         specifier: ^5.53.6
         version: 5.53.6
       tods-competition-factory:
-        specifier: ^2.4.5
-        version: 2.4.5
+        specifier: 2.4.6-beta.32
+        version: 2.4.6-beta.32
     devDependencies:
       '@commitlint/cli':
         specifier: 19.8.1
@@ -4323,6 +4323,10 @@ packages:
 
   tods-competition-factory@2.4.5:
     resolution: {integrity: sha512-S+fswvRT0Nj/BZGAxD58McZuUVOwaGmPtXS4sRbHtAqHfICvyrCh9pv34jMYxkYOykZFLltyPzJybfeAVw538g==}
+    engines: {node: '>=20'}
+
+  tods-competition-factory@2.4.6-beta.32:
+    resolution: {integrity: sha512-KZQpJ6rxQcVlqkWS9vkZkxGm4UKkHHeKU52fWLzSBPoW5FA3pDs7gtYm+jhkYSAeMmLbX3alf4ArBdnQ0edIcQ==}
     engines: {node: '>=20'}
 
   totalist@3.0.1:
@@ -9433,6 +9437,8 @@ snapshots:
       is-number: 7.0.0
 
   tods-competition-factory@2.4.5: {}
+
+  tods-competition-factory@2.4.6-beta.32: {}
 
   totalist@3.0.1: {}
 
