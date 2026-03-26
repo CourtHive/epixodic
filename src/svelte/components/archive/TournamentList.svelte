@@ -1,9 +1,9 @@
 <script lang="ts">
   import TournamentCard from './TournamentCard.svelte';
   import LoadingSpinner from '../shared/LoadingSpinner.svelte';
-  import ErrorMessage from '../shared/ErrorMessage.svelte';
   import EmptyState from '../shared/EmptyState.svelte';
   import { getTournamentsState, fetchTournamentInfo, refreshTournamentInfo, removeTournament, loadSavedTournaments } from '../../stores/tournaments.svelte';
+  import { showToast } from '../../stores/toast.svelte';
   import { onMount } from 'svelte';
 
   const tournaments = getTournamentsState();
@@ -17,8 +17,12 @@
   async function handleLoad() {
     const tid = inputValue.trim();
     if (!tid) return;
-    await fetchTournamentInfo(tid);
-    inputValue = '';
+    const result = await fetchTournamentInfo(tid);
+    if (result) {
+      inputValue = '';
+    } else if (tournaments.error) {
+      showToast(tournaments.error, 'error');
+    }
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -46,10 +50,6 @@
     Load
   </button>
 </div>
-
-{#if tournaments.error}
-  <ErrorMessage message={tournaments.error} />
-{/if}
 
 {#if tournaments.loading}
   <LoadingSpinner />

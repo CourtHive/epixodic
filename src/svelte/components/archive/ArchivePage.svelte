@@ -1,6 +1,7 @@
 <script lang="ts">
   import TopNav from '../nav/TopNav.svelte';
   import BottomNav from '../nav/BottomNav.svelte';
+  import Toast from '../shared/Toast.svelte';
   import MyMatchUps from './MyMatchUps.svelte';
   import TournamentList from './TournamentList.svelte';
   import { setArchiveContext } from '../../stores/navigation.svelte';
@@ -50,6 +51,7 @@
   </div>
 
   <BottomNav actions={bottomActions} />
+  <Toast />
 </div>
 
 <style>

@@ -9,7 +9,7 @@ import { Server } from 'socket.io';
 import { io as ioClient, Socket as ClientSocket } from 'socket.io-client';
 import { createServer } from 'http';
 import { createRelay } from './relay.js';
-import { getActiveMatchIds, removeMatch } from './matchStore.js';
+import { getActiveMatchIds, removeMatch } from './matchUpStore.js';
 
 let httpServer: ReturnType<typeof createServer>;
 let ioServer: Server;
@@ -260,6 +260,110 @@ describe('Score Relay Integration', () => {
       });
 
       tracker.emit('score', { matchUpId: 'mu-500', score: { scoreStringSide1: '2-0' } });
+      await new Promise((r) => setTimeout(r, 200));
+      expect(receivedAfterUnsub).toBe(false);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+  });
+
+  describe('Tournament subscriptions', () => {
+    it('should receive scores for matches in a subscribed tournament', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe:tournament', 'tid-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      const scorePromise = waitForEvent(listener, 'score');
+      tracker.emit('score', {
+        matchUpId: 'mu-700',
+        tournamentId: 'tid-1',
+        score: { scoreStringSide1: '3-2' },
+      });
+
+      const received = await scorePromise;
+      expect(received.matchUpId).toBe('mu-700');
+      expect(received.tournamentId).toBe('tid-1');
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should NOT receive scores for a different tournament', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe:tournament', 'tid-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      let receivedUnexpected = false;
+      listener.on('score', (data: any) => {
+        if (data.tournamentId === 'tid-2') {
+          receivedUnexpected = true;
+        }
+      });
+
+      tracker.emit('score', {
+        matchUpId: 'mu-701',
+        tournamentId: 'tid-2',
+        score: { scoreStringSide1: '1-0' },
+      });
+
+      await new Promise((r) => setTimeout(r, 200));
+      expect(receivedUnexpected).toBe(false);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should send existing tournament matches on subscribe', async () => {
+      const tracker = await connectClient('/tracker');
+
+      // Create matches for tid-1
+      tracker.emit('score', { matchUpId: 'mu-710', tournamentId: 'tid-1', score: { scoreStringSide1: '1-0' } });
+      tracker.emit('score', { matchUpId: 'mu-711', tournamentId: 'tid-1', score: { scoreStringSide1: '2-1' } });
+      tracker.emit('score', { matchUpId: 'mu-712', tournamentId: 'tid-other', score: { scoreStringSide1: '0-0' } });
+      await new Promise((r) => setTimeout(r, 100));
+
+      const listener = await connectClient('/live');
+      const received: any[] = [];
+      listener.on('score', (data: any) => received.push(data));
+      listener.emit('subscribe:tournament', 'tid-1');
+
+      await new Promise((r) => setTimeout(r, 200));
+      expect(received.length).toBe(2);
+      expect(received.map((r: any) => r.matchUpId).sort()).toEqual(['mu-710', 'mu-711']);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should stop receiving after unsubscribe:tournament', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe:tournament', 'tid-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Verify we receive first
+      const firstPromise = waitForEvent(listener, 'score');
+      tracker.emit('score', { matchUpId: 'mu-720', tournamentId: 'tid-1', score: { scoreStringSide1: '1-0' } });
+      await firstPromise;
+
+      // Unsubscribe
+      listener.emit('unsubscribe:tournament', 'tid-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      let receivedAfterUnsub = false;
+      listener.on('score', (data: any) => {
+        if (data.matchUpId === 'mu-721') {
+          receivedAfterUnsub = true;
+        }
+      });
+
+      tracker.emit('score', { matchUpId: 'mu-721', tournamentId: 'tid-1', score: { scoreStringSide1: '2-0' } });
       await new Promise((r) => setTimeout(r, 200));
       expect(receivedAfterUnsub).toBe(false);
 

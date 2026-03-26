@@ -46,6 +46,16 @@ export function getActiveMatchIds(): string[] {
   return Array.from(activeMatches.keys());
 }
 
+export function getMatchUpsByTournament(tournamentId: string): ScoreUpdate[] {
+  const results: ScoreUpdate[] = [];
+  for (const state of activeMatches.values()) {
+    if (state.tournamentId === tournamentId) {
+      results.push(state.lastUpdate);
+    }
+  }
+  return results;
+}
+
 export function removeMatch(matchUpId: string): void {
   activeMatches.delete(matchUpId);
 }

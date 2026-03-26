@@ -9,7 +9,7 @@ const config: RelayConfig = {
   factoryServerUrl: process.env.FACTORY_SERVER_URL || undefined,
   persistScores: process.env.PERSIST_SCORES !== 'false',
   corsOrigin: process.env.CORS_ORIGIN?.split(',') || '*',
-  staleMatchHours: parseFloat(process.env.STALE_MATCH_HOURS || '4'),
+  staleMatchHours: parseFloat(process.env.STALE_MATCH_HOURS || '6'),
   pruneIntervalMinutes: parseFloat(process.env.PRUNE_INTERVAL_MINUTES || '30'),
 };
 

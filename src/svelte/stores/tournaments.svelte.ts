@@ -48,6 +48,7 @@ export async function fetchTournamentInfo(tournamentId: string): Promise<Tournam
     return info;
   }
 
+  error = `Tournament not found: ${tournamentId}`;
   loading = false;
   return undefined;
 }

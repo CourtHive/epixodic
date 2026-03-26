@@ -1,5 +1,12 @@
 import { Server, Socket } from 'socket.io';
-import { updateMatch, setMatchHistory, getMatch, getActiveMatchIds, pruneStaleMatches } from './matchStore.js';
+import {
+  updateMatch,
+  setMatchHistory,
+  getMatch,
+  getActiveMatchIds,
+  getMatchUpsByTournament,
+  pruneStaleMatches,
+} from './matchUpStore.js';
 import { persistMatchHistory } from './persistence.js';
 import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
 
@@ -42,6 +49,11 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Fan out to all listeners subscribed to this match
       listeners.to(data.matchUpId).emit('score', data);
+
+      // Fan out to tournament room if tournamentId is present
+      if (data.tournamentId) {
+        listeners.to(`tournament:${data.tournamentId}`).emit('score', data);
+      }
 
       // Also emit to the "all" room for dashboards
       listeners.to('all').emit('score', data);
@@ -90,6 +102,21 @@ export function createRelay(io: Server, config: RelayConfig): void {
     // Unsubscribe from a match
     socket.on('unsubscribe', (matchUpId: string) => {
       socket.leave(matchUpId);
+    });
+
+    // Subscribe to all matches for a tournament
+    socket.on('subscribe:tournament', (tournamentId: string) => {
+      socket.join(`tournament:${tournamentId}`);
+
+      // Send all current matches for this tournament
+      const matches = getMatchUpsByTournament(tournamentId);
+      for (const update of matches) {
+        socket.emit('score', update);
+      }
+    });
+
+    socket.on('unsubscribe:tournament', (tournamentId: string) => {
+      socket.leave(`tournament:${tournamentId}`);
     });
 
     // Subscribe to all score updates (for dashboards/schedule views)

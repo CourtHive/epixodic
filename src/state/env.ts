@@ -332,8 +332,8 @@ export function updateMatchArchive(force?: boolean) {
   // so the archive can display them (e.g. "6-4 3-2 (30-15)")
   if (!isComplete && sets.length > 0 && engineScore.pointDisplay) {
     const lastSet = sets[sets.length - 1];
-    lastSet.side1PointsScore = engineScore.pointDisplay[0];
-    lastSet.side2PointsScore = engineScore.pointDisplay[1];
+    lastSet.side1PointScore = engineScore.pointDisplay[0];
+    lastSet.side2PointScore = engineScore.pointDisplay[1];
   }
 
   const winningSide = env.engine.getWinner();

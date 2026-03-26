@@ -32,6 +32,15 @@ export function getMatch(matchUpId) {
 export function getActiveMatchIds() {
     return Array.from(activeMatches.keys());
 }
+export function getMatchesByTournament(tournamentId) {
+    const results = [];
+    for (const state of activeMatches.values()) {
+        if (state.tournamentId === tournamentId) {
+            results.push(state.lastUpdate);
+        }
+    }
+    return results;
+}
 export function removeMatch(matchUpId) {
     activeMatches.delete(matchUpId);
 }

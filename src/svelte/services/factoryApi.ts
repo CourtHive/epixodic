@@ -21,7 +21,10 @@ export async function getTournamentInfo(tournamentId: string): Promise<ApiResult
     const response = await baseApi.post('/factory/tournamentinfo', params);
     console.log('[factoryApi] getTournamentInfo response:', response.data);
     // Server wraps the data as { success, tournamentInfo: { ... } }
-    const info = response.data?.tournamentInfo || response.data;
+    const info = response.data?.tournamentInfo;
+    if (!info?.tournamentName) {
+      return { error: `Tournament not found: ${tournamentId}` };
+    }
     return { data: info };
   } catch (e: any) {
     console.error('[factoryApi] getTournamentInfo error:', e.message, e.response?.status, e.response?.data);
