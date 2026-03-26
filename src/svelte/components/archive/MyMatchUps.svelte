@@ -2,7 +2,9 @@
   import MatchUpCard from './MatchUpCard.svelte';
   import EmptyState from '../shared/EmptyState.svelte';
   import { getLocalMatchUpsState, deleteLocalMatchUp, completeLocalMatchUp } from '../../stores/localMatchUps.svelte';
+  import { openScoringModal } from '../../../scoring/scoringModal';
   import { matchPath } from '../../../router/routes';
+  import { device } from '../../../state/env';
   import { cModal } from 'courthive-components';
 
   const local = getLocalMatchUpsState();
@@ -119,8 +121,12 @@
 
   function navigateToScoring(matchUpId: string) {
     dismissPopup();
-    const router = (window as any).appRouter;
-    router?.navigate(matchPath(matchUpId, 'scoring'));
+    if (device.isMobile) {
+      const router = (window as any).appRouter;
+      router?.navigate(matchPath(matchUpId, 'scoring'));
+    } else {
+      openScoringModal(matchUpId);
+    }
   }
 </script>
 
