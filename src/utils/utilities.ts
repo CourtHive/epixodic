@@ -1,7 +1,7 @@
 export function isJSON(str: any) {
   try {
     JSON.parse(str);
-  } catch (e) {
+  } catch {
     return false;
   }
   return true;
@@ -33,7 +33,7 @@ export function attemptJSONparse(data: string) {
   if (!data) return undefined;
   try {
     return JSON.parse(data);
-  } catch (e) {
+  } catch {
     return undefined;
   }
 }

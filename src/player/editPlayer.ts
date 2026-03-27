@@ -81,16 +81,10 @@ export function editPlayer(element: any) {
       };
     }
 
-    if (inputs.team.value) playerUpdate.team = inputs.team.value;
-    if (inputs.id.value) playerUpdate.id = inputs.id.value;
-    if (inputs.hand.value) playerUpdate.hand = inputs.hand.value;
-    if (inputs.entry.value) playerUpdate.entry = inputs.entry.value;
-    if (inputs.seed.value) playerUpdate.seed = inputs.seed.value;
-    if (inputs.draw_position.value) playerUpdate.draw_position = inputs.draw_position.value;
-    if (inputs.rank.value) playerUpdate.rank = inputs.rank.value;
-    if (inputs.wtn.value) playerUpdate.wtn = inputs.wtn.value;
-    if (inputs.utr.value) playerUpdate.utr = inputs.utr.value;
-    if (inputs.ioc.value) playerUpdate.ioc = inputs.ioc.value;
+    const optionalFields = ['team', 'id', 'hand', 'entry', 'seed', 'draw_position', 'rank', 'wtn', 'utr', 'ioc'];
+    for (const field of optionalFields) {
+      if (inputs[field].value) playerUpdate[field] = inputs[field].value;
+    }
 
     try {
       updateParticipant(playerUpdate);

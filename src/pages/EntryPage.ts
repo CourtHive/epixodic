@@ -11,34 +11,32 @@ export class EntryPage extends ViewPage {
     const container = document.getElementById('scoring-container');
     if (!container) return;
 
-    // Always render both skins so all DOM elements exist for
-    // document-level querySelectorAll used by displayUpdate/classAction
+    this.renderSkins(container);
+    this.showActiveSkins();
+
+    swapServer();
+    stateChangeEvent();
+  }
+
+  private renderSkins(container: HTMLElement): void {
     const vSkin = getSkin(options.vertical_view);
     const hSkin = getSkin(options.horizontal_view);
 
     if (vSkin && !vSkin.rendered) vSkin.render(container);
     if (hSkin && !hSkin.rendered) hSkin.render(container);
 
-    // Hide all rendered skins before showing the selected ones.
-    // Prevents stale skins from remaining visible after a skin switch.
     for (const skin of getRegisteredSkins()) {
       if (skin.rendered) skin.hide();
     }
+  }
 
-    if (env.orientation === 'landscape') {
-      if (hSkin) hSkin.show();
-      if (vSkin) vSkin.hide();
-    } else {
-      if (vSkin) vSkin.show();
-      if (hSkin) hSkin.hide();
-    }
+  private showActiveSkins(): void {
+    const vSkin = getSkin(options.vertical_view);
+    const hSkin = getSkin(options.horizontal_view);
+    const isLandscape = env.orientation === 'landscape';
 
-    // Initialize display state on the freshly rendered DOM.
-    // The router calls these before mounting, but at that point
-    // the skin DOM doesn't exist yet, so we must call again here.
-    // stateChangeEvent() covers score, positions, buttons, server, and charts.
-    swapServer();
-    stateChangeEvent();
+    if (vSkin) isLandscape ? vSkin.hide() : vSkin.show();
+    if (hSkin) isLandscape ? hSkin.show() : hSkin.hide();
   }
 
   protected deactivate(): void {

@@ -1,4 +1,4 @@
-import { env, getEpisodes } from '../state/env';
+import { getEpisodes } from '../state/env';
 
 export function formatChangePossible() {
   const episodes = getEpisodes();

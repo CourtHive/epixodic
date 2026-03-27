@@ -58,6 +58,20 @@ export function getEventDataState() {
   };
 }
 
+function extractMatchUps(data: any): HydratedMatchUp[] {
+  const eventData = data.eventData || data;
+  const allMatchUps: HydratedMatchUp[] = [];
+
+  for (const draw of eventData.drawsData || []) {
+    for (const structure of draw.structures || []) {
+      for (const roundMatchUps of Object.values(structure.roundMatchUps || {})) {
+        allMatchUps.push(...(roundMatchUps as HydratedMatchUp[]));
+      }
+    }
+  }
+  return allMatchUps;
+}
+
 export async function fetchEventMatchUps(tid: string, eid: string) {
   tournamentId = tid;
   eventId = eid;
@@ -73,20 +87,7 @@ export async function fetchEventMatchUps(tid: string, eid: string) {
   }
 
   if (result.data) {
-    // Server returns { eventData: { drawsData: [{ structures: [{ roundMatchUps }] }] }, participants }
-    const eventData = result.data.eventData || result.data;
-    const allMatchUps: HydratedMatchUp[] = [];
-
-    // Extract matchUps from all structures across all draws
-    for (const draw of eventData.drawsData || []) {
-      for (const structure of draw.structures || []) {
-        for (const roundMatchUps of Object.values(structure.roundMatchUps || {})) {
-          allMatchUps.push(...(roundMatchUps as HydratedMatchUp[]));
-        }
-      }
-    }
-
-    matchUps = allMatchUps;
+    matchUps = extractMatchUps(result.data);
     participants = result.data.participants || [];
     console.log('[eventData] loaded', matchUps.length, 'matchUps,', participants.length, 'participants');
   }

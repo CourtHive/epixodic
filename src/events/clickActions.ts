@@ -1,4 +1,4 @@
-import { resetButtons, setCourtSide, stateChangeEvent, swapServer, updateState, visibleButtons } from '../display/displayUpdate';
+import { resetButtons, setCourtSide, stateChangeEvent, swapServer, visibleButtons } from '../display/displayUpdate';
 import { editMatchDetails } from '../display/displayUpdate';
 import { formatChangePossible } from '../engine/formatChangePossible';
 import { getCurrentMatchUpId } from '../state/matchContext';

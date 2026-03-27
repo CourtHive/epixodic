@@ -120,30 +120,31 @@ function gameEntry(game: any, players: any[]) {
   return html;
 }
 
+function getPlayerInitials(point: any, players: any[]): string {
+  const shotByIndex = WINNER_RESULTS.includes(point.result) ? point.winner : 1 - point.winner;
+  return players[shotByIndex].participantName
+    .split(' ')
+    .map((name: string) => name[0])
+    .join('');
+}
+
+function formatPointDescription(point: any, players: any[]): string {
+  if (!point.result) return '';
+  const initials = getPlayerInitials(point, players);
+  const hand = point.hand ? point.hand + ' ' : '';
+  return `${initials}: ${hand}${point.result}`;
+}
+
+function formatTiebreakScore(point_score: string, isServer: boolean): string {
+  return isServer ? `&nbsp;${point_score}*` : `*${point_score}&nbsp;`;
+}
+
 function pointEntry(point: any, players: any[]) {
   const evenodd = point.index % 2 ? 'even' : 'odd';
   let point_score = !point.tiebreak && point.server ? point.score.split('-').reverse().join('-') : point.score;
-  let player_initials;
-  if (point.result) {
-    let shot_by;
-    if (WINNER_RESULTS.includes(point.result)) {
-      shot_by = players[point.winner].participantName;
-    } else {
-      shot_by = players[1 - point.winner].participantName;
-    }
-    player_initials = shot_by
-      .split(' ')
-      .map((name: string) => name[0])
-      .join('');
-  }
-  const point_hand = point.hand ? point.hand + ' ' : '';
-  const point_result = point.result || '';
-  const point_description = !point_result ? '' : `${player_initials}: ${point_hand}${point_result}`;
+  const point_description = formatPointDescription(point, players);
   point_score = point_score == '0-0' ? 'GAME' : point_score;
-  if (point.tiebreak) {
-    if (point.server) point_score = `&nbsp;${point_score}*`;
-    if (!point.server) point_score = `*${point_score}&nbsp;`;
-  }
+  if (point.tiebreak) point_score = formatTiebreakScore(point_score, point.server);
   const rally = point.rallyLength ? point.rallyLength : '';
   return `
     <div class='flexrows ph_episode' pointIndex="${point.index}">

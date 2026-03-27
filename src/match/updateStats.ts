@@ -63,177 +63,175 @@ function deriveCounters(setFilter?: number): { teams: any[] } {
   return { teams };
 }
 
+const stripModifiers = (text: string) => text.match(/\w/g)?.join('');
+
+const ERROR_STATS = ['Double Faults', 'Unforced Errors', 'Forced Errors'];
+
+function normalizeStatValue(side: any): { value: number; display: string } {
+  let value = side.value;
+  let display = side.display;
+  if (Number.isNaN(value) || value === null || value === undefined) {
+    return { value: 0, display: '0' };
+  }
+  if (typeof value === 'string') {
+    value = Number.parseFloat(value) || 0;
+  }
+  return { value, display };
+}
+
+function highlightDisplay(leftVal: number, rightVal: number, leftDisplay: string, rightDisplay: string, statName: string) {
+  if (!options.highlight_better_stats || leftVal === rightVal) return { leftDisplay, rightDisplay };
+
+  const lowerIsBetter = ERROR_STATS.includes(statName);
+  const leftBetter = lowerIsBetter ? leftVal < rightVal : leftVal > rightVal;
+  const rightBetter = lowerIsBetter ? rightVal < leftVal : rightVal > leftVal;
+
+  return {
+    leftDisplay: leftBetter ? `<b class="toggleChart">${leftDisplay}</b>` : leftDisplay,
+    rightDisplay: rightBetter ? `<b class="toggleChart">${rightDisplay}</b>` : rightDisplay,
+  };
+}
+
+function buildStatRowHtml(stat: any, charts: any[]): string {
+  const team_stats = stat.teams || stat.team_stats;
+  if (!team_stats || team_stats.length < 2) return '';
+
+  const [first, second] = env.swap_sides ? [team_stats[1], team_stats[0]] : team_stats;
+
+  const value: number = [0]
+    .concat(...[first, second].map((side: any) => (side.value ? side.value : [])))
+    .reduce((a: number, b: number) => a + b, 0);
+
+  const statName = stat.category || stat.name;
+  const id = stripModifiers(statName.toLowerCase().split(' ').join('_'));
+
+  const leftNorm = normalizeStatValue(first);
+  const rightNorm = normalizeStatValue(second);
+  first.value = leftNorm.value;
+  second.value = rightNorm.value;
+
+  const numerators = [first, second]
+    .flatMap((v: any) => (v.numerators ? v.numerators : []))
+    .filter((item, i, s) => s.lastIndexOf(item) == i)
+    .join(',');
+  const statclass = numerators && value && statName != 'Aggressive Margin' ? 'statname_chart' : 'statname';
+
+  const highlighted = highlightDisplay(first.value, second.value, leftNorm.display, rightNorm.display, statName);
+
+  let html =
+    `<div class='statrow' id="${id}">` +
+    `<div class='toggleChart statleft'>${highlighted.leftDisplay}</div>` +
+    `<div class='toggleChart ${statclass}'>${statName}</div><div class='toggleChart statright'>${highlighted.rightDisplay}</div>` +
+    `</div>`;
+
+  if (numerators && value && statName != 'Aggressive Margin') {
+    charts.push({ target: `${id}_chart`, numerators });
+    html += `<div class='statrow' id="${id}_chart" style='display:none' onclick="showChartSource('${numerators}')"></div>`;
+  }
+  return html;
+}
+
+function getUniqueValues(counters: any[], hand: string, field: string): string[] {
+  return Object.keys(counters)
+    .flatMap((key) =>
+      counters[key][hand]
+        ? counters[key][hand].map((episode: any) => episode.point[field]).filter(Boolean)
+        : [],
+    )
+    .filter((item, i, s) => s.lastIndexOf(item) == i);
+}
+
+function filterByResult(episodes: any[] | undefined, result: string, stroke?: string): any[] {
+  if (!episodes) return [];
+  if (stroke) return episodes.filter((f: any) => f.point.result == result && f.point.stroke == stroke);
+  return episodes.filter((f: any) => f.point.result == result);
+}
+
+function buildFinishingShotsHtml(counters: any[]): string {
+  const hasData =
+    counters?.[0] && counters[1] &&
+    (counters[0][BACKHAND] || counters[0][FOREHAND] || counters[1][BACKHAND] || counters[1][FOREHAND]);
+  if (!hasData) return '';
+
+  const left = env.swap_sides ? 1 : 0;
+  const right = env.swap_sides ? 0 : 1;
+  let html = `<div class='statsection flexcenter'>Finishing Shots - Strokes</div>`;
+
+  for (const hand of [FOREHAND, BACKHAND]) {
+    if (!counters[0][hand] && !counters[1][hand]) continue;
+
+    const left_display = counters[left][hand] ? counters[left][hand].length : 0;
+    const right_display = counters[right][hand] ? counters[right][hand].length : 0;
+    html +=
+      `<div class='statrow'><div class='statleft'><b>${left_display}</b></div>` +
+      `<div class='statname'><b>Total ${hand} Shots</b></div><div class='statright'><b>${right_display}</b></div></div>`;
+
+    const results = getUniqueValues(counters, hand, 'result');
+    for (const result of results) {
+      html += buildResultRow(counters, hand, result, left, right);
+    }
+  }
+  return html;
+}
+
+function buildResultRow(counters: any[], hand: string, result: string, left: number, right: number): string {
+  let html = '';
+  const left_results = filterByResult(counters[left][hand], result);
+  const right_results = filterByResult(counters[right][hand], result);
+  if (left_results.length || right_results.length) {
+    html +=
+      `<div class='statrow'><div class='statleft'>${left_results.length}</div>` +
+      `<div class='statname'>${hand} ${result}s</div><div class='statright'>${right_results.length}</div></div>`;
+  }
+  const strokes = getUniqueValues(counters, hand, 'stroke');
+  for (const stroke of strokes) {
+    const leftStroke = filterByResult(counters[left][hand], result, stroke);
+    const rightStroke = filterByResult(counters[right][hand], result, stroke);
+    if (leftStroke.length || rightStroke.length) {
+      html +=
+        `<div class='statrow'><div class='statleft'>${leftStroke.length}</div>` +
+        `<div class='statname'><i>${hand} ${stroke} ${result}s</i></div><div class='statright'>${rightStroke.length}</div></div>`;
+    }
+  }
+  return html;
+}
+
 export function updateStats(element?: Element) {
   const setNumber = element ? element.getAttribute('setNumber') : undefined;
   const set_filter = setNumber ? Number.parseInt(setNumber) : undefined;
-  let html = '';
   const charts: any[] = [];
   const sets = (env.engine.getState().score?.sets || []).length;
   const matchActive = set_filter === undefined ? ' s_set_active' : '';
   let statselectors = `<div class='updateStats s_set${matchActive}'>Match</div>`;
 
-  // Compute stats from engine state using scoring-visualizations
   const rawStats = computeMatchStatsFromMatchUp(env.engine.getState(), set_filter);
   const stats = convertStatsToLegacyFormat(rawStats);
 
-  const stripModifiers = (text: string) => text.match(/\w/g)?.join('');
-  if (stats?.length && Array.isArray(stats)) {
-    // generate & display match/set view selectors
-    if (sets > 1) {
-      for (let s = 0; s < sets; s++) {
-        const active = set_filter === s ? ' s_set_active' : '';
-        statselectors += `<div class='updateStats s_set${active}' setNumber="${s}">Set ${s + 1}</div>`;
-      }
-    }
-    const statView = document.querySelector('#statview');
-    if (statView) statView.innerHTML = statselectors;
-
-    // generate & display stats html
-    let left: any, right: any;
-    stats.forEach((stat: any) => {
-      // UMO uses 'teams' array for stat data
-      const team_stats = stat.teams || stat.team_stats;
-      if (!team_stats || team_stats.length < 2) return;
-      if (env.swap_sides) {
-        [right, left] = team_stats;
-      } else {
-        [left, right] = team_stats;
-      }
-      const value: number = [0]
-        .concat(...[left, right].map((side: any) => (side.value ? side.value : [])))
-        .reduce((a: number, b: number) => a + b, 0);
-      // UMO uses 'category' for stat names
-      const statName = stat.category || stat.name;
-      const id = stripModifiers(statName.toLowerCase().split(' ').join('_'));
-      let left_display = left.display;
-      let right_display = right.display;
-
-      const numerators = [left, right]
-        .flatMap((value: any) => (value.numerators ? value.numerators : []))
-        .filter((item, i, s) => s.lastIndexOf(item) == i)
-        .join(',');
-      const statclass = numerators && value && statName != 'Aggressive Margin' ? 'statname_chart' : 'statname';
-
-      // Ensure values are numbers for comparison
-      if (Number.isNaN(left.value) || left.value === null || left.value === undefined) {
-        left.value = 0;
-        left_display = '0';
-      }
-      if (Number.isNaN(right.value) || right.value === null || right.value === undefined) {
-        right.value = 0;
-        right_display = '0';
-      }
-
-      // Convert to numbers if they're strings
-      if (typeof left.value === 'string') {
-        left.value = Number.parseFloat(left.value) || 0;
-      }
-      if (typeof right.value === 'string') {
-        right.value = Number.parseFloat(right.value) || 0;
-      }
-
-      // Skip highlighting if values are equal (tie)
-      if (options.highlight_better_stats && left.value !== right.value) {
-        // For error stats, lower is better
-        if (['Double Faults', 'Unforced Errors', 'Forced Errors'].includes(statName)) {
-          if (left.value < right.value) {
-            left_display = `<b class="toggleChart">${left_display}</b>`;
-          } else if (right.value < left.value) {
-            right_display = `<b class="toggleChart">${right_display}</b>`;
-          }
-        } else if (left.value > right.value) {
-          // For other stats, higher is better (including percentages)
-          left_display = `<b class="toggleChart">${left_display}</b>`;
-        } else if (right.value > left.value) {
-          right_display = `<b class="toggleChart">${right_display}</b>`;
-        }
-      }
-      html +=
-        `<div class='statrow' id="${id}">` +
-        `<div class='toggleChart statleft'>${left_display}</div>` +
-        `<div class='toggleChart ${statclass}'>${statName}</div><div class='toggleChart statright'>${right_display}</div>` +
-        `</div>`;
-      const table = `<div class='statrow' id="${id}_chart" style='display:none' onclick="showChartSource('${numerators}')"></div>`;
-
-      if (numerators && value && statName != 'Aggressive Margin') {
-        charts.push({ target: `${id}_chart`, numerators });
-        html += table;
-      }
-    });
-
-    // Derive hand/stroke counters from engine history points
-    const countersObj = deriveCounters(set_filter);
-    const counters = countersObj.teams;
-
-    // Check if counters exist and have data before accessing
-    if (
-      counters?.[0] &&
-      counters[1] &&
-      (counters[0][BACKHAND] || counters[0][FOREHAND] || counters[1][BACKHAND] || counters[1][FOREHAND])
-    ) {
-      const left = env.swap_sides ? 1 : 0;
-      const right = env.swap_sides ? 0 : 1;
-      html += `<div class='statsection flexcenter'>Finishing Shots - Strokes</div>`;
-      [FOREHAND, BACKHAND].forEach((hand) => {
-        if (counters[0][hand] || counters[1][hand]) {
-          const left_display = counters[left][hand] ? counters[left][hand].length : 0;
-          const right_display = counters[right][hand] ? counters[right][hand].length : 0;
-          html +=
-            `<div class='statrow'><div class='statleft'><b>${left_display}</b></div>` +
-            `<div class='statname'><b>Total ${hand} Shots</b></div><div class='statright'><b>${right_display}</b></div></div>`;
-          // get a list of unique results
-          const results = Object.keys(counters)
-            .flatMap((key) => {
-              return counters[key][hand]
-                ? counters[key][hand].map((episode: any) => episode.point.result).filter(Boolean)
-                : [];
-            })
-            .filter((item, i, s) => s.lastIndexOf(item) == i);
-          results.forEach((result) => {
-            const left_results = counters[left][hand]
-              ? counters[left][hand].filter((f: any) => f.point.result == result)
-              : [];
-            const right_results = counters[right][hand]
-              ? counters[right][hand].filter((f: any) => f.point.result == result)
-              : [];
-            if (left_results.length || right_results.length) {
-              html +=
-                `<div class='statrow'><div class='statleft'>${left_results.length}</div>` +
-                `<div class='statname'>${hand} ${result}s</div><div class='statright'>${right_results.length}</div></div>`;
-            }
-            // get a list of unique strokes
-            const strokes = Object.keys(counters)
-              .flatMap((key) => {
-                return counters[key][hand]
-                  ? counters[key][hand].map((episode: any) => episode.point.stroke).filter(Boolean)
-                  : [];
-              })
-              .filter((item, i, s) => s.lastIndexOf(item) == i);
-            strokes.forEach((stroke) => {
-              const left_results = counters[left][hand]
-                ? counters[left][hand].filter((f: any) => f.point.result == result && f.point.stroke == stroke)
-                : [];
-              const right_results = counters[right][hand]
-                ? counters[right][hand].filter((f: any) => f.point.result == result && f.point.stroke == stroke)
-                : [];
-              if (left_results.length || right_results.length) {
-                html +=
-                  `<div class='statrow'><div class='statleft'>${left_results.length}</div>` +
-                  `<div class='statname'><i>${hand} ${stroke} ${result}s</i></div><div class='statright'>${right_results.length}</div></div>`;
-              }
-            });
-          });
-        }
-      });
-    }
-
-    const statLines = document.querySelector('#statlines');
-    if (statLines) statLines.innerHTML = html;
-    addCharts(charts);
-  } else {
+  if (!stats?.length || !Array.isArray(stats)) {
     const router = (globalThis as any).appRouter;
     router?.navigate(matchPath(getCurrentMatchUpId(), 'scoring'));
+    return;
   }
+
+  if (sets > 1) {
+    for (let s = 0; s < sets; s++) {
+      const active = set_filter === s ? ' s_set_active' : '';
+      statselectors += `<div class='updateStats s_set${active}' setNumber="${s}">Set ${s + 1}</div>`;
+    }
+  }
+  const statView = document.querySelector('#statview');
+  if (statView) statView.innerHTML = statselectors;
+
+  let html = '';
+  stats.forEach((stat: any) => {
+    html += buildStatRowHtml(stat, charts);
+  });
+
+  html += buildFinishingShotsHtml(deriveCounters(set_filter).teams);
+
+  const statLines = document.querySelector('#statlines');
+  if (statLines) statLines.innerHTML = html;
+  addCharts(charts);
 }
 
 function addCharts(charts: any[]) {

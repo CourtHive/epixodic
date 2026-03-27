@@ -1,3 +1,7 @@
+const MOVE_OUT_CLASS = 'move-out-click';
+const TRANSLATE_X_0 = 'translateX(0px)';
+const TRANSLATE_Z_0 = 'translateZ(0)';
+
 const util = {
   hasClass: function (e: Element, c: string) {
     const re = new RegExp('(^|\\s)' + c + '(\\s|$)');
@@ -20,6 +24,76 @@ const util = {
   }
 };
 
+function setTranslateX(el: any, x: number) {
+  el.style.transform = 'translateX(' + x + 'px)';
+}
+
+function createButtons(instance: any, opt: any) {
+  let leftpx = 0;
+  let rightpx = 0;
+  opt.buttons.forEach((button: any) => {
+    const btn = document.createElement('div');
+    btn.textContent = button.text;
+    btn.className = button.class;
+    if (button.side == 'right') {
+      leftpx += button.width || 0;
+      btn.style.right = -1 * leftpx + 'px';
+    }
+    if (button.side == 'left') {
+      rightpx += button.width || 0;
+      btn.style.left = -1 * rightpx + 'px';
+    }
+    const abtn = instance.appendChild(btn);
+    if (button.image) {
+      const img = document.createElement('img');
+      img.src = button.image;
+      img.className = button.image_class;
+      abtn.appendChild(img);
+    }
+  });
+}
+
+function clampSwipe(moveX: number, swipeLeft: number, isOut: boolean): number {
+  const absMoveX = Math.abs(moveX);
+  if (moveX > 0 && isOut) return absMoveX > swipeLeft ? 0 : -swipeLeft + moveX;
+  if (moveX > 0) return absMoveX > swipeLeft ? swipeLeft : moveX;
+  if (moveX < 0 && !isOut) return absMoveX > swipeLeft ? -swipeLeft : moveX;
+  return absMoveX > swipeLeft ? swipeLeft : moveX;
+}
+
+function handleTouchMove(instance: any, moveX: number, swipeLeft: number, swipeRight: number) {
+  const isOut = util.hasClass(instance, MOVE_OUT_CLASS);
+  const canSwipeRight = moveX > 0 && (isOut || swipeRight);
+  const canSwipeLeft = moveX < 0 && (!isOut || swipeRight);
+  if (canSwipeRight || canSwipeLeft) {
+    setTranslateX(instance, clampSwipe(moveX, swipeLeft, isOut));
+  }
+}
+
+function handleTouchEndActive(instance: any, moveX: number, swipeLeft: number, swipeRight: number) {
+  if (moveX > 0 && swipeLeft) {
+    const x = moveX > 10 ? 0 : -swipeLeft;
+    setTranslateX(instance, x);
+    if (x === 0) util.removeClass(instance, MOVE_OUT_CLASS);
+  } else if (swipeRight) {
+    const x = moveX < -10 ? 0 : swipeLeft;
+    setTranslateX(instance, x);
+    if (x === 0) util.removeClass(instance, MOVE_OUT_CLASS);
+  }
+}
+
+function handleTouchEndInactive(instance: any, moveX: number, swipeLeft: number, swipeRight: number) {
+  if (moveX < 0 && swipeLeft) {
+    const x = Math.abs(moveX) > swipeLeft / 2 ? -swipeLeft : 0;
+    setTranslateX(instance, x);
+    if (x !== 0) util.addClass(instance, MOVE_OUT_CLASS);
+  } else if (swipeRight) {
+    const x = Math.abs(moveX) > swipeLeft / 2 ? swipeLeft : 0;
+    setTranslateX(instance, x);
+    if (x !== 0) util.addClass(instance, MOVE_OUT_CLASS);
+  }
+}
+
 export const SwipeList = {
   init: (opt: any) => {
     let swipeLeft = 0;
@@ -35,59 +109,30 @@ export const SwipeList = {
       let moveY = 0;
       let moveStart: any = null;
 
-      // Button DIVs
-      let leftpx = 0;
-      let rightpx = 0;
-      opt.buttons.forEach((button: any) => {
-        const btn = document.createElement('div');
-        btn.textContent = button.text;
-        btn.className = button.class;
-        if (button.side == 'right') {
-          leftpx += button.width || 0;
-          btn.style.right = -1 * leftpx + 'px';
-        }
-        if (button.side == 'left') {
-          rightpx += button.width || 0;
-          btn.style.left = -1 * rightpx + 'px';
-        }
-        const abtn = instance.appendChild(btn);
-
-        // options image instead of text
-        if (button.image) {
-          const img = document.createElement('img');
-          img.src = button.image;
-          img.className = button.image_class;
-          abtn.appendChild(img);
-        }
-      });
+      createButtons(instance, opt);
 
       // Hardware Acceleration
-      instance.style.webkitTransform = 'translateZ(0)';
-      instance.style.transform = 'translateZ(0)';
+      instance.style.webkitTransform = TRANSLATE_Z_0;
+      instance.style.transform = TRANSLATE_Z_0;
 
       // Slide Start
       instance.addEventListener(
         'touchstart',
         function (event: any) {
-          // Reset Animation Time
           instance.style.transitionDuration = '0ms';
 
           // Close other items
           instances.forEach((inst) => {
-            if (util.hasClass(inst, 'move-out-click') && inst != instance) {
+            if (util.hasClass(inst, MOVE_OUT_CLASS) && inst != instance) {
               inst.style.transitionDuration = '325ms';
-              inst.style.webkitTransform = 'translateX(0px)';
-              inst.style.transform = 'translateX(0px)';
-              util.removeClass(inst, 'move-out-click');
+              inst.style.webkitTransform = TRANSLATE_X_0;
+              inst.style.transform = TRANSLATE_X_0;
+              util.removeClass(inst, MOVE_OUT_CLASS);
             }
           });
 
-          // Save slide position
           const touches = event.changedTouches;
-          moveStart = {
-            x: touches[0].pageX,
-            y: touches[0].pageY
-          };
+          moveStart = { x: touches[0].pageX, y: touches[0].pageY };
         },
         true
       );
@@ -96,37 +141,14 @@ export const SwipeList = {
       instance.addEventListener(
         'touchmove',
         function (event: any) {
-          // Limit to one instance
-          if (moveStart === null) {
-            return;
-          }
+          if (moveStart === null) return;
 
           const touches = event.changedTouches;
-          const nowX = touches[0].pageX;
-          const nowY = touches[0].pageY;
-          moveX = nowX - moveStart.x;
-          moveY = nowY - moveStart.y;
+          moveX = touches[0].pageX - moveStart.x;
+          moveY = touches[0].pageY - moveStart.y;
 
-          // Left/Right swipes
           if (Math.abs(moveX) > Math.abs(moveY)) {
-            if (moveX > 0) {
-              if (util.hasClass(instance, 'move-out-click')) {
-                const x = moveX > swipeLeft ? 0 : -swipeLeft + moveX;
-                instance.style.transform = 'translateX(' + x + 'px)';
-              } else if (swipeRight) {
-                const x = Math.abs(moveX) > swipeLeft ? swipeLeft : moveX;
-                instance.style.transform = 'translateX(' + x + 'px)';
-              }
-            }
-            if (moveX < 0) {
-              if (!util.hasClass(instance, 'move-out-click')) {
-                const x = Math.abs(moveX) > swipeLeft ? -swipeLeft : moveX;
-                instance.style.transform = 'translateX(' + x + 'px)';
-              } else if (swipeRight) {
-                const x = Math.abs(moveX) > swipeLeft ? swipeLeft : moveX;
-                instance.style.transform = 'translateX(' + x + 'px)';
-              }
-            }
+            handleTouchMove(instance, moveX, swipeLeft, swipeRight);
           }
         },
         true
@@ -136,46 +158,16 @@ export const SwipeList = {
       instance.addEventListener(
         'touchend',
         function () {
-          // Limit to one instance
-          if (moveStart === null) {
-            return;
-          }
+          if (moveStart === null) return;
 
-          // Slower Animation
           instance.style.transitionDuration = '125ms';
 
-          // If swipe active
-          if (util.hasClass(instance, 'move-out-click')) {
-            if (moveX > 0 && swipeLeft) {
-              const x = moveX > 10 ? 0 : -swipeLeft;
-              instance.style.transform = 'translateX(' + x + 'px)';
-              if (x === 0) {
-                util.removeClass(instance, 'move-out-click');
-              }
-            } else if (swipeRight) {
-              const x = moveX < -10 ? 0 : swipeLeft;
-              instance.style.transform = 'translateX(' + x + 'px)';
-              if (x === 0) {
-                util.removeClass(instance, 'move-out-click');
-              }
-            }
+          if (util.hasClass(instance, MOVE_OUT_CLASS)) {
+            handleTouchEndActive(instance, moveX, swipeLeft, swipeRight);
           } else {
-            if (moveX < 0 && swipeLeft) {
-              const x = Math.abs(moveX) > swipeLeft / 2 ? -swipeLeft : 0;
-              instance.style.transform = 'translateX(' + x + 'px)';
-              if (x !== 0) {
-                util.addClass(instance, 'move-out-click');
-              }
-            } else if (swipeRight) {
-              const x = Math.abs(moveX) > swipeLeft / 2 ? swipeLeft : 0;
-              instance.style.transform = 'translateX(' + x + 'px)';
-              if (x !== 0) {
-                util.addClass(instance, 'move-out-click');
-              }
-            }
+            handleTouchEndInactive(instance, moveX, swipeLeft, swipeRight);
           }
 
-          // Restore initial position
           moveStart = null;
           moveX = 0;
         },
@@ -187,9 +179,9 @@ export const SwipeList = {
         'touchcancel',
         function () {
           instance.style.transitionDuration = '225ms';
-          instance.style.webkitTransform = 'translateX(0px)';
-          instance.style.transform = 'translateX(0px)';
-          util.removeClass(instance, 'move-out-click');
+          instance.style.webkitTransform = TRANSLATE_X_0;
+          instance.style.transform = TRANSLATE_X_0;
+          util.removeClass(instance, MOVE_OUT_CLASS);
           moveStart = null;
           moveX = 0;
         },
