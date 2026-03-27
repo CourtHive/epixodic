@@ -12,7 +12,9 @@ export const BACKHAND = 'Backhand';
 
 // Convenience arrays
 export const WINNER_RESULTS = [WINNER, ACE];
-export const NO_DECORATION_RESULTS = [PENALTY, ACE, DOUBLE_FAULT];
+export const NO_DECORATION_RESULTS = [PENALTY, ACE];
+export const FAULT_DECORATION_RESULTS = [DOUBLE_FAULT];
+export const FAULT_TYPES = ['Long', 'Wide', 'Net'];
 
 export const CENTER = 'center';
 export const RIGHT = 'right';

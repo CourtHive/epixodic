@@ -1,6 +1,7 @@
 import { newMatch } from '../match/displayMatchArchive';
 import { eventManager } from './eventManager';
 import { strokeAction } from './strokeAction';
+import { faultAction } from './faultAction';
 import { classAction } from './classAction';
 import { exportMatch } from '../match/exportMatch';
 import { toggleChart } from '../display/toggleChart';
@@ -35,6 +36,7 @@ export function registerEvents() {
     .register('mainMenu', 'tap', mainMenu)
     .register('updateStats', 'tap', updateStats)
     .register('strokeAction', 'tap', strokeAction)
+    .register('faultAction', 'tap', faultAction)
     .register('swapAction', 'tap', swapAction)
     .register('undoAction', 'tap', undoAction)
     .register('redoAction', 'tap', redoAction)
