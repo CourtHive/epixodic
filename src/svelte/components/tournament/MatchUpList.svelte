@@ -1,6 +1,7 @@
 <script lang="ts">
   import SectionHeader from '../shared/SectionHeader.svelte';
   import MatchUpCard from '../archive/MatchUpCard.svelte';
+  import { setTeamMatchUp } from '../../stores/teamMatchUp.svelte';
   import { browserStorage } from '../../../state/browserStorage';
   import { device } from '../../../state/env';
   import { openScoringModal } from '../../../scoring/scoringModal';
@@ -30,6 +31,13 @@
   }
 
   function openMatchUp(matchUp: HydratedMatchUp) {
+    if (matchUp.matchUpType === 'TEAM' && matchUp.tieMatchUps?.length) {
+      setTeamMatchUp(matchUp);
+      const router = (window as any).appRouter;
+      router?.navigate(`/team/${matchUp.matchUpId}`);
+      return;
+    }
+
     saveMatchData(matchUp);
 
     if (device.isMobile) {

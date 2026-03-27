@@ -12,7 +12,7 @@
 import Navigo from 'navigo';
 import { routes, VIEW_MAP, GUARDED_VIEWS, matchPath, getPathForView } from './routes';
 import { executeGuard } from './guards';
-import { getCurrentMatchUpId, isMatchLoaded } from '../state/matchContext';
+import { isMatchLoaded } from '../state/matchContext';
 import { loadMatch } from '../match/loadMatch';
 import { resetButtons, swapServer, visibleButtons } from '../display/displayUpdate';
 import { strokeSlider } from '../events/strokeSlider';
@@ -27,8 +27,13 @@ import { DetailsPage } from '../pages/DetailsPage';
 import { EntryPage } from '../pages/EntryPage';
 import { WelcomePage } from '../pages/WelcomePage';
 import { ArchiveViewPage } from '../svelte/pages/ArchiveViewPage';
+import { TeamScorecardViewPage } from '../svelte/pages/TeamScorecardViewPage';
 import { TournamentViewPage } from '../svelte/pages/TournamentViewPage';
 import type { ViewPage } from '../pages/ViewPage';
+
+const VIEW_SVELTE_ARCHIVE = 'svelte-archive';
+const VIEW_SVELTE_TOURNAMENT = 'svelte-tournament';
+const VIEW_SVELTE_TEAM_SCORECARD = 'svelte-team-scorecard';
 
 export class EnhancedRouter {
   private navigo: Navigo;
@@ -45,10 +50,7 @@ export class EnhancedRouter {
   }
 
   constructor() {
-    const useHash = true;
-    this.navigo = new Navigo(useHash ? '/' : '/', {
-      hash: useHash,
-    });
+    this.navigo = new Navigo('/', { hash: true });
 
     this.registerPageComponents();
     this.setupRoutes();
@@ -66,8 +68,9 @@ export class EnhancedRouter {
     this.pageComponents.set('matchdetails', DetailsPage);
     this.pageComponents.set('entry', EntryPage);
     this.pageComponents.set('welcome', WelcomePage);
-    this.pageComponents.set('svelte-archive', ArchiveViewPage);
-    this.pageComponents.set('svelte-tournament', TournamentViewPage);
+    this.pageComponents.set(VIEW_SVELTE_ARCHIVE, ArchiveViewPage);
+    this.pageComponents.set(VIEW_SVELTE_TOURNAMENT, TournamentViewPage);
+    this.pageComponents.set(VIEW_SVELTE_TEAM_SCORECARD, TeamScorecardViewPage);
   }
 
   /**
@@ -90,6 +93,11 @@ export class EnhancedRouter {
 
     this.navigo.on('/tournament/:tournamentId', (match) => {
       this.handleTournamentRoute(match?.data?.tournamentId);
+    });
+
+    // Team scorecard route
+    this.navigo.on('/team/:matchUpId', (match) => {
+      this.handleTeamScorecardRoute(match?.data?.matchUpId);
     });
 
     // Non-match routes
@@ -180,7 +188,37 @@ export class EnhancedRouter {
       await page.mount();
 
       this.currentPage = page;
-      env.view = 'svelte-tournament';
+      env.view = VIEW_SVELTE_TOURNAMENT;
+    } finally {
+      this.isNavigating = false;
+    }
+  }
+
+  /**
+   * Handle team scorecard route: /team/:matchUpId
+   */
+  private async handleTeamScorecardRoute(matchUpId?: string) {
+    if (this.isNavigating || !matchUpId) return;
+
+    this.currentRoute = `/team/${matchUpId}`;
+    this.isNavigating = true;
+
+    try {
+      strokeSlider();
+
+      if (this.currentPage) {
+        await this.currentPage.unmount();
+        this.currentPage = null;
+      }
+
+      this.hideAllViews();
+
+      const page = new TeamScorecardViewPage();
+      page.setParams(matchUpId);
+      await page.mount();
+
+      this.currentPage = page;
+      env.view = VIEW_SVELTE_TEAM_SCORECARD;
     } finally {
       this.isNavigating = false;
     }
@@ -223,8 +261,9 @@ export class EnhancedRouter {
       'momentum',
       'pts',
       'gametree',
-      'svelte-archive',
-      'svelte-tournament',
+      VIEW_SVELTE_ARCHIVE,
+      VIEW_SVELTE_TOURNAMENT,
+      VIEW_SVELTE_TEAM_SCORECARD,
     ];
 
     for (const id of containerIds) {

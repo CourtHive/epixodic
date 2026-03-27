@@ -81,28 +81,38 @@ function loadTODSSides(sides: any[]) {
   });
 }
 
-export function loadMatch(match_id: string): boolean {
-  if (!match_id) {
-    return false;
-  }
+function loadLegacyData(match_data: any) {
+  initializeLegacyMatch(match_data);
+  if (match_data.players) loadLegacyPlayers(match_data.players);
+  const legacyPoints = match_data._appData?.points || match_data.points;
+  if (legacyPoints) loadPoints(legacyPoints);
+}
 
+function loadTODSData(match_data: any) {
+  const savedFormat = match_data.matchUpFormat || 'SET3-S:6/TB7';
+  initializeTODSMatch(savedFormat);
+  if (match_data.matchUpType) env.matchUpType = match_data.matchUpType;
+  if (match_data.sides) loadTODSSides(match_data.sides);
+  const todsPoints = match_data.score?.points;
+  if (todsPoints) loadPoints(todsPoints);
+}
+
+function parseMatchData(match_id: string): any {
   const json = browserStorage.get(match_id);
-  const match_data = json && isJSON(json) && match_id ? JSON.parse(browserStorage.get(match_id) ?? '[]') : undefined;
+  return json && isJSON(json) ? JSON.parse(browserStorage.get(match_id) ?? '[]') : undefined;
+}
 
-  if (!match_data) {
-    return false;
-  }
+export function loadMatch(match_id: string): boolean {
+  if (!match_id) return false;
+
+  const match_data = parseMatchData(match_id);
+  if (!match_data) return false;
 
   env.loading_match = true;
   const isLegacyStorage = match_data.muid && !match_data.matchUpId;
 
-  if (isLegacyStorage) {
-    initializeLegacyMatch(match_data);
-  }
-
   clearActionEvents();
   setCurrentMatchUpId(match_id);
-  
   loadMatchMetadata(match_data);
 
   if (match_data.points && match_data.points.length > 0) {
@@ -110,25 +120,9 @@ export function loadMatch(match_id: string): boolean {
   }
 
   if (isLegacyStorage) {
-    if (match_data.players) {
-      loadLegacyPlayers(match_data.players);
-    }
-    const legacyPoints = match_data._appData?.points || match_data.points;
-    if (legacyPoints) {
-      loadPoints(legacyPoints);
-    }
+    loadLegacyData(match_data);
   } else {
-    const savedFormat = match_data.matchUpFormat || 'SET3-S:6/TB7';
-    initializeTODSMatch(savedFormat);
-
-    if (match_data.sides) {
-      loadTODSSides(match_data.sides);
-    }
-
-    const todsPoints = match_data.score?.points;
-    if (todsPoints) {
-      loadPoints(todsPoints);
-    }
+    loadTODSData(match_data);
   }
 
   updatePositions();
