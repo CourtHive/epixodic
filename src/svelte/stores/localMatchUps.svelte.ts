@@ -52,8 +52,8 @@ export function completeLocalMatchUp(matchUpId: string, winningSide: 1 | 2, matc
     const sets = data.score?.sets;
     if (sets?.length) {
       const lastSet = sets[sets.length - 1];
-      delete lastSet.side1PointsScore;
-      delete lastSet.side2PointsScore;
+      delete lastSet.side1PointScore;
+      delete lastSet.side2PointScore;
     }
     browserStorage.set(matchUpId, JSON.stringify(data));
     refreshLocalMatchUps();

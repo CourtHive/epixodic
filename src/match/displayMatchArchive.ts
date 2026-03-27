@@ -53,8 +53,8 @@ function completeMatch(matchId: string, winningSide: 1 | 2, matchUpStatus: 'RETI
     data.matchUpStatus = matchUpStatus;
     const sets = data.score?.sets;
     if (sets?.length) {
-      delete sets[sets.length - 1].side1PointsScore;
-      delete sets[sets.length - 1].side2PointsScore;
+      delete sets[sets.length - 1].side1PointScore;
+      delete sets[sets.length - 1].side2PointScore;
     }
     browserStorage.set(matchId, JSON.stringify(data));
     window.dispatchEvent(new CustomEvent('matcharchive:updated'));

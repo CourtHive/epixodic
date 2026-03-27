@@ -44,6 +44,9 @@ export interface HydratedMatchUp {
   readyToScore?: boolean;
   winningSide?: number;
   tieMatchUps?: HydratedMatchUp[];
+  tieFormat?: TieFormat;
+  collectionId?: string;
+  collectionPosition?: number;
   structureId?: string;
   drawId?: string;
   eventId?: string;
@@ -74,6 +77,43 @@ export interface NavAction {
   label: string;
   icon?: string;
   action: () => void;
+}
+
+// Tie format types for TEAM matchUps
+export interface TieFormat {
+  tieFormatName?: string;
+  winCriteria?: WinCriteria;
+  collectionDefinitions?: CollectionDefinition[];
+  collectionGroups?: CollectionGroup[];
+}
+
+export interface CollectionDefinition {
+  collectionId: string;
+  collectionName?: string;
+  collectionOrder?: number;
+  matchUpType?: string;
+  matchUpFormat?: string;
+  matchUpCount?: number;
+  matchUpValue?: number;
+  scoreValue?: number;
+  setValue?: number;
+  collectionValue?: number;
+  collectionValueProfiles?: any[];
+  winCriteria?: WinCriteria;
+}
+
+export interface CollectionGroup {
+  groupName?: string;
+  groupOrder?: number;
+  groupValue?: number;
+  collectionIds?: string[];
+  winCriteria?: WinCriteria;
+}
+
+export interface WinCriteria {
+  valueGoal?: number;
+  aggregateValue?: boolean;
+  tallyDirectives?: any;
 }
 
 // Future team support stubs

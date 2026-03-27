@@ -5,6 +5,56 @@ const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'http://localhost:8384';
 let trackerSocket: Socket | null = null;
 let listenerSocket: Socket | null = null;
 
+// --- Connection status ---
+
+export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+
+let statusValue: RelayStatus = 'disconnected';
+const statusListeners = new Set<(status: RelayStatus) => void>();
+
+function setStatus(s: RelayStatus) {
+  if (s === statusValue) return;
+  statusValue = s;
+  for (const fn of statusListeners) fn(s);
+}
+
+export function getRelayStatus(): RelayStatus {
+  return statusValue;
+}
+
+export function onRelayStatusChange(fn: (status: RelayStatus) => void): () => void {
+  statusListeners.add(fn);
+  return () => statusListeners.delete(fn);
+}
+
+// Suppress repeated error logging — log once per disconnect cycle
+let errorLogged = false;
+
+function attachStatusHandlers(socket: Socket, label: string) {
+  socket.on('connect', () => {
+    errorLogged = false;
+    setStatus('connected');
+    console.log(`[scoreRelay] ${label} connected`);
+  });
+
+  socket.on('disconnect', () => {
+    setStatus('disconnected');
+    console.log(`[scoreRelay] ${label} disconnected`);
+  });
+
+  socket.on('connect_error', (err) => {
+    setStatus('error');
+    if (!errorLogged) {
+      console.warn(`[scoreRelay] ${label} connection error: ${err.message}`);
+      errorLogged = true;
+    }
+  });
+
+  socket.io.on('reconnect_attempt', () => {
+    setStatus('connecting');
+  });
+}
+
 // --- Tracker connection (for sending scores from epixodic as a mobile tracker) ---
 
 export function connectTracker(): Socket {
@@ -15,16 +65,10 @@ export function connectTracker(): Socket {
     autoConnect: true,
   });
 
-  trackerSocket.on('connect', () => {
-    console.log('[scoreRelay] tracker connected');
-  });
+  attachStatusHandlers(trackerSocket, 'tracker');
 
   trackerSocket.on('ack', (data: any) => {
     console.log('[scoreRelay] ack:', data);
-  });
-
-  trackerSocket.on('disconnect', () => {
-    console.log('[scoreRelay] tracker disconnected');
   });
 
   return trackerSocket;
@@ -69,13 +113,7 @@ export function connectListener(): Socket {
     autoConnect: true,
   });
 
-  listenerSocket.on('connect', () => {
-    console.log('[scoreRelay] listener connected');
-  });
-
-  listenerSocket.on('disconnect', () => {
-    console.log('[scoreRelay] listener disconnected');
-  });
+  attachStatusHandlers(listenerSocket, 'listener');
 
   return listenerSocket;
 }
@@ -121,4 +159,5 @@ export function disconnectAll(): void {
   listenerSocket?.disconnect();
   trackerSocket = null;
   listenerSocket = null;
+  setStatus('disconnected');
 }

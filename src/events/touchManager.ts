@@ -8,7 +8,7 @@ try {
     }
   });
   window.addEventListener('test', null, opts);
-} catch (e) {
+} catch {
   // passive events not supported
 }
 
@@ -104,24 +104,28 @@ function findAncestor(el, cls) {
   return el;
 }
 
+function invokeSwipeHandler(handlerName: string) {
+  if (typeof behaviors[handlerName] == 'function') {
+    behaviors[handlerName](findAncestor(touch_target, 'swipe'));
+  }
+}
+
+function dispatchSwipe() {
+  if (Math.abs(xDiff) > Math.abs(yDiff)) {
+    invokeSwipeHandler(xDiff > 0 ? 'swipeLeft' : 'swipeRight');
+  } else {
+    invokeSwipeHandler(yDiff > 0 ? 'swipeUp' : 'swipeDown');
+  }
+}
+
 function swipeTouchEnd() {
   const timeDiff = Date.now() - timeDown;
-  if (
+  const exceedsThreshold =
     (Math.abs(xDiff) > behaviors.diff_threshold || Math.abs(yDiff) > behaviors.diff_threshold) &&
-    timeDiff < behaviors.time_threshold
-  ) {
-    if (Math.abs(xDiff) > Math.abs(yDiff)) {
-      if (xDiff > 0) {
-        if (typeof behaviors.swipeLeft == 'function') behaviors.swipeLeft(findAncestor(touch_target, 'swipe'));
-      } else if (typeof behaviors.swipeRight == 'function') {
-        behaviors.swipeRight(findAncestor(touch_target, 'swipe'));
-      }
-    } else if (yDiff > 0) {
-      if (typeof behaviors.swipeUp == 'function') behaviors.swipeUp(findAncestor(touch_target, 'swipe'));
-    } else if (typeof behaviors.swipeDown == 'function') {
-      behaviors.swipeDown(findAncestor(touch_target, 'swipe'));
-    }
-  }
+    timeDiff < behaviors.time_threshold;
+
+  if (exceedsThreshold) dispatchSwipe();
+
   xDown = null;
   yDown = null;
   timeDown = null;

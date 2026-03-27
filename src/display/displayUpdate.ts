@@ -9,6 +9,7 @@ import {
   getNextServer,
 } from '../state/env';
 import { FORMAT_NAMES, isLegacyFormat, migrateFormat } from '../services/matchObject/formatMigration';
+import { sendScore } from '../services/messaging/scoreRelay';
 import { browserStorage } from '../state/browserStorage';
 import { groupGames } from '../engine/groupGames';
 import { cModal, renderForm } from 'courthive-components';
@@ -106,6 +107,9 @@ export function stateChangeEvent() {
         currentPage.updateVisualizations();
       }
     }
+
+    // Broadcast live score to relay
+    broadcastScore();
   } finally {
     inStateChange = false;
   }
@@ -389,5 +393,27 @@ export function editMatchDetails() {
       { label: 'Cancel', close: true },
       { label: 'Save', intent: 'is-info', onClick: save, close: true },
     ],
+  });
+}
+
+function broadcastScore(): void {
+  const matchUpId = env.metadata?.match?.matchUpId;
+  if (!matchUpId) return;
+  if (!env.engine?.getPointCount()) return;
+
+  const state = env.engine.getState();
+  const score = state.score || {};
+  const scoreDisplay = getScoreForDisplay();
+
+  sendScore({
+    matchUpId,
+    tournamentId: env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId,
+    score: {
+      sets: score.sets,
+      scoreStringSide1: scoreDisplay,
+      scoreStringSide2: scoreDisplay,
+    },
+    matchUpStatus: env.engine.isComplete() ? 'COMPLETED' : 'IN_PROGRESS',
+    winningSide: env.engine.isComplete() ? state.winningSide : undefined,
   });
 }

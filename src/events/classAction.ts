@@ -1,4 +1,4 @@
-import { stateChangeEvent, updateState, visibleButtons } from '../display/displayUpdate';
+import { stateChangeEvent, visibleButtons } from '../display/displayUpdate';
 import { resetButton, resetStyles } from './events';
 import { checkMatchEnd } from '../engine/checkMatchEnd';
 import { buttons, env, settings, engineEvents } from '../state/env';
@@ -11,6 +11,7 @@ import {
   FORCED_ERROR,
   PENALTY,
   NO_DECORATION_RESULTS,
+  FAULT_DECORATION_RESULTS,
 } from '../utils/constants';
 import { pointLogger } from '../services/pointLogger';
 
@@ -61,7 +62,6 @@ export function classAction(element: any) {
       const server_mode = `.modeaction_player${server_side}`;
       Array.from(document.querySelectorAll(server_mode)).forEach((div) => (div.innerHTML = '2nd Serve'));
       env.serve2nd = true;
-      // Broadcasting removed
     },
     doubleFault(side: number) {
       return side != env.serving ? undefined : { winner: 1 - side, result: DOUBLE_FAULT, code: 'd' };
@@ -156,13 +156,7 @@ export function classAction(element: any) {
     },
   };
 
-  const sound: any = document.getElementById('click');
-  if (sound && settings.audible_clicks) {
-    // Catch autoplay errors (browser policy)
-    sound.play().catch(() => {
-      /* Autoplay blocked - expected behavior */
-    });
-  }
+  playClickSound();
   if (element.id) styleButton(element.id);
   if (service && service == 'second_service') env.serve2nd = true;
   if (Object.keys(actions).indexOf(action) < 0) return undefined;
@@ -171,54 +165,58 @@ export function classAction(element: any) {
   const point: any = env.serve2nd ? { first_serve: { error: 'Error', serves: ['0e'] } } : {};
   const result = actions[action](side, point);
   if (result) {
-    checkStartTime();
-    Object.assign(point, result);
-    if (env.rally) point.rally = env.rally;
-    const point_location = getPointLocation(point);
-    if (point_location) point.location = point_location;
-
-    // perhaps refactor to defer adding point until
-    // stroke/result action, if any; then decorate point not necessary
-    // would require a global variable, perhaps 'pip' for point-in-progress
-
-    // Reset event flags before addPoint (eventHandlers set them during addPoint)
-    engineEvents.gameJustCompleted = false;
-    engineEvents.setJustCompleted = false;
-    engineEvents.matchJustCompleted = false;
-    engineEvents.gameWinner = undefined;
-
-    // Add point via ScoringEngine (returns void)
-    // Always pass the current server so every point records the correct value.
-    // The engine defaults to server=0 and doesn't infer from point history,
-    // so we must be explicit. env.serving is kept in sync by getNextServer/swapServer.
-    const addPointOpts: any = { winner: point.winner, result: point.result, server: env.serving };
-    if (point.rally) addPointOpts.rallyLength = point.rally;
-    if (point.location) addPointOpts.location = point.location;
-    if (point.first_serve) addPointOpts.first_serve = point.first_serve;
-    env.engine.addPoint(addPointOpts);
-
-    const matchContinues = !env.engine.isComplete();
-    const gameJustCompleted = engineEvents.gameJustCompleted;
-
-    pointLogger.log(point);
-
-    if (
-      settings.track_shot_types &&
-      matchContinues &&
-      point.result &&
-      !NO_DECORATION_RESULTS.includes(point.result)
-    ) {
-      strokeSlider(slider_side, point.result, () => checkMatchEnd({ game: { complete: gameJustCompleted } }));
-    } else {
-      checkMatchEnd({ game: { complete: gameJustCompleted } });
-    }
-
-    env.rally = 0;
-    env.lets = 0;
-    
-    stateChangeEvent();
+    processPoint(point, result, slider_side);
   }
   visibleButtons();
+}
+
+function playClickSound() {
+  const sound: any = document.getElementById('click');
+  if (sound && settings.audible_clicks) {
+    sound.play().catch(() => {
+      /* Autoplay blocked - expected behavior */
+    });
+  }
+}
+
+function processPoint(point: any, result: any, slider_side: string) {
+  checkStartTime();
+  Object.assign(point, result);
+  if (env.rally) point.rally = env.rally;
+  const point_location = getPointLocation(point);
+  if (point_location) point.location = point_location;
+
+  // Reset event flags before addPoint (eventHandlers set them during addPoint)
+  engineEvents.gameJustCompleted = false;
+  engineEvents.setJustCompleted = false;
+  engineEvents.matchJustCompleted = false;
+  engineEvents.gameWinner = undefined;
+
+  // Add point via ScoringEngine (returns void)
+  // Always pass the current server so every point records the correct value.
+  const addPointOpts: any = { winner: point.winner, result: point.result, server: env.serving };
+  if (point.rally) addPointOpts.rallyLength = point.rally;
+  if (point.location) addPointOpts.location = point.location;
+  if (point.first_serve) addPointOpts.first_serve = point.first_serve;
+  env.engine.addPoint(addPointOpts);
+
+  const matchContinues = !env.engine.isComplete();
+  const gameJustCompleted = engineEvents.gameJustCompleted;
+
+  pointLogger.log(point);
+
+  const isFaultResult = FAULT_DECORATION_RESULTS.includes(point.result);
+  if (settings.track_shot_types && matchContinues && point.result && !NO_DECORATION_RESULTS.includes(point.result)) {
+    const mode = isFaultResult ? 'fault' : 'stroke';
+    strokeSlider(slider_side, point.result, () => checkMatchEnd({ game: { complete: gameJustCompleted } }), mode);
+  } else {
+    checkMatchEnd({ game: { complete: gameJustCompleted } });
+  }
+
+  env.rally = 0;
+  env.lets = 0;
+
+  stateChangeEvent();
 }
 
 function styleButton(id: string) {
@@ -252,18 +250,21 @@ function checkStartTime() {
   }
 }
 
+function isPlayerAtNet(playerIndex: number): boolean {
+  const selector = `.modeaction_player${playerIndex}`;
+  return document.querySelectorAll(selector)[0]?.innerHTML == 'Net';
+}
+
 function getPointLocation(point: any) {
-  const p0location = document.querySelectorAll('.modeaction_player0');
-  const p1location = document.querySelectorAll('.modeaction_player1');
-  const p0net = p0location[0]?.innerHTML == 'Net';
-  const p1net = p1location[0]?.innerHTML == 'Net';
-  if (p0net || p1net) {
-    if (point.result == UNFORCED_ERROR || point.result == FORCED_ERROR) {
-      if (point.winner == 0 && p1net) return 'Net';
-      if (point.winner == 1 && p0net) return 'Net';
-    } else if (point.result == WINNER) {
-      if (point.winner == 0 && p0net) return 'Net';
-      if (point.winner == 1 && p1net) return 'Net';
-    }
-  }
+  const p0net = isPlayerAtNet(0);
+  const p1net = isPlayerAtNet(1);
+  if (!p0net && !p1net) return undefined;
+
+  const isError = point.result == UNFORCED_ERROR || point.result == FORCED_ERROR;
+  const isWinner = point.result == WINNER;
+
+  // For errors, the loser (non-winner) was at net; for winners, the winner was at net
+  const netPlayer = isError ? 1 - point.winner : isWinner ? point.winner : -1;
+  if (netPlayer === 0 && p0net) return 'Net';
+  if (netPlayer === 1 && p1net) return 'Net';
 }

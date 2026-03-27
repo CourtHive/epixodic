@@ -298,48 +298,22 @@ export function updatePositions() {
   display_player_1.forEach((element) => (element.innerHTML = player_names[right_side].participantName || ''));
 }
 
-export function updateMatchArchive(force?: boolean) {
-  if (env.loading_match) return;
-
-  const match_id = browserStorage.get('current_match');
-  if (!match_id) return;
-
+function shouldSaveArchive(force: boolean | undefined, matchPoints: any[]): boolean {
+  if (force || matchPoints.length || env.directActions.length) return true;
   const players = env.metadata.players;
-  const state = env.engine.getState();
-  const matchPoints = state.history?.points || [];
+  return players[0].participantName != default_players[0] && players[1].participantName != default_players[1];
+}
 
-  const save =
-    force ||
-    matchPoints.length ||
-    env.directActions.length ||
-    (players[0].participantName != default_players[0] && players[1].participantName != default_players[1]);
-
-  if (!save) return;
-
+function ensureInArchive(match_id: string) {
   const match_archive = JSON.parse(browserStorage.get('match_archive') || '[]');
   if (!match_archive.includes(match_id)) {
     match_archive.push(match_id);
     browserStorage.set('match_archive', JSON.stringify(match_archive));
   }
+}
 
-  const matchUpFormat = env.engine.getFormat();
-  const scoreboard = env.engine.getScoreboard();
-  const engineScore = env.engine.getScore();
-  const isComplete = env.engine.isComplete();
-  const sets = (state.score?.sets || []).map((s: any) => ({ ...s }));
-
-  // For incomplete matches, attach current game point scores to the last set
-  // so the archive can display them (e.g. "6-4 3-2 (30-15)")
-  if (!isComplete && sets.length > 0 && engineScore.pointDisplay) {
-    const lastSet = sets[sets.length - 1];
-    lastSet.side1PointsScore = engineScore.pointDisplay[0];
-    lastSet.side2PointsScore = engineScore.pointDisplay[1];
-  }
-
-  const winningSide = env.engine.getWinner();
-  const matchUpStatus = isComplete ? 'COMPLETED' : (matchPoints.length || env.directActions.length) ? 'IN_PROGRESS' : undefined;
-
-  const sides = players.map((player: any, index: number) => ({
+function buildTodsSides(players: any[]) {
+  return players.map((player: any, index: number) => ({
     sideNumber: index + 1,
     participantId: player.participantId,
     participant: {
@@ -353,6 +327,35 @@ export function updateMatchArchive(force?: boolean) {
       },
     },
   }));
+}
+
+export function updateMatchArchive(force?: boolean) {
+  if (env.loading_match) return;
+
+  const match_id = browserStorage.get('current_match');
+  if (!match_id) return;
+
+  const state = env.engine.getState();
+  const matchPoints = state.history?.points || [];
+
+  if (!shouldSaveArchive(force, matchPoints)) return;
+
+  ensureInArchive(match_id);
+
+  const matchUpFormat = env.engine.getFormat();
+  const scoreboard = env.engine.getScoreboard();
+  const engineScore = env.engine.getScore();
+  const isComplete = env.engine.isComplete();
+  const sets = (state.score?.sets || []).map((s: any) => ({ ...s }));
+
+  if (!isComplete && sets.length > 0 && engineScore.pointDisplay) {
+    const lastSet = sets[sets.length - 1];
+    lastSet.side1PointScore = engineScore.pointDisplay[0];
+    lastSet.side2PointScore = engineScore.pointDisplay[1];
+  }
+
+  const winningSide = env.engine.getWinner();
+  const matchUpStatus = isComplete ? 'COMPLETED' : (matchPoints.length || env.directActions.length) ? 'IN_PROGRESS' : undefined;
 
   const matchDate = env.metadata.match?.date;
   const schedule = matchDate
@@ -363,10 +366,10 @@ export function updateMatchArchive(force?: boolean) {
     tournamentId: env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId,
     matchUpId: match_id,
     matchUpFormat,
-    matchUpType: SINGLES,
+    matchUpType: env.matchUpType || SINGLES,
     matchUpStatus,
     winningSide,
-    sides,
+    sides: buildTodsSides(env.metadata.players),
     score: {
       sets,
       points: matchPoints,
@@ -381,7 +384,7 @@ export function updateMatchArchive(force?: boolean) {
   };
 
   browserStorage.set(match_id, JSON.stringify(todsMatchUp));
-  window.dispatchEvent(new CustomEvent('matcharchive:updated'));
+  window.dispatchEvent(new CustomEvent('matcharchive:updated', { detail: { matchUpId: match_id } }));
 }
 
 export function loadStoredMatch(match_id: string): any {
@@ -417,6 +420,13 @@ export function updateAppState() {
 }
 
 export function setOrientation() {
+  // When running inside a scoring modal iframe, force portrait
+  const forcePortrait = globalThis.location.hash.includes('forcePortrait');
+  if (forcePortrait) {
+    env.orientation = 'portrait';
+    return;
+  }
+
   if (device.isMobile) {
     env.orientation = globalThis.screen.orientation.type == 'landscape-primary' ? 'landscape' : 'portrait';
   } else {

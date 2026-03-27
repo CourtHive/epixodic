@@ -72,8 +72,8 @@ export abstract class BaseComponent<TProps extends ComponentOptions = ComponentO
    */
   protected async onBeforeMount(): Promise<void> {}
   protected async onMounted(): Promise<void> {}
-  protected async onBeforeUpdate(oldProps: TProps): Promise<void> {}
-  protected async onUpdated(oldProps: TProps): Promise<void> {}
+  protected async onBeforeUpdate(_oldProps: TProps): Promise<void> {}
+  protected async onUpdated(_oldProps: TProps): Promise<void> {}
   protected async onBeforeUnmount(): Promise<void> {}
   protected async onUnmounted(): Promise<void> {}
 

@@ -7,17 +7,7 @@ let eventId = $state<string | undefined>(undefined);
 let tournamentName = $state('');
 let eventName = $state('');
 
-const bottomNavItems = $derived.by<NavActionType[]>(() => {
-  switch (context) {
-    case 'archive':
-      return [];
-    case 'tournament':
-    case 'event':
-      return [];
-    default:
-      return [];
-  }
-});
+const bottomNavItems = $derived<NavActionType[]>([]);
 
 export function getNavigationState() {
   return {

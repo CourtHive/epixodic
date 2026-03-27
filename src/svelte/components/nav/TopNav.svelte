@@ -1,4 +1,5 @@
 <script lang="ts">
+  import RelayStatus from './RelayStatus.svelte';
   import Breadcrumb from './Breadcrumb.svelte';
   import NavAction from './NavAction.svelte';
   import { getNavigationState } from '../../stores/navigation.svelte';
@@ -24,6 +25,7 @@
     {/each}
   </div>
   <div class="actions">
+    <RelayStatus />
     {#each actions as action}
       <NavAction label={action.label} icon={action.icon} onclick={action.action} />
     {/each}

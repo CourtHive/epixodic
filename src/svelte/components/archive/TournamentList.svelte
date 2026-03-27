@@ -1,9 +1,9 @@
 <script lang="ts">
   import TournamentCard from './TournamentCard.svelte';
   import LoadingSpinner from '../shared/LoadingSpinner.svelte';
-  import ErrorMessage from '../shared/ErrorMessage.svelte';
   import EmptyState from '../shared/EmptyState.svelte';
-  import { getTournamentsState, fetchTournamentInfo, loadSavedTournaments } from '../../stores/tournaments.svelte';
+  import { getTournamentsState, fetchTournamentInfo, refreshTournamentInfo, removeTournament, loadSavedTournaments } from '../../stores/tournaments.svelte';
+  import { showToast } from '../../stores/toast.svelte';
   import { onMount } from 'svelte';
 
   const tournaments = getTournamentsState();
@@ -17,8 +17,12 @@
   async function handleLoad() {
     const tid = inputValue.trim();
     if (!tid) return;
-    await fetchTournamentInfo(tid);
-    inputValue = '';
+    const result = await fetchTournamentInfo(tid);
+    if (result) {
+      inputValue = '';
+    } else if (tournaments.error) {
+      showToast(tournaments.error, 'error');
+    }
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -34,8 +38,11 @@
 <div class="tournament-input-row">
   <input
     type="text"
+    id="tournament-id-input"
+    name="tournamentId"
     class="tournament-input"
     placeholder="Enter tournament ID"
+    aria-label="Tournament ID"
     bind:value={inputValue}
     onkeydown={handleKeydown}
   />
@@ -43,10 +50,6 @@
     Load
   </button>
 </div>
-
-{#if tournaments.error}
-  <ErrorMessage message={tournaments.error} />
-{/if}
 
 {#if tournaments.loading}
   <LoadingSpinner />
@@ -56,10 +59,12 @@
   <EmptyState message="No tournaments loaded. Enter a tournament ID above." />
 {:else}
   <div class="tournament-list">
-    {#each tournaments.list as tournament (tournament.tournamentId)}
+    {#each tournaments.list.filter(t => t.tournamentId) as tournament (tournament.tournamentId)}
       <TournamentCard
         {tournament}
         onclick={() => navigateToTournament(tournament.tournamentId)}
+        onrefresh={() => refreshTournamentInfo(tournament.tournamentId)}
+        onremove={() => removeTournament(tournament.tournamentId)}
       />
     {/each}
   </div>

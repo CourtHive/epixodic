@@ -1,4 +1,4 @@
-import { resetButtons, setCourtSide, stateChangeEvent, swapServer, updateState, visibleButtons } from '../display/displayUpdate';
+import { resetButtons, setCourtSide, stateChangeEvent, swapServer, visibleButtons } from '../display/displayUpdate';
 import { editMatchDetails } from '../display/displayUpdate';
 import { formatChangePossible } from '../engine/formatChangePossible';
 import { getCurrentMatchUpId } from '../state/matchContext';
@@ -63,9 +63,12 @@ export function settings() {
     darkModeRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; margin-top: 0.5rem; margin-bottom: 0.5rem;';
     const darkModeLabel = document.createElement('label');
     darkModeLabel.textContent = 'Dark Mode';
+    darkModeLabel.htmlFor = 'ep-dark-mode';
     darkModeLabel.style.cssText = 'font-weight: bold; color: var(--chc-text-primary);';
     darkModeCheckbox = document.createElement('input');
     darkModeCheckbox.type = 'checkbox';
+    darkModeCheckbox.id = 'ep-dark-mode';
+    darkModeCheckbox.name = 'darkMode';
     darkModeCheckbox.checked = document.documentElement.dataset.theme === 'dark';
     darkModeCheckbox.addEventListener('change', () => {
       const theme = darkModeCheckbox.checked ? 'dark' : 'light';
@@ -76,12 +79,15 @@ export function settings() {
     darkModeRow.appendChild(darkModeCheckbox);
     elem.appendChild(darkModeRow);
 
-    const profileLabel = document.createElement('div');
+    const profileLabel = document.createElement('label');
     profileLabel.textContent = 'Shot Decorations';
-    profileLabel.style.cssText = 'font-weight: bold; margin-top: 1rem; margin-bottom: 0.25rem; color: var(--chc-text-primary);';
+    profileLabel.htmlFor = 'ep-decoration-profile';
+    profileLabel.style.cssText = 'font-weight: bold; margin-top: 1rem; margin-bottom: 0.25rem; display: block; color: var(--chc-text-primary);';
     elem.appendChild(profileLabel);
 
     profileSelect = document.createElement('select');
+    profileSelect.id = 'ep-decoration-profile';
+    profileSelect.name = 'decorationProfile';
     profileSelect.style.cssText = 'width: 100%; padding: 0.4rem; font-size: 1rem; border: 1px solid var(--chc-border-primary); border-radius: 4px; background-color: var(--chc-bg-secondary); color: var(--chc-text-primary);';
     for (const profile of getProfiles()) {
       const opt = document.createElement('option');
@@ -126,12 +132,15 @@ export function selectInterfaces() {
   let hSelect: HTMLSelectElement;
 
   const content = (elem: HTMLElement) => {
-    const vLabel = document.createElement('div');
+    const vLabel = document.createElement('label');
     vLabel.textContent = 'Vertical Interface';
-    vLabel.style.cssText = 'font-weight: bold; margin-bottom: 0.25rem; color: var(--chc-text-primary);';
+    vLabel.htmlFor = 'ep-vertical-interface';
+    vLabel.style.cssText = 'font-weight: bold; margin-bottom: 0.25rem; display: block; color: var(--chc-text-primary);';
     elem.appendChild(vLabel);
 
     vSelect = document.createElement('select');
+    vSelect.id = 'ep-vertical-interface';
+    vSelect.name = 'verticalInterface';
     vSelect.style.cssText = 'width: 100%; padding: 0.4rem; margin-bottom: 1rem; font-size: 1rem; border: 1px solid var(--chc-border-primary); border-radius: 4px; background-color: var(--chc-bg-secondary); color: var(--chc-text-primary);';
     for (const skin of verticalSkins) {
       const opt = document.createElement('option');
@@ -142,12 +151,15 @@ export function selectInterfaces() {
     }
     elem.appendChild(vSelect);
 
-    const hLabel = document.createElement('div');
+    const hLabel = document.createElement('label');
     hLabel.textContent = 'Horizontal Interface';
-    hLabel.style.cssText = 'font-weight: bold; margin-bottom: 0.25rem; color: var(--chc-text-primary);';
+    hLabel.htmlFor = 'ep-horizontal-interface';
+    hLabel.style.cssText = 'font-weight: bold; margin-bottom: 0.25rem; display: block; color: var(--chc-text-primary);';
     elem.appendChild(hLabel);
 
     hSelect = document.createElement('select');
+    hSelect.id = 'ep-horizontal-interface';
+    hSelect.name = 'horizontalInterface';
     hSelect.style.cssText = 'width: 100%; padding: 0.4rem; font-size: 1rem; border: 1px solid var(--chc-border-primary); border-radius: 4px; background-color: var(--chc-bg-secondary); color: var(--chc-text-primary);';
     for (const skin of horizontalSkins) {
       const opt = document.createElement('option');

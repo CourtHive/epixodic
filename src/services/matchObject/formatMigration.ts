@@ -208,12 +208,7 @@ export function isValidFormatCode(code: string): boolean {
     return true;
   }
 
-  // Check if legacy format that can be migrated
-  if (isLegacyFormat(code)) {
-    return true;
-  }
-
-  return false;
+  return isLegacyFormat(code);
 }
 
 /**
