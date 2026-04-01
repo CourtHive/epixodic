@@ -19,7 +19,7 @@
     onTimeout: (side: 1 | 2) => void;
     onSubstitute: (side: 1 | 2) => void;
     onPenalty: (side: 1 | 2) => void;
-    onBack: () => void;
+    onBack?: () => void;
     rallyInProgress?: boolean;
   } = $props();
 </script>
@@ -52,5 +52,7 @@
     <button class="intennse-ctrl-btn" onclick={() => onTimeout(2)} title="Timeout Side 2">TO 2</button>
   </div>
 
-  <button class="intennse-ctrl-btn intennse-ctrl-btn--back" onclick={onBack} title="Back to Arc">← Arc</button>
+  {#if onBack}
+    <button class="intennse-ctrl-btn intennse-ctrl-btn--back" onclick={onBack} title="Back to Arc">← Arc</button>
+  {/if}
 </div>

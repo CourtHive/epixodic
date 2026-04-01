@@ -1,10 +1,10 @@
 <script lang="ts">
-  import ScoreHeader from './ScoreHeader.svelte';
+  import AggregateBar from './AggregateBar.svelte';
+  import ClockDisplay from './ClockDisplay.svelte';
   import ScoreDisplay from './ScoreDisplay.svelte';
   import ActionPanel from './ActionPanel.svelte';
   import PlayerPanel from './PlayerPanel.svelte';
   import ControlBar from './ControlBar.svelte';
-  import AggregateBar from './AggregateBar.svelte';
 
   let {
     side1Name = '',
@@ -64,6 +64,14 @@
 </script>
 
 <div class="intennse-horizontal">
+  <!-- Top header: back button + clocks (spans all columns) -->
+  <div class="intennse-h-header">
+    <button class="intennse-ctrl-btn intennse-h-back" onclick={onBack} title="Back to Arc">← Arc</button>
+    <ClockDisplay clockId="boltTimer" label="BOLT" size="normal" urgentAt={60000} criticalAt={30000} />
+    <span class="intennse-bolt-label">{boltLabel}</span>
+    <ClockDisplay clockId="serveClock" label="SERVE" size="normal" urgentAt={5000} criticalAt={3000} />
+  </div>
+
   <!-- Left side: Side 1 player + actions -->
   <div class="intennse-h-side intennse-h-side--left">
     <PlayerPanel playerName={side1Player} courtTimeRemainingMs={side1CourtTimeMs} isServing={server === 0} side={1} />
@@ -74,9 +82,8 @@
     />
   </div>
 
-  <!-- Center: Timers, score, controls -->
+  <!-- Center: score + controls -->
   <div class="intennse-h-center">
-    <ScoreHeader {boltLabel} />
     <ScoreDisplay
       side1Score={boltScore.side1}
       side2Score={boltScore.side2}
@@ -84,7 +91,7 @@
     />
     <ControlBar
       {canUndo} {canRedo} {rallyInProgress}
-      {onUndo} {onRedo} {onPointStart} {onTimeout} {onSubstitute} {onPenalty} {onBack}
+      {onUndo} {onRedo} {onPointStart} {onTimeout} {onSubstitute} {onPenalty}
     />
   </div>
 
