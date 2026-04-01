@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { updateMatch, setMatchHistory, getMatch, getActiveMatchIds, getMatchesByTournament, removeMatch, pruneStaleMatches, } from './matchUpStore.js';
+import { updateMatch, setMatchHistory, getMatch, getActiveMatchIds, getMatchUpsByTournament, removeMatch, pruneStaleMatches, } from './matchUpStore.js';
 // Reset the module-level Map between tests by removing all matches
 function clearAll() {
     for (const id of getActiveMatchIds()) {
@@ -95,18 +95,18 @@ describe('matchUpStore', () => {
             expect(ids).toContain('mu-c');
         });
     });
-    describe('getMatchesByTournament()', () => {
+    describe('getMatchUpsByTournament()', () => {
         it('should return matches for a given tournament', () => {
             updateMatch({ matchUpId: 'mu-t1', tournamentId: 'tid-1', score: { scoreStringSide1: '1-0' } });
             updateMatch({ matchUpId: 'mu-t2', tournamentId: 'tid-1', score: { scoreStringSide1: '2-0' } });
             updateMatch({ matchUpId: 'mu-t3', tournamentId: 'tid-2', score: { scoreStringSide1: '3-0' } });
-            const results = getMatchesByTournament('tid-1');
+            const results = getMatchUpsByTournament('tid-1');
             expect(results).toHaveLength(2);
             expect(results.map((r) => r.matchUpId).sort()).toEqual(['mu-t1', 'mu-t2']);
         });
         it('should return empty array when no matches for tournament', () => {
             updateMatch({ matchUpId: 'mu-x', tournamentId: 'tid-other', score: {} });
-            expect(getMatchesByTournament('tid-none')).toEqual([]);
+            expect(getMatchUpsByTournament('tid-none')).toEqual([]);
         });
     });
     describe('removeMatch()', () => {

@@ -60,23 +60,60 @@ export function updateTieMatchUpResult(
 export function recalculateTeamScore() {
   if (!teamMatchUp) return;
 
-  const result = generateTieMatchUpScore({ matchUp: teamMatchUp as any });
+  if (isIntennseMatchUp(teamMatchUp)) {
+    recalculateIntennseScore(teamMatchUp);
+  } else {
+    recalculateStandardScore(teamMatchUp);
+  }
+
+  scoreVersion++;
+  browserStorage.set(STORAGE_KEY_PREFIX + teamMatchUp.matchUpId, JSON.stringify(teamMatchUp));
+}
+
+function recalculateIntennseScore(matchUp: HydratedMatchUp) {
+  const tieMatchUps = matchUp.tieMatchUps ?? [];
+  const { side1, side2 } = sumBoltPoints(tieMatchUps);
+  const allComplete = tieMatchUps.length > 0 && tieMatchUps.every((m) => m.matchUpStatus === 'COMPLETED');
+  const winningSide = allComplete && side1 !== side2 ? (side1 > side2 ? 1 : 2) : undefined;
+
+  matchUp.score = {
+    ...matchUp.score,
+    scoreStringSide1: `${side1}-${side2}`,
+    scoreStringSide2: `${side2}-${side1}`,
+    sets: [{ side1Score: side1, side2Score: side2, winningSide }],
+  };
+  if (winningSide) matchUp.winningSide = winningSide;
+}
+
+function sumBoltPoints(tieMatchUps: HydratedMatchUp[]): { side1: number; side2: number } {
+  let side1 = 0;
+  let side2 = 0;
+  for (const bolt of tieMatchUps) {
+    for (const set of bolt.score?.sets ?? []) {
+      side1 += set.side1Score ?? 0;
+      side2 += set.side2Score ?? 0;
+    }
+  }
+  return { side1, side2 };
+}
+
+function recalculateStandardScore(matchUp: HydratedMatchUp) {
+  const result = generateTieMatchUpScore({ matchUp: matchUp as any });
   if (result.set) {
-    teamMatchUp.score = {
-      ...teamMatchUp.score,
+    matchUp.score = {
+      ...matchUp.score,
       scoreStringSide1: result.scoreStringSide1,
       scoreStringSide2: result.scoreStringSide2,
       sets: [result.set],
     };
   }
-  if (result.winningSide) {
-    teamMatchUp.winningSide = result.winningSide;
-  }
+  if (result.winningSide) matchUp.winningSide = result.winningSide;
+}
 
-  scoreVersion++;
-
-  // Update persisted copy
-  browserStorage.set(STORAGE_KEY_PREFIX + teamMatchUp.matchUpId, JSON.stringify(teamMatchUp));
+function isIntennseMatchUp(matchUp: any): boolean {
+  if (matchUp?.competitionFormat?.sport === 'INTENNSE') return true;
+  const format = matchUp?.matchUpFormat || '';
+  return format.includes('XA-S:T');
 }
 
 export function restoreTeamMatchUp(matchUpId: string): boolean {

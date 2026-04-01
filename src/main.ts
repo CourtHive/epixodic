@@ -2,6 +2,7 @@ import './styles/theme.css';
 import './styles/epixodic.css';
 import './styles/swipeList.css';
 import './styles/icons.css';
+import './styles/intennse.css';
 import { init } from './init';
 import { router as enhancedRouter } from './router/enhancedRouter';
 

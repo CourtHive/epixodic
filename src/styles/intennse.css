@@ -1,0 +1,344 @@
+/* ============================================================================
+   INTENNSE Scoring Interface
+   ============================================================================ */
+
+:root {
+  --intennse-bg: #1a1a2e;
+  --intennse-surface: #16213e;
+  --intennse-accent: #0f3460;
+  --intennse-text: #e0e0e0;
+  --intennse-text-muted: #8892b0;
+  --intennse-winner: #00d4aa;
+  --intennse-touch: #4fc3f7;
+  --intennse-error: #ef5350;
+  --intennse-fault: #ff9800;
+  --intennse-ace: #ffd740;
+  --intennse-serving: #00d4aa;
+  --intennse-leading: #00d4aa;
+  --intennse-urgent: #ff9800;
+  --intennse-critical: #ef5350;
+  --intennse-expired: #b71c1c;
+}
+
+/* ── Horizontal Layout ─────────────────────────────────────── */
+
+.intennse-horizontal {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  width: 100%;
+  background: var(--intennse-bg);
+  color: var(--intennse-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.intennse-h-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  justify-content: center;
+}
+
+.intennse-h-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  min-width: 220px;
+  border-left: 1px solid var(--intennse-accent);
+  border-right: 1px solid var(--intennse-accent);
+}
+
+/* ── Score Header (Timers + Bolt Label) ────────────────────── */
+
+.intennse-score-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 1rem;
+}
+
+.intennse-bolt-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--intennse-text-muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ── Clock Display ─────────────────────────────────────────── */
+
+.clock-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.clock-label {
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--intennse-text-muted);
+}
+
+.clock-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.clock--compact .clock-time { font-size: 1rem; }
+.clock--normal .clock-time { font-size: 1.4rem; }
+.clock--large .clock-time { font-size: 2rem; }
+
+.clock--urgent .clock-time { color: var(--intennse-urgent); }
+.clock--critical .clock-time { color: var(--intennse-critical); animation: clock-flash 0.5s infinite; }
+.clock--expired .clock-time { color: var(--intennse-expired); }
+.clock--paused .clock-time { opacity: 0.5; }
+
+@keyframes clock-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Score Display ─────────────────────────────────────────── */
+
+.intennse-score-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.intennse-score-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.intennse-score-value {
+  font-size: 3rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.intennse-score-name {
+  font-size: 0.65rem;
+  color: var(--intennse-text-muted);
+  text-transform: uppercase;
+}
+
+.intennse-score-divider {
+  font-size: 1.5rem;
+  color: var(--intennse-text-muted);
+  padding: 0 0.25rem;
+}
+
+.intennse-score-side--serving .intennse-score-value {
+  color: var(--intennse-serving);
+}
+
+.intennse-status-message {
+  font-size: 0.7rem;
+  color: var(--intennse-urgent);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+/* ── Player Panel ──────────────────────────────────────────── */
+
+.intennse-player-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.4rem;
+  border-radius: 6px;
+  background: var(--intennse-surface);
+  position: relative;
+}
+
+.intennse-player-panel--serving {
+  box-shadow: 0 0 0 2px var(--intennse-serving);
+}
+
+.intennse-player-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.intennse-player-time {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--intennse-text-muted);
+}
+
+.player-time--warning { color: var(--intennse-urgent); }
+.player-time--critical { color: var(--intennse-critical); font-weight: 700; }
+.player-time--exhausted { color: var(--intennse-expired); font-weight: 800; font-size: 0.8rem; }
+
+.intennse-serve-indicator {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.3rem;
+  font-size: 0.5rem;
+  color: var(--intennse-serving);
+}
+
+/* ── Action Panel (Buttons) ────────────────────────────────── */
+
+.intennse-action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.intennse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.1s;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.intennse-btn:active { opacity: 0.7; transform: scale(0.97); }
+
+.intennse-btn-label { flex: 1; text-align: left; }
+.intennse-btn-value {
+  font-size: 1.1rem;
+  font-weight: 800;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.intennse-btn--winner { background: var(--intennse-winner); color: #000; }
+.intennse-btn--touch { background: var(--intennse-touch); color: #000; }
+.intennse-btn--ace { background: var(--intennse-ace); color: #000; }
+.intennse-btn--forced { background: var(--intennse-error); color: #fff; }
+.intennse-btn--unforced { background: #c62828; color: #fff; }
+.intennse-btn--fault { background: var(--intennse-fault); color: #000; }
+
+/* ── Control Bar ───────────────────────────────────────────── */
+
+.intennse-control-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.4rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.intennse-controls-left,
+.intennse-controls-center,
+.intennse-controls-right {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.intennse-ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--intennse-accent);
+  border-radius: 6px;
+  background: var(--intennse-surface);
+  color: var(--intennse-text);
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 32px;
+  min-width: 40px;
+  touch-action: manipulation;
+}
+
+.intennse-ctrl-btn:active { opacity: 0.7; }
+.intennse-ctrl-btn:disabled { opacity: 0.3; cursor: default; }
+
+.intennse-ctrl-btn--point-start {
+  background: var(--intennse-winner);
+  color: #000;
+  font-size: 0.7rem;
+  min-width: 80px;
+}
+
+.intennse-ctrl-btn--active {
+  background: var(--intennse-accent);
+  color: var(--intennse-text);
+  animation: pulse-glow 1.5s infinite;
+}
+
+.intennse-ctrl-btn--penalty { border-color: var(--intennse-error); }
+
+.intennse-ctrl-btn--back {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  font-size: 0.6rem;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px var(--intennse-serving); }
+  50% { box-shadow: 0 0 12px var(--intennse-serving); }
+}
+
+/* ── Aggregate Bar ─────────────────────────────────────────── */
+
+.intennse-aggregate-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 0.4rem 1rem;
+  background: var(--intennse-surface);
+  border-top: 1px solid var(--intennse-accent);
+  font-size: 0.8rem;
+}
+
+.intennse-aggregate-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--intennse-text-muted);
+}
+
+.intennse-aggregate-side {
+  color: var(--intennse-text-muted);
+}
+
+.intennse-aggregate-side strong {
+  font-size: 1.1rem;
+  color: var(--intennse-text);
+}
+
+.intennse-aggregate-side--leading strong {
+  color: var(--intennse-leading);
+}

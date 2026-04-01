@@ -32,7 +32,7 @@ export function getMatch(matchUpId) {
 export function getActiveMatchIds() {
     return Array.from(activeMatches.keys());
 }
-export function getMatchesByTournament(tournamentId) {
+export function getMatchUpsByTournament(tournamentId) {
     const results = [];
     for (const state of activeMatches.values()) {
         if (state.tournamentId === tournamentId) {
