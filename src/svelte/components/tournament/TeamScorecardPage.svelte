@@ -28,28 +28,59 @@
     loaded = true;
   });
 
+  function isIntennseFormat(matchUp: HydratedMatchUp): boolean {
+    const format = (matchUp as any).competitionFormat;
+    return format?.sport === 'INTENNSE' || (matchUp.matchUpFormat || '').includes('XA-S:T');
+  }
+
   function handleTieMatchUpClick(tieMatchUp: HydratedMatchUp) {
-    // Save tieMatchUp for the scoring interface to load
-    const matchData = {
+    // Save tieMatchUp data for the scoring interface to load
+    const parentMatchUp = teamState.teamMatchUp;
+    const matchData: any = {
       matchUpId: tieMatchUp.matchUpId,
-      matchUpFormat: tieMatchUp.matchUpFormat || 'SET3-S:6/TB7',
+      matchUpFormat: tieMatchUp.matchUpFormat || parentMatchUp?.matchUpFormat || 'SET3-S:6/TB7',
       matchUpType: tieMatchUp.matchUpType,
       sides: tieMatchUp.sides,
       score: tieMatchUp.score,
       match: {
         matchUpId: tieMatchUp.matchUpId,
-        tournamentId: teamState.teamMatchUp?.tournamentId,
+        tournamentId: parentMatchUp?.tournamentId,
       },
       tournament: {
-        tournamentId: teamState.teamMatchUp?.tournamentId,
+        tournamentId: parentMatchUp?.tournamentId,
       },
     };
-    browserStorage.set(tieMatchUp.matchUpId, JSON.stringify(matchData));
 
+    // Team rosters from the parent TEAM matchUp for substitution support
+    if (parentMatchUp?.sides) {
+      matchData.teamRosters = parentMatchUp.sides.map((s: any) => ({
+        sideNumber: s.sideNumber,
+        participants: s.participant?.individualParticipants?.map((p: any) => ({
+          participantId: p.participantId,
+          participantName: p.participantName,
+          gender: p.person?.sex || p.person?.gender,
+        })) ?? [],
+        lineUp: s.lineUp,
+      }));
+    }
+
+    // Pass competitionFormat through for INTENNSE detection
+    if ((parentMatchUp as any)?.competitionFormat) {
+      matchData.competitionFormat = (parentMatchUp as any).competitionFormat;
+    }
+    if ((tieMatchUp as any)?.competitionFormat) {
+      matchData.competitionFormat = (tieMatchUp as any).competitionFormat;
+    }
+
+    browserStorage.set(tieMatchUp.matchUpId, JSON.stringify(matchData));
     setActiveTieMatchUp(tieMatchUp.matchUpId);
 
     const router = (window as any).appRouter;
-    router?.navigate(`/match/${tieMatchUp.matchUpId}/scoring`);
+    if (isIntennseFormat(tieMatchUp) || (parentMatchUp && isIntennseFormat(parentMatchUp))) {
+      router?.navigate(`/bolt/${tieMatchUp.matchUpId}`);
+    } else {
+      router?.navigate(`/match/${tieMatchUp.matchUpId}/scoring`);
+    }
   }
 
   function navigateBack() {

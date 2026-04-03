@@ -103,6 +103,18 @@ export function sendHistory(history: {
   trackerSocket?.emit('history', history);
 }
 
+/**
+ * Broadcast enriched INTENNSE update with per-player stats, aggregate scores,
+ * penalty box state, and clock data. External displays subscribe to these
+ * for rich scoreboard rendering.
+ */
+export function sendIntennseUpdate(snapshot: any): void {
+  if (!trackerSocket?.connected) {
+    connectTracker();
+  }
+  trackerSocket?.emit('intennse', snapshot);
+}
+
 // --- Listener connection (for receiving live scores as a display/dashboard) ---
 
 export function connectListener(): Socket {

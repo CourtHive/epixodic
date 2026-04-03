@@ -27,6 +27,7 @@ import { DetailsPage } from '../pages/DetailsPage';
 import { EntryPage } from '../pages/EntryPage';
 import { WelcomePage } from '../pages/WelcomePage';
 import { ArchiveViewPage } from '../svelte/pages/ArchiveViewPage';
+import { BoltScoringViewPage } from '../svelte/pages/BoltScoringViewPage';
 import { TeamScorecardViewPage } from '../svelte/pages/TeamScorecardViewPage';
 import { TournamentViewPage } from '../svelte/pages/TournamentViewPage';
 import type { ViewPage } from '../pages/ViewPage';
@@ -34,13 +35,14 @@ import type { ViewPage } from '../pages/ViewPage';
 const VIEW_SVELTE_ARCHIVE = 'svelte-archive';
 const VIEW_SVELTE_TOURNAMENT = 'svelte-tournament';
 const VIEW_SVELTE_TEAM_SCORECARD = 'svelte-team-scorecard';
+const VIEW_SVELTE_BOLT_SCORING = 'svelte-bolt-scoring';
 
 export class EnhancedRouter {
-  private navigo: Navigo;
+  private readonly navigo: Navigo;
   private currentRoute: string = '/';
   private isNavigating: boolean = false;
   private currentPage: ViewPage | null = null;
-  private pageComponents: Map<string, new () => ViewPage> = new Map();
+  private readonly pageComponents: Map<string, new () => ViewPage> = new Map();
 
   /**
    * Get current page instance (for updates from external events)
@@ -71,6 +73,7 @@ export class EnhancedRouter {
     this.pageComponents.set(VIEW_SVELTE_ARCHIVE, ArchiveViewPage);
     this.pageComponents.set(VIEW_SVELTE_TOURNAMENT, TournamentViewPage);
     this.pageComponents.set(VIEW_SVELTE_TEAM_SCORECARD, TeamScorecardViewPage);
+    this.pageComponents.set(VIEW_SVELTE_BOLT_SCORING, BoltScoringViewPage);
   }
 
   /**
@@ -98,6 +101,11 @@ export class EnhancedRouter {
     // Team scorecard route
     this.navigo.on('/team/:matchUpId', (match) => {
       this.handleTeamScorecardRoute(match?.data?.matchUpId);
+    });
+
+    // Bolt scoring route (INTENNSE)
+    this.navigo.on('/bolt/:matchUpId', (match) => {
+      this.handleBoltScoringRoute(match?.data?.matchUpId);
     });
 
     // Non-match routes
@@ -166,9 +174,7 @@ export class EnhancedRouter {
   private async handleTournamentRoute(tournamentId?: string, eventId?: string) {
     if (this.isNavigating || !tournamentId) return;
 
-    const path = eventId
-      ? `/tournament/${tournamentId}/event/${eventId}`
-      : `/tournament/${tournamentId}`;
+    const path = eventId ? `/tournament/${tournamentId}/event/${eventId}` : `/tournament/${tournamentId}`;
 
     this.currentRoute = path;
     this.isNavigating = true;
@@ -225,6 +231,36 @@ export class EnhancedRouter {
   }
 
   /**
+   * Handle bolt scoring route: /bolt/:matchUpId (INTENNSE)
+   */
+  private async handleBoltScoringRoute(matchUpId?: string) {
+    if (this.isNavigating || !matchUpId) return;
+
+    this.currentRoute = `/bolt/${matchUpId}`;
+    this.isNavigating = true;
+
+    try {
+      strokeSlider();
+
+      if (this.currentPage) {
+        await this.currentPage.unmount();
+        this.currentPage = null;
+      }
+
+      this.hideAllViews();
+
+      const page = new BoltScoringViewPage();
+      page.setParams(matchUpId);
+      await page.mount();
+
+      this.currentPage = page;
+      env.view = VIEW_SVELTE_BOLT_SCORING;
+    } finally {
+      this.isNavigating = false;
+    }
+  }
+
+  /**
    * Handle non-match navigation with guards
    */
   private async handleNavigation(path: string, view: string, guardName?: string, params?: any) {
@@ -264,6 +300,7 @@ export class EnhancedRouter {
       VIEW_SVELTE_ARCHIVE,
       VIEW_SVELTE_TOURNAMENT,
       VIEW_SVELTE_TEAM_SCORECARD,
+      VIEW_SVELTE_BOLT_SCORING,
     ];
 
     for (const id of containerIds) {
@@ -336,14 +373,14 @@ export class EnhancedRouter {
    * Go back in history
    */
   back() {
-    window.history.back();
+    globalThis.history.back();
   }
 
   /**
    * Start the router and restore state from URL
    */
   start() {
-    const hash = window.location.hash || '';
+    const hash = globalThis.location.hash || '';
 
     // Explicit route (e.g. #/match/123/scoring, #/archive, #/settings)
     if (/^#\/.+/.test(hash)) {
@@ -360,7 +397,7 @@ export class EnhancedRouter {
    */
   updateURL(path: string) {
     const fullPath = path.startsWith('#') ? path : `#${path}`;
-    window.history.replaceState(null, '', fullPath);
+    globalThis.history.replaceState(null, '', fullPath);
   }
 
   /**
@@ -372,7 +409,7 @@ export class EnhancedRouter {
     const path = getPathForView(view);
     if (path && path !== this.currentRoute) {
       this.currentRoute = path;
-      window.history.pushState({}, '', `#${path}`);
+      globalThis.history.pushState({}, '', `#${path}`);
     }
   }
 

@@ -16,6 +16,12 @@ export const NO_DECORATION_RESULTS = [PENALTY, ACE];
 export const FAULT_DECORATION_RESULTS = [DOUBLE_FAULT];
 export const FAULT_TYPES = ['Long', 'Wide', 'Net'];
 
+// INTENNSE-specific result constants
+export const TOUCH = 'Touch';
+export const FAULT = 'Fault';
+export const CAUGHT = 'Caught';
+export const INTENNSE_FAULT_TYPES = ['Long', 'Wide', 'Net', 'Caught'];
+
 export const CENTER = 'center';
 export const RIGHT = 'right';
 export const LEFT = 'left';

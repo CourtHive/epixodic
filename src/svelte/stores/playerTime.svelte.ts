@@ -1,0 +1,146 @@
+import { Clock } from '../../clock/Clock';
+
+/**
+ * Tracks cumulative court time per player across Bolts within a format.
+ * INTENNSE rule: each player credited N minutes per Bolt in the format,
+ * e.g., men's singles = 2 Bolts × 6 min/Bolt = 12 min max across both Bolts.
+ *
+ * Time tracking uses individual Clock instances in 'up' direction.
+ * When a player is on court, their clock runs. When subbed out, it pauses.
+ */
+
+interface PlayerTimeEntry {
+  participantId: string;
+  participantName: string;
+  gender?: string;
+  clock: Clock;
+  isOnCourt: boolean;
+}
+
+let players = $state<Record<string, PlayerTimeEntry>>({});
+let maxCourtTimeMs = $state(12 * 60 * 1000); // default 12 minutes
+let version = $state(0);
+
+function bump() { version++; }
+
+export function getPlayerTimeState() {
+  return {
+    get players() { return players; },
+    get maxCourtTimeMs() { return maxCourtTimeMs; },
+    get version() { return version; },
+  };
+}
+
+export function setMaxCourtTime(ms: number) {
+  maxCourtTimeMs = ms;
+}
+
+export function registerPlayer(participantId: string, participantName: string, gender?: string) {
+  if (players[participantId]) return;
+  players[participantId] = {
+    participantId,
+    participantName,
+    gender,
+    clock: new Clock({
+      id: `playerTime-${participantId}`,
+      durationMs: Number.MAX_SAFE_INTEGER, // count up, no expiry
+      direction: 'up',
+      tickIntervalMs: 1000,
+      onTick: () => bump(),
+    }),
+    isOnCourt: false,
+  };
+}
+
+export function registerPlayers(roster: { participantId: string; participantName: string; gender?: string }[]) {
+  for (const p of roster) {
+    registerPlayer(p.participantId, p.participantName, p.gender);
+  }
+}
+
+export function startTracking(participantId: string) {
+  const entry = players[participantId];
+  if (!entry || entry.isOnCourt) return;
+  entry.isOnCourt = true;
+  entry.clock.start();
+  bump();
+}
+
+export function stopTracking(participantId: string) {
+  const entry = players[participantId];
+  if (!entry || !entry.isOnCourt) return;
+  entry.isOnCourt = false;
+  entry.clock.pause();
+  bump();
+}
+
+export function getCourtTimeMs(participantId: string): number {
+  return players[participantId]?.clock.getElapsedMs() ?? 0;
+}
+
+export function getRemainingMs(participantId: string): number {
+  const elapsed = getCourtTimeMs(participantId);
+  return Math.max(0, maxCourtTimeMs - elapsed);
+}
+
+export function isTimeExhausted(participantId: string): boolean {
+  return getRemainingMs(participantId) <= 0;
+}
+
+export function checkTimeLimit(participantId: string): {
+  exceeded: boolean;
+  remainingMs: number;
+  elapsedMs: number;
+} {
+  const elapsed = getCourtTimeMs(participantId);
+  const remaining = Math.max(0, maxCourtTimeMs - elapsed);
+  return { exceeded: remaining <= 0, remainingMs: remaining, elapsedMs: elapsed };
+}
+
+export function getAllCourtTimes(): Record<string, { elapsedMs: number; remainingMs: number; isOnCourt: boolean }> {
+  const result: Record<string, { elapsedMs: number; remainingMs: number; isOnCourt: boolean }> = {};
+  for (const [id, entry] of Object.entries(players)) {
+    const elapsed = entry.clock.getElapsedMs();
+    result[id] = {
+      elapsedMs: elapsed,
+      remainingMs: Math.max(0, maxCourtTimeMs - elapsed),
+      isOnCourt: entry.isOnCourt,
+    };
+  }
+  return result;
+}
+
+export function getOnCourtPlayers(side?: 1 | 2, sideRoster?: Record<string, 1 | 2>): PlayerTimeEntry[] {
+  return Object.values(players).filter((p) => {
+    if (!p.isOnCourt) return false;
+    if (side !== undefined && sideRoster) {
+      return sideRoster[p.participantId] === side;
+    }
+    return true;
+  });
+}
+
+export function getBenchPlayers(
+  sideNumber: 1 | 2,
+  sideRoster: Record<string, 1 | 2>,
+  gender?: string,
+): PlayerTimeEntry[] {
+  return Object.values(players).filter((p) => {
+    if (sideRoster[p.participantId] !== sideNumber) return false;
+    if (p.isOnCourt) return false;
+    return !(gender && p.gender && p.gender !== gender);
+  });
+}
+
+export function handleSubstitution(outParticipantId: string, inParticipantId: string) {
+  stopTracking(outParticipantId);
+  startTracking(inParticipantId);
+}
+
+export function resetPlayerTimes() {
+  for (const entry of Object.values(players)) {
+    entry.clock.stop();
+  }
+  players = {};
+  version = 0;
+}

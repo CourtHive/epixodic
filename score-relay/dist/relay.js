@@ -1,4 +1,4 @@
-import { updateMatch, setMatchHistory, getMatch, getActiveMatchIds, getMatchesByTournament, pruneStaleMatches, } from './matchUpStore.js';
+import { updateMatch, setMatchHistory, getMatch, getActiveMatchIds, getMatchUpsByTournament, pruneStaleMatches, } from './matchUpStore.js';
 import { persistMatchHistory } from './persistence.js';
 // Metrics counters
 let trackerCount = 0;
@@ -78,7 +78,7 @@ export function createRelay(io, config) {
         socket.on('subscribe:tournament', (tournamentId) => {
             socket.join(`tournament:${tournamentId}`);
             // Send all current matches for this tournament
-            const matches = getMatchesByTournament(tournamentId);
+            const matches = getMatchUpsByTournament(tournamentId);
             for (const update of matches) {
                 socket.emit('score', update);
             }
