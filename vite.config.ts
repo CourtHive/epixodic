@@ -1,5 +1,4 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig, loadEnv } from 'vite';
 import path from 'path';
 
@@ -11,9 +10,10 @@ export default ({ mode }) => {
 
   return defineConfig({
     build: { sourcemap: true },
-    plugins: [svelte(), tsconfigPaths()],
+    plugins: [svelte()],
     base: BASE_URL,
     resolve: {
+      tsconfigPaths: true,
       // Ensure all imports of tods-competition-factory resolve to the local
       // linked copy (CourtHive/factory) rather than a transitive copy in
       // another dependency's node_modules (e.g. scoringVisualizations).
