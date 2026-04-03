@@ -94,8 +94,8 @@ importers:
         specifier: 6.1.0
         version: 6.1.0
       semver:
-        specifier: 7.7.3
-        version: 7.7.3
+        specifier: 7.7.4
+        version: 7.7.4
       socket.io-client:
         specifier: 4.8.3
         version: 4.8.3
@@ -2682,11 +2682,6 @@ packages:
   select@1.1.2:
     resolution: {integrity: sha512-OwpTSOfy6xSs1+pwcNrv0RBMOzI39Lp3qQKUTPVVPRjCdNa5JH/oPRiqsesIskK8TVgmRiHwO4KXlV2Li9dANA==}
 
-  semver@7.7.3:
-    resolution: {integrity: sha512-SdsKMrI9TdgjdweUSR9MweHA4EJ8YxHn8DFaDisvhVlUOe4BF1tLD7GAj0lIqWVl+dPb/rExr0Btby5loQm20Q==}
-    engines: {node: '>=10'}
-    hasBin: true
-
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
     engines: {node: '>=10'}
@@ -3270,7 +3265,7 @@ snapshots:
   '@commitlint/is-ignored@20.5.0':
     dependencies:
       '@commitlint/types': 20.5.0
-      semver: 7.7.3
+      semver: 7.7.4
 
   '@commitlint/lint@20.5.0':
     dependencies:
@@ -3344,7 +3339,7 @@ snapshots:
     dependencies:
       '@simple-libs/child-process-utils': 1.0.2
       '@simple-libs/stream-utils': 1.2.0
-      semver: 7.7.3
+      semver: 7.7.4
     optionalDependencies:
       conventional-commits-parser: 6.4.0
 
@@ -3886,7 +3881,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.58.0
       debug: 4.4.3
       minimatch: 10.2.5
-      semver: 7.7.3
+      semver: 7.7.4
       tinyglobby: 0.2.15
       ts-api-utils: 2.5.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -5264,7 +5259,7 @@ snapshots:
 
   make-dir@4.0.0:
     dependencies:
-      semver: 7.7.3
+      semver: 7.7.4
 
   math-intrinsics@1.1.0: {}
 
@@ -5639,8 +5634,6 @@ snapshots:
       regexp-ast-analysis: 0.7.1
 
   select@1.1.2: {}
-
-  semver@7.7.3: {}
 
   semver@7.7.4: {}
 
