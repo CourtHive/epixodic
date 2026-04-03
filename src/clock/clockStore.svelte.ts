@@ -97,3 +97,11 @@ export function restartClock(id: string) {
     updateSnapshot(id, clock.getRemainingMs(), 0, 'running');
   }
 }
+
+export function setClockRemaining(id: string, remainingMs: number) {
+  const clock = clockManager.get(id);
+  if (clock) {
+    clock.setRemainingMs(remainingMs);
+    updateSnapshot(id, clock.getRemainingMs(), clock.getElapsedMs(), clock.getState());
+  }
+}

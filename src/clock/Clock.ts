@@ -89,6 +89,12 @@ export class Clock {
     return Math.max(0, this.durationMs - this.elapsedMs);
   }
 
+  /** Set remaining time. Clock must be paused or idle. */
+  setRemainingMs(ms: number): void {
+    if (this.state === 'running') return;
+    this.elapsedMs = Math.max(0, this.durationMs - ms);
+  }
+
   setCallbacks(callbacks: {
     onTick?: (remainingMs: number, elapsedMs: number) => void;
     onExpire?: () => void;

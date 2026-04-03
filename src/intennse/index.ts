@@ -18,3 +18,4 @@ export {
 } from './clockOrchestration';
 export { getCurrentBoltScore, getAggregateScore, type BoltScore } from './scoreComputation';
 export { getNextServer, getServeSide, getServingState, type ServeSide, type ServingState } from './servingRules';
+export { getClockEditLimits, clampClockValue, stepClockValue, parseTimeInput, type ClockEditLimits } from './clockEditing';

@@ -11,5 +11,6 @@ export {
   resumeClock,
   resetClock,
   restartClock,
+  setClockRemaining,
 } from './clockStore.svelte';
 export type { ClockConfig, ClockDirection, ClockState } from './types';
