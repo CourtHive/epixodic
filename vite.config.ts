@@ -18,7 +18,7 @@ export default ({ mode }) => {
       // linked copy (CourtHive/factory) rather than a transitive copy in
       // another dependency's node_modules (e.g. scoringVisualizations).
       alias: {
-        'tods-competition-factory': path.resolve(__dirname, 'node_modules/tods-competition-factory'),
+        'tods-competition-factory': path.resolve(import.meta.dirname, 'node_modules/tods-competition-factory'),
       },
     },
   });

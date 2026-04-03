@@ -25,6 +25,14 @@ export default [
       // SonarJS recommended rules
       ...sonarjs.configs.recommended.rules,
       'sonarjs/cognitive-complexity': ['warn', 30],
+
+      // Disabled sonarjs v4 rules — intentional patterns in this codebase
+      'sonarjs/void-use': 'off', // Svelte 5 `void version` reactive dependency idiom
+      'sonarjs/no-nested-conditional': 'off', // nested ternaries are used throughout
+      'sonarjs/todo-tag': 'off', // TODOs are tracked, not lint errors
+      'sonarjs/no-commented-code': 'off', // commented code retained intentionally
+      'sonarjs/no-alphabetical-sort': 'off', // .sort() on string arrays is correct
+      'sonarjs/prefer-regexp-exec': 'off', // .match() is fine for simple patterns
     },
   },
 ];
