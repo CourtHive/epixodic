@@ -1,8 +1,8 @@
 # Epixodic
 
-**[Live Demo](https://tennisvisuals.github.io/epixodic/)**
+**[Live Demo](https://epixodic.com/#/welcome)**
 
-A browser-based match tracker for tennis and racquet sports with real-time data visualizations. Built on the [CourtHive](https://courthive.com/) ecosystem, Epixodic uses the [Competition Factory](https://courthive.github.io/competition-factory/) scoring engine and the [Scoring Visualizations](https://github.com/TennisVisuals/scoringVisualizations) charting library to capture point-by-point data and render it through interactive D3 visualizations.
+A browser-based match tracker for tennis and racquet sports with real-time data visualizations. Built on the [CourtHive](https://courthive.com/) ecosystem, Epixodic uses the [Competition Factory](https://courthive.github.io/competition-factory/) scoring engine and the [Scoring Visualizations](https://github.com/CourtHive/scoringVisualizations) charting library to capture point-by-point data and render it through interactive D3 visualizations.
 
 All data is stored locally in the browser — no server required.
 
@@ -114,7 +114,7 @@ src/
 | Package                                                                          | Role                                                  |
 | -------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | [Competition Factory](https://courthive.github.io/competition-factory/)          | Scoring engine, match format parsing, statistics      |
-| [Scoring Visualizations](https://github.com/TennisVisuals/scoringVisualizations) | D3 visualizations (GameTree, GameFish, Momentum, PTS) |
+| [Scoring Visualizations](https://github.com/CourtHive/scoringVisualizations) | D3 visualizations (GameTree, GameFish, Momentum, PTS) |
 | [CourtHive Components](https://github.com/CourtHive/courthive-components)        | Modal dialogs, UI components                          |
 | [D3.js v7](https://d3js.org/)                                                    | SVG rendering for all visualizations                  |
 | [Navigo](https://github.com/krasimir/navigo)                                     | Client-side hash routing                              |
