@@ -65,7 +65,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 1rem;
-  min-width: 220px;
+  min-width: 280px;
   border-left: 1px solid var(--intennse-accent);
   border-right: 1px solid var(--intennse-accent);
 }
@@ -190,6 +190,18 @@
   box-shadow: 0 0 0 2px var(--intennse-serving);
 }
 
+.intennse-team-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--intennse-text, #e0e0e0);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 .intennse-player-name {
   font-size: 0.8rem;
   font-weight: 600;
@@ -262,20 +274,76 @@
 
 .intennse-control-bar {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  gap: 0.3rem;
   padding: 0.4rem;
   width: 100%;
-  flex-wrap: wrap;
 }
 
-.intennse-controls-left,
-.intennse-controls-center,
-.intennse-controls-right {
+.intennse-controls-row {
   display: flex;
   gap: 0.3rem;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.intennse-controls-spacer {
+  flex: 1;
+}
+
+.intennse-ctrl-btn--half {
+  flex: 1;
+  min-width: 0;
+}
+
+.intennse-ctrl-btn--full-width {
+  width: 100%;
+  min-width: unset;
+}
+
+/* ── Timeout Overlay ──────────────────────────────────────── */
+.intennse-timeout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.intennse-timeout-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2rem 3rem;
+  background: var(--intennse-surface, #1a1a2e);
+  border: 2px solid var(--intennse-accent, #4a90d9);
+  border-radius: 16px;
+}
+
+.intennse-timeout-label {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--intennse-text, #e0e0e0);
+}
+
+.intennse-timeout-team {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--intennse-accent, #4a90d9);
+}
+
+.intennse-timeout-dismiss {
+  font-size: 0.8rem !important;
+  min-width: 120px !important;
+  padding: 0.5rem 1rem !important;
+  background: var(--intennse-accent, #4a90d9) !important;
+  color: #fff !important;
 }
 
 .intennse-ctrl-btn {

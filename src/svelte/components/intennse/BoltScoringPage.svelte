@@ -6,129 +6,142 @@
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
   import {
     getScoringState,
+    getEngineState,
     initScoringEngine,
     addPoint,
     undo,
     redo,
     setServer,
     substitute as engineSubstitute,
+    getPenaltyBoxProfile,
   } from '../../stores/scoringEngine.svelte';
   import {
     getPlayerTimeState,
+    registerPlayers,
+    startTracking,
     handleSubstitution as trackSubstitution,
     getRemainingMs,
     checkTimeLimit,
     getBenchPlayers,
     stopTracking,
   } from '../../stores/playerTime.svelte';
-  import {
-    sendToBox,
-    isInBox,
-  } from '../../stores/penaltyBox.svelte';
-  import { getPenaltyBoxProfile, getScoringState as _getScoringState } from '../../stores/scoringEngine.svelte';
+  import { sendToBox, isInBox } from '../../stores/penaltyBox.svelte';
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
-  import { getClockSnapshot } from '../../../clock';
-  import {
-    createClock,
-    destroyClock,
-    restartClock,
-    pauseClock,
-    resumeClock,
-  } from '../../../clock';
+  import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock } from '../../../clock';
   import { browserStorage } from '../../../state/browserStorage';
   import { onMount, onDestroy } from 'svelte';
 
-  let { matchUpId = '', boltLabel = '', side1Name = '', side2Name = '' }: {
+  // Business logic — independently testable
+  import { resolvePointAttribution, type Side } from '../../../intennse/pointRules';
+  import {
+    onBoltStart, onRallyStart, onPointComplete, onTimeoutStart, onTimeoutEnd,
+    BOLT_DURATION_MS, SERVE_CLOCK_DURATION_MS, BOLT_TICK_MS, SERVE_TICK_MS,
+    type ClockCommand,
+  } from '../../../intennse/clockOrchestration';
+  import { getCurrentBoltScore, getAggregateScore } from '../../../intennse/scoreComputation';
+
+  let { matchUpId = '', boltLabel = '', side1Name: propSide1Name = '', side2Name: propSide2Name = '' }: {
     matchUpId: string;
     boltLabel?: string;
     side1Name?: string;
     side2Name?: string;
   } = $props();
 
+  let side1Name = $state(propSide1Name);
+  let side2Name = $state(propSide2Name);
+
   const scoring = getScoringState();
-
-  let rallyInProgress = $state(false);
-  let isLandscape = $state(window.innerWidth > window.innerHeight);
-
-  function handleResize() {
-    isLandscape = window.innerWidth > window.innerHeight;
-  }
-
-  // Current Bolt score: last set in progress (or zeros)
-  const currentBoltScore = $derived.by(() => {
-    const sets = scoring.sets;
-    if (sets.length === 0) return { side1: 0, side2: 0 };
-    const current = sets[sets.length - 1];
-    return { side1: current.side1Score ?? 0, side2: current.side2Score ?? 0 };
-  });
-
   const playerTime = getPlayerTimeState();
 
-  // Active player names and court time — driven by playerTime store
-  // (Players are registered in Phase 8 when loading from Arc scorecard;
-  //  for now, fallback to placeholder names)
+  let rallyInProgress = $state(false);
+  let boltStarted = $state(false);
+  let serveClockWasRunning = false;
+  let timeoutTeamName = $state('');
+  let isLandscape = $state(window.innerWidth > window.innerHeight);
+
   let side1Player = $state('Player 1');
   let side2Player = $state('Player 2');
   let side1CourtTimeMs = $derived(side1Player ? getRemainingMs(side1Player) : 0);
   let side2CourtTimeMs = $derived(side2Player ? getRemainingMs(side2Player) : 0);
 
-  // Substitution modal state
   let subModalSide = $state<1 | 2 | null>(null);
-  // Placeholder side roster mapping (populated in Phase 8 from lineUp data)
   let sideRoster = $state<Record<string, 1 | 2>>({});
-
-  // Time warning state
   let timeWarning = $state<{ playerName: string; remainingMs: number } | null>(null);
+
+  // ── Derived scores (read engine directly, version triggers reactivity) ──
+
+  const currentBoltScore = $derived.by(() => {
+    void scoring.version;
+    return getCurrentBoltScore(getEngineState());
+  });
+
+  const currentAggregateScore = $derived.by(() => {
+    void scoring.version;
+    return getAggregateScore(getEngineState());
+  });
+
+  // ── Clock command executor ──
+
+  function executeClockCommands(commands: ClockCommand[]) {
+    for (const cmd of commands) {
+      switch (cmd.type) {
+        case 'restart': restartClock(cmd.clockId); break;
+        case 'pause': pauseClock(cmd.clockId); break;
+        case 'resume': resumeClock(cmd.clockId); break;
+        case 'destroy': destroyClock(cmd.clockId); break;
+        case 'create':
+          createClock({
+            id: cmd.clockId,
+            durationMs: cmd.durationMs,
+            direction: 'down',
+            tickIntervalMs: cmd.tickIntervalMs,
+            autoStart: cmd.autoStart,
+            onExpire: cmd.clockId === 'timeoutTimer' ? () => handleDismissTimeout() : undefined,
+          });
+          break;
+      }
+    }
+  }
+
+  // ── Lifecycle ──
+
+  function handleResize() {
+    isLandscape = window.innerWidth > window.innerHeight;
+  }
 
   onMount(() => {
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
-    // Initialize scoring engine from stored match data
     const stored = browserStorage.get(matchUpId);
     if (stored) {
       try {
         const matchData = JSON.parse(stored);
         const format = matchData.matchUpFormat || matchData.competitionFormat?.matchUpFormat || 'SET7XA-S:T10P';
-        initScoringEngine({
-          matchUpFormat: format,
-          competitionFormat: matchData.competitionFormat,
-        });
-        // Extract player names from sides
-        if (matchData.sides?.[0]?.participant?.participantName) {
-          side1Player = matchData.sides[0].participant.participantName;
-        }
-        if (matchData.sides?.[1]?.participant?.participantName) {
-          side2Player = matchData.sides[1].participant.participantName;
-        }
+        initScoringEngine({ matchUpFormat: format, competitionFormat: matchData.competitionFormat });
+
+        // Team names are hydrated onto tieMatchUp sides as .teamParticipant
+        const s1 = matchData.sides?.[0];
+        const s2 = matchData.sides?.[1];
+        if (s1?.teamParticipant?.participantName) side1Name = s1.teamParticipant.participantName;
+        if (s2?.teamParticipant?.participantName) side2Name = s2.teamParticipant.participantName;
+
+        // Active player names from the tieMatchUp sides
+        if (s1?.participant?.participantName) side1Player = s1.participant.participantName;
+        if (s2?.participant?.participantName) side2Player = s2.participant.participantName;
+
+        // Register team rosters for substitution support
+        initTeamRosters(matchData, s1, s2);
       } catch {
-        // Fall through to default engine init
         initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P' });
       }
     } else {
       initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P' });
     }
 
-    // Create Bolt timer: 10 minutes countdown
-    createClock({
-      id: 'boltTimer',
-      durationMs: 10 * 60 * 1000,
-      direction: 'down',
-      tickIntervalMs: 200,
-      onExpire: () => {
-        // Bolt time expired — current rally finishes, then endSegment
-        // (handled by umpire tapping a result button after the rally)
-      },
-    });
-
-    // Create serve clock: 14 seconds
-    createClock({
-      id: 'serveClock',
-      durationMs: 14 * 1000,
-      direction: 'down',
-      tickIntervalMs: 100,
-    });
+    createClock({ id: 'boltTimer', durationMs: BOLT_DURATION_MS, direction: 'down', tickIntervalMs: BOLT_TICK_MS });
+    createClock({ id: 'serveClock', durationMs: SERVE_CLOCK_DURATION_MS, direction: 'down', tickIntervalMs: SERVE_TICK_MS });
   });
 
   onDestroy(() => {
@@ -139,37 +152,134 @@
     destroyClock('timeoutTimer');
   });
 
-  // After each point, restart serve clock, check time limits, broadcast
+  // ── Event handlers (thin wiring to business logic) ──
+
   function afterPoint() {
     rallyInProgress = false;
-    restartClock('serveClock');
+    executeClockCommands(onPointComplete());
     checkPlayerTimeLimits();
     broadcastState();
   }
 
+  function handleAction(action: string, side: Side) {
+    const { winner, result } = resolvePointAttribution(action, side);
+    if (winner === null) {
+      // Fault: loss of serve, no point
+      const opponent = (1 - scoring.server) as Side;
+      setServer(opponent);
+    } else {
+      addPoint(winner, { result });
+    }
+    afterPoint();
+  }
+
+  function handlePointStart() {
+    if (!boltStarted) {
+      boltStarted = true;
+      executeClockCommands(onBoltStart());
+      return;
+    }
+    if (!rallyInProgress) {
+      rallyInProgress = true;
+      executeClockCommands(onRallyStart());
+    }
+  }
+
+  function handleTimeout(side: 1 | 2) {
+    timeoutTeamName = side === 1 ? side1Name : side2Name;
+    const serveSnapshot = getClockSnapshot('serveClock');
+    serveClockWasRunning = serveSnapshot?.state === 'running';
+    executeClockCommands(onTimeoutStart(serveClockWasRunning));
+  }
+
+  function handleDismissTimeout() {
+    executeClockCommands(onTimeoutEnd(serveClockWasRunning));
+    timeoutTeamName = '';
+  }
+
+  function handleSubstitute(side: 1 | 2) {
+    subModalSide = side;
+  }
+
+  function executeSubstitution(outId: string, inId: string) {
+    if (!subModalSide) return;
+    engineSubstitute(subModalSide, outId, inId);
+    trackSubstitution(outId, inId);
+    if (subModalSide === 1) {
+      const entry = playerTime.players[inId];
+      if (entry) side1Player = entry.participantName;
+    } else {
+      const entry = playerTime.players[inId];
+      if (entry) side2Player = entry.participantName;
+    }
+    subModalSide = null;
+    checkPlayerTimeLimits();
+  }
+
+  function handlePenalty(side: 1 | 2) {
+    const activeName = side === 1 ? side1Player : side2Player;
+    const activeEntry = Object.values(playerTime.players).find(
+      (p) => p.participantName === activeName && p.isOnCourt,
+    );
+    if (!activeEntry) return;
+    stopTracking(activeEntry.participantId);
+    const boxProfile = getPenaltyBoxProfile();
+    const durationMs = (boxProfile?.durationSeconds ?? 120) * 1000;
+    sendToBox(activeEntry.participantId, activeEntry.participantName, side, durationMs);
+  }
+
+  function handleBack() {
+    window.history.back();
+  }
+
+  // ── Helpers ──
+
   function broadcastState() {
     const boltTimer = getClockSnapshot('boltTimer');
     const serveClock = getClockSnapshot('serveClock');
+    const state = getEngineState();
+    const sets = state?.score?.sets ?? [];
+    const isComplete = state?.matchUpStatus === 'COMPLETED';
 
-    // Standard score update (compatible with non-INTENNSE displays)
     sendScore({
       matchUpId,
-      score: { sets: scoring.sets },
-      matchUpStatus: scoring.isComplete ? 'COMPLETED' : 'IN_PROGRESS',
-      winningSide: scoring.isComplete ? undefined : undefined,
+      score: { sets },
+      matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
     });
 
-    // Enriched INTENNSE update
     sendIntennseUpdate(buildIntennseSnapshot({
       matchUpId,
       boltScore: currentBoltScore,
-      aggregateScore: scoring.aggregateScore,
+      aggregateScore: currentAggregateScore,
       activePlayers: scoring.activePlayers,
       server: scoring.server,
       boltTimerRemainingMs: boltTimer?.remainingMs,
       serveClockRemainingMs: serveClock?.remainingMs,
-      matchUpStatus: scoring.isComplete ? 'COMPLETED' : 'IN_PROGRESS',
+      matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
     }));
+  }
+
+  function initTeamRosters(matchData: any, s1: any, s2: any) {
+    const rosters = matchData.teamRosters;
+    if (!rosters) return;
+
+    const rosterMap: Record<string, 1 | 2> = {};
+
+    for (const roster of rosters) {
+      const side = roster.sideNumber as 1 | 2;
+      registerPlayers(roster.participants);
+      for (const p of roster.participants) {
+        rosterMap[p.participantId] = side;
+      }
+    }
+
+    sideRoster = rosterMap;
+
+    // Start tracking the active players (the ones assigned to this tieMatchUp)
+    const s1ActiveId = s1?.participant?.participantId;
+    const s2ActiveId = s2?.participant?.participantId;
+    if (s1ActiveId) startTracking(s1ActiveId);
+    if (s2ActiveId) startTracking(s2ActiveId);
   }
 
   function checkPlayerTimeLimits() {
@@ -188,122 +298,14 @@
     timeWarning = null;
   }
 
-  function handleWinner(side: 0 | 1) {
-    addPoint(side, { result: 'Winner' });
-    afterPoint();
-  }
-
-  function handleTouch(side: 0 | 1) {
-    // Touch = opponent touched the ball, point winner gets 1 (not 2)
-    addPoint(side, { result: 'Touch' });
-    afterPoint();
-  }
-
-  function handleAce(side: 0 | 1) {
-    addPoint(side, { result: 'Ace' });
-    afterPoint();
-  }
-
-  function handleForcedError(side: 0 | 1) {
-    // Side committed a forced error → opponent wins the point
-    addPoint(1 - side as 0 | 1, { result: 'Forced Error' });
-    afterPoint();
-  }
-
-  function handleUnforcedError(side: 0 | 1) {
-    // Side committed an unforced error → opponent wins the point
-    addPoint(1 - side as 0 | 1, { result: 'Unforced Error' });
-    afterPoint();
-  }
-
-  function handleFault(_side: 0 | 1) {
-    // INTENNSE fault = loss of serve only, no point awarded
-    // Server changes to opponent
-    const opponent = (1 - scoring.server) as 0 | 1;
-    setServer(opponent);
-    afterPoint();
-  }
-
-  function handleUndo() {
-    undo();
-  }
-
-  function handleRedo() {
-    redo();
-  }
-
-  function handlePointStart() {
-    if (!rallyInProgress) {
-      rallyInProgress = true;
-      // Stop serve clock — rally is in progress
-      pauseClock('serveClock');
-    }
-  }
-
-  function handleTimeout(side: 1 | 2) {
-    // Pause Bolt timer, start 2-minute timeout timer
-    pauseClock('boltTimer');
-    createClock({
-      id: 'timeoutTimer',
-      durationMs: 2 * 60 * 1000,
-      direction: 'down',
-      autoStart: true,
-      tickIntervalMs: 200,
-      onExpire: () => {
-        // Timeout over, resume Bolt timer
-        resumeClock('boltTimer');
-        destroyClock('timeoutTimer');
-      },
-    });
-    // TODO Phase 6: track timeout count per side
-    console.log(`Timeout called by side ${side}`);
-  }
-
-  function handleSubstitute(side: 1 | 2) {
-    subModalSide = side;
-  }
-
-  function executeSubstitution(outId: string, inId: string) {
-    if (!subModalSide) return;
-    engineSubstitute(subModalSide, outId, inId);
-    trackSubstitution(outId, inId);
-    // Update active player name display
-    if (subModalSide === 1) {
-      const entry = playerTime.players[inId];
-      if (entry) side1Player = entry.participantName;
-    } else {
-      const entry = playerTime.players[inId];
-      if (entry) side2Player = entry.participantName;
-    }
-    subModalSide = null;
-    checkPlayerTimeLimits();
-  }
-
-  function handlePenalty(side: 1 | 2) {
-    // Find the active player on the penalized side
-    const activeName = side === 1 ? side1Player : side2Player;
-    const activeEntry = Object.values(playerTime.players).find(
-      (p) => p.participantName === activeName && p.isOnCourt,
-    );
-    if (!activeEntry) return;
-
-    // Remove from court and send to penalty box
-    stopTracking(activeEntry.participantId);
-    const boxProfile = getPenaltyBoxProfile();
-    const durationMs = (boxProfile?.durationSeconds ?? 120) * 1000;
-    sendToBox(activeEntry.participantId, activeEntry.participantName, side, durationMs);
-  }
-
-  function handleBack() {
-    window.history.back();
-  }
+  // ── Layout props ──
 
   const layoutProps = $derived({
     side1Name,
     side2Name,
     boltLabel,
     boltScore: currentBoltScore,
-    aggregateScore: scoring.aggregateScore,
+    aggregateScore: currentAggregateScore,
     server: scoring.server,
     canUndo: scoring.canUndo,
     canRedo: scoring.canRedo,
@@ -312,18 +314,21 @@
     side1CourtTimeMs,
     side2CourtTimeMs,
     rallyInProgress,
-    onWinner: handleWinner,
-    onTouch: handleTouch,
-    onForcedError: handleForcedError,
-    onUnforcedError: handleUnforcedError,
-    onAce: handleAce,
-    onFault: handleFault,
-    onUndo: handleUndo,
-    onRedo: handleRedo,
+    boltStarted,
+    onWinner: (side: Side) => handleAction('winner', side),
+    onTouch: (side: Side) => handleAction('touch', side),
+    onForcedError: (side: Side) => handleAction('forcedError', side),
+    onUnforcedError: (side: Side) => handleAction('unforcedError', side),
+    onAce: (side: Side) => handleAction('ace', side),
+    onFault: (side: Side) => handleAction('fault', side),
+    onUndo: () => undo(),
+    onRedo: () => redo(),
     onPointStart: handlePointStart,
     onTimeout: handleTimeout,
     onSubstitute: handleSubstitute,
     onPenalty: handlePenalty,
+    timeoutTeamName,
+    onDismissTimeout: handleDismissTimeout,
     onBack: handleBack,
   });
 </script>

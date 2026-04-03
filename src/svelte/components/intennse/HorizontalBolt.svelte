@@ -20,6 +20,7 @@
     side1CourtTimeMs = 0,
     side2CourtTimeMs = 0,
     rallyInProgress = false,
+    boltStarted = false,
     onWinner,
     onTouch,
     onForcedError,
@@ -32,6 +33,8 @@
     onTimeout,
     onSubstitute,
     onPenalty,
+    timeoutTeamName = '',
+    onDismissTimeout,
     onBack,
   }: {
     side1Name: string;
@@ -47,6 +50,7 @@
     side1CourtTimeMs?: number;
     side2CourtTimeMs?: number;
     rallyInProgress?: boolean;
+    boltStarted?: boolean;
     onWinner: (side: 0 | 1) => void;
     onTouch: (side: 0 | 1) => void;
     onForcedError: (side: 0 | 1) => void;
@@ -59,6 +63,8 @@
     onTimeout: (side: 1 | 2) => void;
     onSubstitute: (side: 1 | 2) => void;
     onPenalty: (side: 1 | 2) => void;
+    timeoutTeamName?: string;
+    onDismissTimeout: () => void;
     onBack: () => void;
   } = $props();
 </script>
@@ -74,10 +80,11 @@
 
   <!-- Left side: Side 1 player + actions -->
   <div class="intennse-h-side intennse-h-side--left">
-    <PlayerPanel playerName={side1Player} courtTimeRemainingMs={side1CourtTimeMs} isServing={server === 0} side={1} />
+    <PlayerPanel playerName={side1Player} teamName={side1Name} courtTimeRemainingMs={side1CourtTimeMs} isServing={server === 0} side={1} />
     <ActionPanel
       side={0}
       isServing={server === 0}
+      disabled={!boltStarted}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
   </div>
@@ -90,17 +97,18 @@
       {side1Name} {side2Name} {server}
     />
     <ControlBar
-      {canUndo} {canRedo} {rallyInProgress}
-      {onUndo} {onRedo} {onPointStart} {onTimeout} {onSubstitute} {onPenalty}
+      {canUndo} {canRedo} {rallyInProgress} {boltStarted}
+      {onUndo} {onRedo} {onPointStart} {onTimeout} {onSubstitute} {onPenalty} {timeoutTeamName} {onDismissTimeout}
     />
   </div>
 
   <!-- Right side: Side 2 player + actions -->
   <div class="intennse-h-side intennse-h-side--right">
-    <PlayerPanel playerName={side2Player} courtTimeRemainingMs={side2CourtTimeMs} isServing={server === 1} side={2} />
+    <PlayerPanel playerName={side2Player} teamName={side2Name} courtTimeRemainingMs={side2CourtTimeMs} isServing={server === 1} side={2} />
     <ActionPanel
       side={1}
       isServing={server === 1}
+      disabled={!boltStarted}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
   </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import ClockDisplay from './ClockDisplay.svelte';
   import AggregateBar from './AggregateBar.svelte';
+  import { getClockSnapshot } from '../../../clock';
 
   let {
     side1Name = '',
@@ -16,6 +17,7 @@
     side1CourtTimeMs = 0,
     side2CourtTimeMs = 0,
     rallyInProgress = false,
+    boltStarted = false,
     onWinner,
     onTouch,
     onForcedError,
@@ -28,6 +30,8 @@
     onTimeout,
     onSubstitute,
     onPenalty,
+    timeoutTeamName = '',
+    onDismissTimeout,
     onBack,
   }: {
     side1Name: string;
@@ -43,6 +47,7 @@
     side1CourtTimeMs?: number;
     side2CourtTimeMs?: number;
     rallyInProgress?: boolean;
+    boltStarted?: boolean;
     onWinner: (side: 0 | 1) => void;
     onTouch: (side: 0 | 1) => void;
     onForcedError: (side: 0 | 1) => void;
@@ -55,8 +60,13 @@
     onTimeout: (side: 1 | 2) => void;
     onSubstitute: (side: 1 | 2) => void;
     onPenalty: (side: 1 | 2) => void;
+    timeoutTeamName?: string;
+    onDismissTimeout: () => void;
     onBack: () => void;
   } = $props();
+
+  const timeoutSnapshot = $derived(getClockSnapshot('timeoutTimer'));
+  const timeoutActive = $derived(timeoutSnapshot?.state === 'running');
 
   // Side selection: each action button picks a side via the score panel tap targets
   let pendingAction = $state<string | null>(null);
@@ -95,6 +105,21 @@
       : ['winner', 'touch', 'ace', 'forcedError', 'unforcedError', 'fault'],
   );
 </script>
+
+{#if timeoutActive}
+  <div class="intennse-timeout-overlay">
+    <div class="intennse-timeout-panel">
+      <div class="intennse-timeout-label">TIMEOUT</div>
+      {#if timeoutTeamName}
+        <div class="intennse-timeout-team">{timeoutTeamName}</div>
+      {/if}
+      <ClockDisplay clockId="timeoutTimer" label="" urgentAtMs={30000} criticalAtMs={10000} />
+      <button class="intennse-ctrl-btn intennse-timeout-dismiss" onclick={onDismissTimeout}>
+        END TIMEOUT
+      </button>
+    </div>
+  </div>
+{/if}
 
 <div class="intennse-vertical">
   <!-- Top: Clocks + Bolt label -->
@@ -146,6 +171,7 @@
         class="intennse-btn {info.cls}"
         class:intennse-btn--selected={pendingAction === action}
         onclick={() => actionButton(action)}
+        disabled={!boltStarted}
       >
         <span class="intennse-btn-label">{info.label}</span>
         {#if info.value}
@@ -164,7 +190,7 @@
       class:intennse-ctrl-btn--active={rallyInProgress}
       onclick={onPointStart}
     >
-      {rallyInProgress ? '⏵' : '▶'}
+      {!boltStarted ? '▶' : rallyInProgress ? '⏵' : '⏯'}
     </button>
     <button class="intennse-ctrl-btn" onclick={() => onTimeout(2)}>TO2</button>
     <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>

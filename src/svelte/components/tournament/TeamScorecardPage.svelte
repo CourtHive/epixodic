@@ -51,6 +51,19 @@
       },
     };
 
+    // Team rosters from the parent TEAM matchUp for substitution support
+    if (parentMatchUp?.sides) {
+      matchData.teamRosters = parentMatchUp.sides.map((s: any) => ({
+        sideNumber: s.sideNumber,
+        participants: s.participant?.individualParticipants?.map((p: any) => ({
+          participantId: p.participantId,
+          participantName: p.participantName,
+          gender: p.person?.sex || p.person?.gender,
+        })) ?? [],
+        lineUp: s.lineUp,
+      }));
+    }
+
     // Pass competitionFormat through for INTENNSE detection
     if ((parentMatchUp as any)?.competitionFormat) {
       matchData.competitionFormat = (parentMatchUp as any).competitionFormat;

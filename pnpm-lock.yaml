@@ -15,8 +15,8 @@ importers:
         specifier: ^1.6.5
         version: 1.13.2
       courthive-components:
-        specifier: link:../../CourtHive/courthive-components
-        version: link:../../CourtHive/courthive-components
+        specifier: link:../courthive-components
+        version: link:../courthive-components
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -30,8 +30,8 @@ importers:
         specifier: ^5.53.6
         version: 5.53.6
       tods-competition-factory:
-        specifier: link:../../CourtHive/factory
-        version: link:../../CourtHive/factory
+        specifier: link:../factory
+        version: link:../factory
     devDependencies:
       '@commitlint/cli':
         specifier: 19.8.1

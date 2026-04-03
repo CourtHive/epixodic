@@ -24,6 +24,7 @@ export default [
 
       // SonarJS recommended rules
       ...sonarjs.configs.recommended.rules,
+      'sonarjs/cognitive-complexity': ['warn', 30],
     },
   },
 ];
