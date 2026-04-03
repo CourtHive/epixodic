@@ -129,17 +129,28 @@
 
 .intennse-score-display {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: stretch;
   padding: 0.5rem 0;
+  width: 100%;
 }
 
 .intennse-score-side {
   display: flex;
-  flex-direction: column;
+}
+
+.intennse-score-side:first-child {
+  justify-content: flex-start;
+}
+
+.intennse-score-side:last-of-type {
+  justify-content: flex-end;
+}
+
+.intennse-score-row {
+  display: flex;
   align-items: center;
-  gap: 0.1rem;
+  justify-content: center;
 }
 
 .intennse-score-value {
@@ -147,6 +158,12 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  min-width: 2ch;
+  text-align: center;
+}
+
+.intennse-score-value--serving {
+  color: var(--intennse-serving);
 }
 
 .intennse-score-name {
@@ -158,11 +175,8 @@
 .intennse-score-divider {
   font-size: 1.5rem;
   color: var(--intennse-text-muted);
-  padding: 0 0.25rem;
-}
-
-.intennse-score-side--serving .intennse-score-value {
-  color: var(--intennse-serving);
+  padding: 0 0.5rem;
+  line-height: 1;
 }
 
 .intennse-status-message {
