@@ -40,6 +40,7 @@
     type ClockCommand,
   } from '../../../intennse/clockOrchestration';
   import { getCurrentBoltScore, getAggregateScore } from '../../../intennse/scoreComputation';
+  import { getServingState, type ServeSide } from '../../../intennse/servingRules';
 
   let { matchUpId = '', boltLabel = '', side1Name: propSide1Name = '', side2Name: propSide2Name = '' }: {
     matchUpId: string;
@@ -48,7 +49,9 @@
     side2Name?: string;
   } = $props();
 
+  // svelte-ignore state_referenced_locally — editable local copy
   let side1Name = $state(propSide1Name);
+  // svelte-ignore state_referenced_locally
   let side2Name = $state(propSide2Name);
 
   const scoring = getScoringState();
@@ -58,6 +61,7 @@
   let boltStarted = $state(false);
   let serveClockWasRunning = false;
   let timeoutTeamName = $state('');
+  let serveSide = $state<ServeSide>('DEUCE');
   let isLandscape = $state(window.innerWidth > window.innerHeight);
 
   let side1Player = $state('Player 1');
@@ -164,12 +168,16 @@
   function handleAction(action: string, side: Side) {
     const { winner, result } = resolvePointAttribution(action, side);
     if (winner === null) {
-      // Fault: loss of serve, no point
-      const opponent = (1 - scoring.server) as Side;
-      setServer(opponent);
+      // Fault: no point awarded
     } else {
       addPoint(winner, { result });
     }
+
+    // Apply INTENNSE serving rules: winner serves, serve side from aggregate
+    const serving = getServingState(winner, scoring.server, currentAggregateScore);
+    setServer(serving.server);
+    serveSide = serving.serveSide;
+
     afterPoint();
   }
 
@@ -307,6 +315,7 @@
     boltScore: currentBoltScore,
     aggregateScore: currentAggregateScore,
     server: scoring.server,
+    serveSide,
     canUndo: scoring.canUndo,
     canRedo: scoring.canRedo,
     side1Player,

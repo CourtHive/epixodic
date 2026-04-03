@@ -13,6 +13,7 @@
     boltScore,
     aggregateScore,
     server,
+    serveSide = 'DEUCE',
     canUndo,
     canRedo,
     side1Player = '',
@@ -43,6 +44,7 @@
     boltScore: { side1: number; side2: number };
     aggregateScore: { side1: number; side2: number };
     server: number;
+    serveSide?: string;
     canUndo: boolean;
     canRedo: boolean;
     side1Player: string;
@@ -80,7 +82,7 @@
 
   <!-- Left side: Side 1 player + actions -->
   <div class="intennse-h-side intennse-h-side--left">
-    <PlayerPanel playerName={side1Player} teamName={side1Name} courtTimeRemainingMs={side1CourtTimeMs} isServing={server === 0} side={1} />
+    <PlayerPanel playerName={side1Player} teamName={side1Name} courtTimeRemainingMs={side1CourtTimeMs} isServing={server === 0} {serveSide} side={1} />
     <ActionPanel
       side={0}
       isServing={server === 0}
@@ -104,7 +106,7 @@
 
   <!-- Right side: Side 2 player + actions -->
   <div class="intennse-h-side intennse-h-side--right">
-    <PlayerPanel playerName={side2Player} teamName={side2Name} courtTimeRemainingMs={side2CourtTimeMs} isServing={server === 1} side={2} />
+    <PlayerPanel playerName={side2Player} teamName={side2Name} courtTimeRemainingMs={side2CourtTimeMs} isServing={server === 1} {serveSide} side={2} />
     <ActionPanel
       side={1}
       isServing={server === 1}

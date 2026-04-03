@@ -17,3 +17,4 @@ export {
   type ClockCommand,
 } from './clockOrchestration';
 export { getCurrentBoltScore, getAggregateScore, type BoltScore } from './scoreComputation';
+export { getNextServer, getServeSide, getServingState, type ServeSide, type ServingState } from './servingRules';

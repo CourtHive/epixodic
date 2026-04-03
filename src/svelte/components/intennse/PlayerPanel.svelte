@@ -1,11 +1,12 @@
 <script lang="ts">
   import { formatTime } from '../../../clock/formatTime';
 
-  let { playerName = '', teamName = '', courtTimeRemainingMs = 0, isServing = false, side = 1 }: {
+  let { playerName = '', teamName = '', courtTimeRemainingMs = 0, isServing = false, serveSide = 'DEUCE', side = 1 }: {
     playerName: string;
     teamName?: string;
     courtTimeRemainingMs?: number;
     isServing?: boolean;
+    serveSide?: string;
     side: 1 | 2;
   } = $props();
 
@@ -31,6 +32,6 @@
     {/if}
   </div>
   {#if isServing}
-    <div class="intennse-serve-indicator">●</div>
+    <div class="intennse-serve-indicator">{serveSide === 'AD' ? 'AD' : 'DEUCE'}</div>
   {/if}
 </div>
