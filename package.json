@@ -40,7 +40,7 @@
     "c8": "11.0.0",
     "clipboard": "2.0.11",
     "cz-git": "1.12.0",
-    "dotenv": "16.6.1",
+    "dotenv": "17.4.0",
     "envfile": "7.1.0",
     "eslint": "10.2.0",
     "eslint-plugin-sonarjs": "4.0.2",
