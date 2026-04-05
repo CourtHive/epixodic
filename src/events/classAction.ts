@@ -17,6 +17,11 @@ import { pointLogger } from '../services/pointLogger';
 
 const toggles: any = {};
 
+function changeValue(classes: any, value: any) {
+  const objs = Array.from(document.querySelectorAll(classes));
+  objs.forEach((element) => (element.innerHTML = value));
+}
+
 export function classAction(element: any) {
   const action: string = element.getAttribute('action');
   let side: number = parseInt(element.getAttribute('side') ?? 0);
@@ -28,11 +33,6 @@ export function classAction(element: any) {
   const positionRoles: string[] = ['server', 'receiver'];
   if (env.swap_sides && !positionRoles.includes(playerRole)) side = 1 - side;
   resetStyles();
-
-  function changeValue(classes: any, value: any) {
-    const objs = Array.from(document.querySelectorAll(classes));
-    objs.forEach((element) => (element.innerHTML = value));
-  }
 
   function rallyMode() {
     env.rally_mode = true;
@@ -66,10 +66,10 @@ export function classAction(element: any) {
       env.serve2nd = true;
     },
     doubleFault(side: number) {
-      return side != env.serving ? undefined : { winner: 1 - side, result: DOUBLE_FAULT, code: 'd' };
+      return side == env.serving ? { winner: 1 - side, result: DOUBLE_FAULT, code: 'd' } : undefined;
     },
     ace(side: number) {
-      return side != env.serving ? undefined : { winner: side, result: ACE, code: env.serve2nd ? 'a' : 'A' };
+      return side == env.serving ? { winner: side, result: ACE, code: env.serve2nd ? 'a' : 'A' } : undefined;
     },
     winner(side: number) {
       return { winner: side, result: WINNER };
@@ -105,7 +105,7 @@ export function classAction(element: any) {
     },
     modeaction() {
       const action = element.innerHTML;
-      if (['Serve', '2nd Serve', 'Return'].indexOf(action) >= 0) {
+      if (['Serve', '2nd Serve', 'Return'].includes(action)) {
         rallyMode();
       }
       if (action == 'Serve' || action == 'Return') {
