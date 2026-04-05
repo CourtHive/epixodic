@@ -33,6 +33,7 @@ export default [
       'sonarjs/no-commented-code': 'off', // commented code retained intentionally
       'sonarjs/no-alphabetical-sort': 'off', // .sort() on string arrays is correct
       'sonarjs/prefer-regexp-exec': 'off', // .match() is fine for simple patterns
+      'sonarjs/argument-type': 'off', // false positives on .includes() with string arrays
     },
   },
 ];
