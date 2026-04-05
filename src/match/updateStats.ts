@@ -65,7 +65,7 @@ function deriveCounters(setFilter?: number): { teams: any[] } {
 
 const stripModifiers = (text: string) => text.match(/\w/g)?.join('');
 
-const ERROR_STATS = ['Double Faults', 'Unforced Errors', 'Forced Errors'];
+const ERROR_STATS: string[] = ['Double Faults', 'Unforced Errors', 'Forced Errors'];
 
 function normalizeStatValue(side: any): { value: number; display: string } {
   let value = side.value;

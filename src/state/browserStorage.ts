@@ -4,7 +4,7 @@
  */
 const _hasLocalStorageSupport = (function () {
   try {
-    return 'localStorage' in window && window['localStorage'] !== null;
+    return typeof window !== 'undefined' && window.localStorage !== null;
   } catch {
     return false;
   }

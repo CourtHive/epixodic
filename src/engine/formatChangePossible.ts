@@ -3,10 +3,7 @@ import { getEpisodes } from '../state/env';
 export function formatChangePossible() {
   const episodes = getEpisodes();
   // Check if any episode has advantage scoring (score contains 'A')
-  const advantages = episodes
-    .map((ep: any) => ep.point?.score || '')
-    .flatMap((s: string) => s.split('-'))
-    .includes('A');
+  const advantages = episodes.some((ep: any) => (ep.point?.score || '').split('-').includes('A'));
   if (advantages) return false;
   if (episodes.length == 0) return true;
   const last = episodes[episodes.length - 1];

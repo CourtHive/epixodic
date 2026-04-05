@@ -64,7 +64,7 @@ export function generateRange(start: number, end: number) {
 export function findUpClass(el: any, class_name: string) {
   while (el.parentNode) {
     el = el.parentNode;
-    if (el.classList && Array.from(el.classList).indexOf(class_name) >= 0) return el;
+    if (el.classList?.contains(class_name)) return el;
   }
   return null;
 }

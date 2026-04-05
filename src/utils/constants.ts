@@ -11,9 +11,9 @@ export const FOREHAND = 'Forehand';
 export const BACKHAND = 'Backhand';
 
 // Convenience arrays
-export const WINNER_RESULTS = [WINNER, ACE];
-export const NO_DECORATION_RESULTS = [PENALTY, ACE];
-export const FAULT_DECORATION_RESULTS = [DOUBLE_FAULT];
+export const WINNER_RESULTS: string[] = [WINNER, ACE];
+export const NO_DECORATION_RESULTS: string[] = [PENALTY, ACE];
+export const FAULT_DECORATION_RESULTS: string[] = [DOUBLE_FAULT];
 export const FAULT_TYPES = ['Long', 'Wide', 'Net'];
 
 // INTENNSE-specific result constants

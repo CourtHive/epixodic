@@ -25,7 +25,8 @@ export function classAction(element: any) {
 
   if (checkMatchEnd()) return;
   const slider_side = side ? 'right' : 'left';
-  if (env.swap_sides && ['server', 'receiver'].indexOf(playerRole) < 0) side = 1 - side;
+  const positionRoles: string[] = ['server', 'receiver'];
+  if (env.swap_sides && !positionRoles.includes(playerRole)) side = 1 - side;
   resetStyles();
 
   function changeValue(classes: any, value: any) {
@@ -40,7 +41,8 @@ export function classAction(element: any) {
     changeValue('.vs_action_button.fault', 'UFE');
     changeValue('.vs_action_button.forced', 'Forced');
     Array.from(document.querySelectorAll('.vs_mode_button')).forEach((button) => {
-      if (['Serve', 'Return', '2nd Serve'].indexOf(button.innerHTML) >= 0) button.innerHTML = 'Base Line';
+      const serveLabels: string[] = ['Serve', 'Return', '2nd Serve'];
+      if (serveLabels.includes(button.innerHTML)) button.innerHTML = 'Base Line';
     });
   }
 
@@ -159,8 +161,8 @@ export function classAction(element: any) {
   playClickSound();
   if (element.id) styleButton(element.id);
   if (service && service == 'second_service') env.serve2nd = true;
-  if (Object.keys(actions).indexOf(action) < 0) return undefined;
-  const player_position = ['server', 'receiver'].indexOf(playerRole);
+  if (!Object.keys(actions).includes(action)) return undefined;
+  const player_position = positionRoles.indexOf(playerRole);
   if (player_position >= 0) side = player_position ? env.receiving : env.serving;
   const point: any = env.serve2nd ? { first_serve: { error: 'Error', serves: ['0e'] } } : {};
   const result = actions[action](side, point);
