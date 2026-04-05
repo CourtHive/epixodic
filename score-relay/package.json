@@ -20,7 +20,7 @@
     "tods-competition-factory": "^2.4.5"
   },
   "devDependencies": {
-    "@types/node": "^20.19.0",
+    "@types/node": "^24.0.0",
     "socket.io-client": "4.8.3",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3",
