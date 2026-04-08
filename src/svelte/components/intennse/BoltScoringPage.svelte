@@ -149,7 +149,13 @@
       initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
     }
 
-    createClock({ id: 'boltTimer', durationMs: BOLT_DURATION_MS, direction: 'down', tickIntervalMs: BOLT_TICK_MS });
+    createClock({
+      id: 'boltTimer',
+      durationMs: BOLT_DURATION_MS,
+      direction: 'down',
+      tickIntervalMs: BOLT_TICK_MS,
+      onExpire: handleBoltExpired,
+    });
     createClock({
       id: 'serveClock',
       durationMs: SERVE_CLOCK_DURATION_MS,
@@ -216,8 +222,14 @@
     timeoutTeamName = '';
   }
 
+  function handleBoltExpired() {
+    pauseClock('serveClock');
+  }
+
   function handleServeClockExpired() {
     if (rallyInProgress) return;
+    const boltSnapshot = getClockSnapshot('boltTimer');
+    if (boltSnapshot?.state === 'expired') return;
     restartClock('serveClock');
     serveClockExpired = true;
   }
