@@ -30,7 +30,10 @@
   import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
   import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock } from '../../../clock';
   import { browserStorage } from '../../../state/browserStorage';
+  import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
+
+  const INTENNSE_STANDARD = fixtures.competitionFormats.INTENNSE_STANDARD;
 
   // Business logic — independently testable
   import { resolvePointAttribution, type Side } from '../../../intennse/pointRules';
@@ -123,7 +126,8 @@
       try {
         const matchData = JSON.parse(stored);
         const format = matchData.matchUpFormat || matchData.competitionFormat?.matchUpFormat || 'SET7XA-S:T10P';
-        initScoringEngine({ matchUpFormat: format, competitionFormat: matchData.competitionFormat });
+        const competitionFormat = matchData.competitionFormat ?? INTENNSE_STANDARD;
+        initScoringEngine({ matchUpFormat: format, competitionFormat });
 
         // Team names are hydrated onto tieMatchUp sides as .teamParticipant
         const s1 = matchData.sides?.[0];
@@ -138,10 +142,10 @@
         // Register team rosters for substitution support
         initTeamRosters(matchData, s1, s2);
       } catch {
-        initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P' });
+        initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
       }
     } else {
-      initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P' });
+      initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
     }
 
     createClock({ id: 'boltTimer', durationMs: BOLT_DURATION_MS, direction: 'down', tickIntervalMs: BOLT_TICK_MS });
