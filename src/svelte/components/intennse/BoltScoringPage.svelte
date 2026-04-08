@@ -13,6 +13,7 @@
     redo,
     setServer,
     substitute as engineSubstitute,
+    endSegment,
     getPenaltyBoxProfile,
   } from '../../stores/scoringEngine.svelte';
   import {
@@ -185,6 +186,7 @@
     rallyInProgress = false;
     if (boltExpired) {
       boltComplete = true;
+      endSegment({ reason: 'bolt_expired' });
       broadcastState();
       return;
     }
@@ -336,13 +338,20 @@
     const serveClock = getClockSnapshot('serveClock');
     const state = getEngineState();
     const sets = state?.score?.sets ?? [];
-    const isComplete = state?.matchUpStatus === 'COMPLETED';
+    const isComplete = state?.matchUpStatus === 'COMPLETED' || boltComplete;
+    const matchUpStatus = isComplete ? 'COMPLETED' : 'IN_PROGRESS';
 
-    sendScore({
-      matchUpId,
-      score: { sets },
-      matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
-    });
+    // Persist score to browserStorage so scorecard can read it
+    const stored = browserStorage.get(matchUpId);
+    const matchData = stored ? JSON.parse(stored) : {};
+    matchData.score = { sets };
+    matchData.matchUpStatus = matchUpStatus;
+    browserStorage.set(matchUpId, JSON.stringify(matchData));
+
+    // Notify scorecard listener
+    window.dispatchEvent(new CustomEvent('matcharchive:updated', { detail: { matchUpId } }));
+
+    sendScore({ matchUpId, score: { sets }, matchUpStatus });
 
     sendIntennseUpdate(buildIntennseSnapshot({
       matchUpId,
@@ -352,7 +361,7 @@
       server: scoring.server,
       boltTimerRemainingMs: boltTimer?.remainingMs,
       serveClockRemainingMs: serveClock?.remainingMs,
-      matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
+      matchUpStatus,
     }));
   }
 
