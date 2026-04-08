@@ -545,3 +545,43 @@
 .intennse-aggregate-side--leading strong {
   color: var(--intennse-leading);
 }
+
+/* ── Compact ARC Score (center column) ───────────────────── */
+
+.intennse-arc-compact {
+  text-align: center;
+  padding: 0.2rem 0;
+}
+
+.intennse-arc-compact-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--intennse-text-muted);
+}
+
+.intennse-arc-compact-score {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--intennse-text);
+}
+
+.intennse-arc-compact-divider {
+  margin: 0 0.3rem;
+  color: var(--intennse-text-muted);
+}
+
+.intennse-arc-leading {
+  color: var(--intennse-leading);
+}
+
+/* ── Footer Responsive Labels ────────────────────────────── */
+
+.footer-label-short { display: none; }
+.footer-label-full { display: inline; }
+
+@media (max-width: 768px), (pointer: coarse) {
+  .footer-label-short { display: inline; }
+  .footer-label-full { display: none; }
+}

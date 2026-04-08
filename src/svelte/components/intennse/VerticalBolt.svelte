@@ -1,6 +1,5 @@
 <script lang="ts">
   import ClockDisplay from './ClockDisplay.svelte';
-  import AggregateBar from './AggregateBar.svelte';
   import { getClockSnapshot } from '../../../clock';
 
   let {
@@ -130,13 +129,6 @@
     <ClockDisplay clockId="serveClock" label="SERVE" size="compact" urgentAt={5000} criticalAt={3000} />
   </div>
 
-  <!-- Aggregate score above bolt score -->
-  <AggregateBar
-    side1Total={aggregateScore.side1}
-    side2Total={aggregateScore.side2}
-    {side1Name} {side2Name}
-  />
-
   <!-- Score: tap left/right to select side when action is pending -->
   <div class="iv-score" class:iv-score--selecting={!!pendingAction}>
     <button
@@ -162,6 +154,16 @@
       <span class="iv-score-value">{boltScore.side2}</span>
       <span class="iv-player-name">{side2Player}</span>
     </button>
+  </div>
+
+  <!-- Compact ARC score below bolt score -->
+  <div class="intennse-arc-compact">
+    <div class="intennse-arc-compact-label">ARC</div>
+    <div class="intennse-arc-compact-score">
+      <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
+      <span class="intennse-arc-compact-divider">–</span>
+      <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
+    </div>
   </div>
 
   {#if pendingAction}
@@ -203,12 +205,24 @@
 
   <!-- Footer: Sub / Timeout / Penalty -->
   <div class="iv-footer">
-    <button class="intennse-footer-btn" onclick={() => onSubstitute(1)}>SUB 1</button>
-    <button class="intennse-footer-btn" onclick={() => onTimeout(1)}>TO 1</button>
-    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>PEN 1</button>
-    <button class="intennse-footer-btn" onclick={() => onSubstitute(2)}>SUB 2</button>
-    <button class="intennse-footer-btn" onclick={() => onTimeout(2)}>TO 2</button>
-    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>PEN 2</button>
+    <button class="intennse-footer-btn" onclick={() => onSubstitute(1)}>
+      <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 1
+    </button>
+    <button class="intennse-footer-btn" onclick={() => onTimeout(1)}>
+      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> 1
+    </button>
+    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
+      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
+    </button>
+    <button class="intennse-footer-btn" onclick={() => onSubstitute(2)}>
+      <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
+    </button>
+    <button class="intennse-footer-btn" onclick={() => onTimeout(2)}>
+      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> 2
+    </button>
+    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>
+      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 2
+    </button>
   </div>
 </div>
 
