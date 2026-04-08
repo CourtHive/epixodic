@@ -62,6 +62,7 @@
 
   let rallyInProgress = $state(false);
   let boltStarted = $state(false);
+  let serveClockExpired = $state(false);
   let serveClockWasRunning = false;
   let timeoutTeamName = $state('');
   let serveSide = $state<ServeSide>('DEUCE');
@@ -149,7 +150,13 @@
     }
 
     createClock({ id: 'boltTimer', durationMs: BOLT_DURATION_MS, direction: 'down', tickIntervalMs: BOLT_TICK_MS });
-    createClock({ id: 'serveClock', durationMs: SERVE_CLOCK_DURATION_MS, direction: 'down', tickIntervalMs: SERVE_TICK_MS });
+    createClock({
+      id: 'serveClock',
+      durationMs: SERVE_CLOCK_DURATION_MS,
+      direction: 'down',
+      tickIntervalMs: SERVE_TICK_MS,
+      onExpire: handleServeClockExpired,
+    });
   });
 
   onDestroy(() => {
@@ -207,6 +214,28 @@
   function handleDismissTimeout() {
     executeClockCommands(onTimeoutEnd(serveClockWasRunning));
     timeoutTeamName = '';
+  }
+
+  function handleServeClockExpired() {
+    if (rallyInProgress) return;
+    restartClock('serveClock');
+    serveClockExpired = true;
+  }
+
+  function handleServeViolationConfirm() {
+    const receiver = scoring.server === 0 ? 1 : 0;
+    addPoint(receiver as 0 | 1, { result: 'Serve Clock Violation' });
+    const serving = getServingState(receiver, scoring.server, currentAggregateScore);
+    setServer(serving.server);
+    serveSide = serving.serveSide;
+    serveClockExpired = false;
+    afterPoint();
+  }
+
+  function handleServeViolationDismiss() {
+    serveClockExpired = false;
+    rallyInProgress = true;
+    executeClockCommands(onRallyStart());
   }
 
   function handleSubstitute(side: 1 | 2) {
@@ -367,6 +396,20 @@
     <VerticalBolt {...layoutProps} />
   {/if}
 
+  {#if serveClockExpired}
+    <div class="serve-violation-overlay" role="dialog" aria-label="Serve clock violation">
+      <div class="serve-violation-card">
+        <div class="serve-violation-title">Serve Clock Expired</div>
+        <button class="serve-violation-btn serve-violation-btn--confirm" onclick={handleServeViolationConfirm}>
+          Point Lost by Server
+        </button>
+        <button class="serve-violation-btn serve-violation-btn--dismiss" onclick={handleServeViolationDismiss}>
+          Point Started
+        </button>
+      </div>
+    </div>
+  {/if}
+
   {#if subModalSide}
     <SubstitutionModal
       side={subModalSide}
@@ -410,5 +453,47 @@
     transform: translateX(-50%);
     z-index: 1500;
     padding: 0.3rem;
+  }
+  .serve-violation-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+  }
+  .serve-violation-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border-radius: 12px;
+    background: var(--intennse-surface, #1e1e2e);
+    min-width: 260px;
+    max-width: 90vw;
+  }
+  .serve-violation-title {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--intennse-text, #fff);
+  }
+  .serve-violation-btn {
+    padding: 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .serve-violation-btn--confirm {
+    background: var(--intennse-error, #ef5350);
+    color: #fff;
+  }
+  .serve-violation-btn--dismiss {
+    background: var(--intennse-winner, #00d4aa);
+    color: #000;
   }
 </style>
