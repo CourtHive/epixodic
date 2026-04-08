@@ -16,6 +16,9 @@
     officialPause = false,
     boltStarted = false,
     boltComplete = false,
+    matchComplete = false,
+    currentBoltNumber = 1,
+    onNextBolt,
   }: {
     canUndo?: boolean;
     canRedo?: boolean;
@@ -30,6 +33,9 @@
     officialPause?: boolean;
     boltStarted?: boolean;
     boltComplete?: boolean;
+    matchComplete?: boolean;
+    currentBoltNumber?: number;
+    onNextBolt?: () => void;
   } = $props();
 
   const timeoutSnapshot = $derived(getClockSnapshot('timeoutTimer'));
@@ -63,25 +69,35 @@
     <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
   </div>
 
-  <!-- Start/Play/Rally/Paused — full width -->
-  <button
-    class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
-    class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
-    class:intennse-ctrl-btn--paused={officialPause}
-    onclick={onPointStart}
-    disabled={boltComplete}
-    title="Point Start"
-  >
-    {#if boltComplete}
-      BOLT COMPLETE
-    {:else if !boltStarted}
-      ▶ START
-    {:else if officialPause}
-      ⏸ PAUSED
-    {:else if rallyInProgress}
-      ⏵ RALLY
-    {:else}
-      ⏯ PLAY
-    {/if}
-  </button>
+  <!-- Start/Play/Rally/Paused/Next Bolt — full width -->
+  {#if boltComplete && !matchComplete && onNextBolt}
+    <button
+      class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
+      onclick={onNextBolt}
+      title="Start next bolt"
+    >
+      ▶ NEXT BOLT ({currentBoltNumber + 1})
+    </button>
+  {:else}
+    <button
+      class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
+      class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
+      class:intennse-ctrl-btn--paused={officialPause}
+      onclick={onPointStart}
+      disabled={boltComplete}
+      title="Point Start"
+    >
+      {#if matchComplete}
+        MATCH COMPLETE
+      {:else if !boltStarted}
+        ▶ START BOLT {currentBoltNumber}
+      {:else if officialPause}
+        ⏸ PAUSED
+      {:else if rallyInProgress}
+        ⏵ RALLY
+      {:else}
+        ⏯ PLAY
+      {/if}
+    </button>
+  {/if}
 </div>

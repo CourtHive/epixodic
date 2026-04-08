@@ -96,6 +96,17 @@
     return getAggregateScore(getEngineState());
   });
 
+  const matchComplete = $derived.by(() => {
+    void scoring.version;
+    return scoring.isComplete;
+  });
+
+  const currentBoltNumber = $derived.by(() => {
+    void scoring.version;
+    const sets = getEngineState()?.score?.sets ?? [];
+    return sets.length;
+  });
+
   // ── Clock command executor ──
 
   function executeClockCommands(commands: ClockCommand[]) {
@@ -193,6 +204,32 @@
     executeClockCommands(onPointComplete());
     checkPlayerTimeLimits();
     broadcastState();
+  }
+
+  function handleNextBolt() {
+    boltExpired = false;
+    boltComplete = false;
+    boltStarted = false;
+    rallyInProgress = false;
+    officialPause = false;
+    serveClockExpired = false;
+    // Recreate clocks for the next bolt
+    destroyClock('boltTimer');
+    destroyClock('serveClock');
+    createClock({
+      id: 'boltTimer',
+      durationMs: BOLT_DURATION_MS,
+      direction: 'down',
+      tickIntervalMs: BOLT_TICK_MS,
+      onExpire: handleBoltExpired,
+    });
+    createClock({
+      id: 'serveClock',
+      durationMs: SERVE_CLOCK_DURATION_MS,
+      direction: 'down',
+      tickIntervalMs: SERVE_TICK_MS,
+      onExpire: handleServeClockExpired,
+    });
   }
 
   function handleAction(action: string, side: Side) {
@@ -409,7 +446,7 @@
   const layoutProps = $derived({
     side1Name,
     side2Name,
-    boltLabel,
+    boltLabel: boltLabel || `BOLT ${currentBoltNumber}`,
     boltScore: currentBoltScore,
     aggregateScore: currentAggregateScore,
     server: scoring.server,
@@ -425,6 +462,9 @@
     boltStarted,
     boltComplete,
     boltExpired,
+    matchComplete,
+    currentBoltNumber,
+    onNextBolt: handleNextBolt,
     onWinner: (side: Side) => handleAction('winner', side),
     onTouch: (side: Side) => handleAction('touch', side),
     onForcedError: (side: Side) => handleAction('forcedError', side),

@@ -24,6 +24,9 @@
     boltStarted = false,
     boltComplete = false,
     boltExpired = false,
+    matchComplete = false,
+    currentBoltNumber = 1,
+    onNextBolt,
     onWinner,
     onTouch,
     onForcedError,
@@ -60,6 +63,9 @@
     boltStarted?: boolean;
     boltComplete?: boolean;
     boltExpired?: boolean;
+    matchComplete?: boolean;
+    currentBoltNumber?: number;
+    onNextBolt?: () => void;
     onWinner: (side: 0 | 1) => void;
     onTouch: (side: 0 | 1) => void;
     onForcedError: (side: 0 | 1) => void;
@@ -116,8 +122,8 @@
       </div>
     </div>
     <ControlBar
-      {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete}
-      {onUndo} {onRedo} {onPointStart} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
+      {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
+      {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
     />
   </div>
 

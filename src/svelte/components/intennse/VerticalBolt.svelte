@@ -20,6 +20,9 @@
     boltStarted = false,
     boltComplete = false,
     boltExpired = false,
+    matchComplete = false,
+    currentBoltNumber = 1,
+    onNextBolt,
     onWinner,
     onTouch,
     onForcedError,
@@ -55,6 +58,9 @@
     boltStarted?: boolean;
     boltComplete?: boolean;
     boltExpired?: boolean;
+    matchComplete?: boolean;
+    currentBoltNumber?: number;
+    onNextBolt?: () => void;
     onWinner: (side: 0 | 1) => void;
     onTouch: (side: 0 | 1) => void;
     onForcedError: (side: 0 | 1) => void;
@@ -208,13 +214,21 @@
   <!-- Play button -->
   <div class="iv-controls">
     <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
-    <button
-      class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
-      class:intennse-ctrl-btn--active={rallyInProgress}
-      onclick={onPointStart}
-    >
-      {!boltStarted ? '▶' : rallyInProgress ? '⏵' : '⏯'}
-    </button>
+    {#if boltComplete && !matchComplete && onNextBolt}
+      <button class="intennse-ctrl-btn intennse-ctrl-btn--point-start" onclick={onNextBolt}>
+        ▶ BOLT {currentBoltNumber + 1}
+      </button>
+    {:else}
+      <button
+        class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
+        class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
+        class:intennse-ctrl-btn--paused={officialPause}
+        onclick={onPointStart}
+        disabled={boltComplete}
+      >
+        {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
+      </button>
+    {/if}
     <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
   </div>
 
