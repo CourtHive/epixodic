@@ -74,6 +74,16 @@
 .intennse-footer-btn:active { opacity: 0.7; transform: scale(0.97); }
 .intennse-footer-btn:disabled { opacity: 0.3; cursor: default; }
 
+.intennse-footer-btn--sub {
+  border-color: var(--intennse-touch);
+  color: var(--intennse-touch);
+}
+
+.intennse-footer-btn--timeout {
+  border-color: var(--intennse-ace);
+  color: var(--intennse-ace);
+}
+
 .intennse-footer-btn--penalty {
   border-color: var(--intennse-error);
   color: var(--intennse-error);

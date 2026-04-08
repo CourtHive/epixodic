@@ -234,19 +234,19 @@
 
   <!-- Footer: Sub / Timeout / Penalty -->
   <div class="iv-footer">
-    <button class="intennse-footer-btn" onclick={() => onSubstitute(1)}>
+    <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)}>
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 1
     </button>
-    <button class="intennse-footer-btn" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0}>
+    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0}>
       <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
     </button>
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
       <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
     </button>
-    <button class="intennse-footer-btn" onclick={() => onSubstitute(2)}>
+    <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)}>
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
     </button>
-    <button class="intennse-footer-btn" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
+    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
       <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
     </button>
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>

@@ -141,10 +141,10 @@
   <!-- Footer: Sub / Timeout / Penalty under respective columns -->
   <div class="intennse-h-footer">
     <div class="intennse-h-footer-col">
-      <button class="intennse-footer-btn" onclick={() => onSubstitute(1)} title="Substitution Side 1">
+      <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)} title="Substitution Side 1">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
       </button>
-      <button class="intennse-footer-btn" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0} title="Timeout Side 1">
+      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0} title="Timeout Side 1">
         <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
       </button>
       <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)} title="Penalty Side 1">
@@ -153,10 +153,10 @@
     </div>
     <div class="intennse-h-footer-col"></div>
     <div class="intennse-h-footer-col">
-      <button class="intennse-footer-btn" onclick={() => onSubstitute(2)} title="Substitution Side 2">
+      <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)} title="Substitution Side 2">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
       </button>
-      <button class="intennse-footer-btn" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0} title="Timeout Side 2">
+      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0} title="Timeout Side 2">
         <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
       </button>
       <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)} title="Penalty Side 2">
