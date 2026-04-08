@@ -89,8 +89,8 @@ describe('clockOrchestration', () => {
       expect(SERVE_CLOCK_DURATION_MS).toBe(14_000);
     });
 
-    it('timeout is 2 minutes', () => {
-      expect(TIMEOUT_DURATION_MS).toBe(120_000);
+    it('timeout is 60 seconds', () => {
+      expect(TIMEOUT_DURATION_MS).toBe(60_000);
     });
   });
 });

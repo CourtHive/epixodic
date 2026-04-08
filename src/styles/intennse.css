@@ -473,6 +473,15 @@
   color: #fff !important;
 }
 
+.intennse-timeout-cancel {
+  font-size: 0.7rem !important;
+  min-width: 120px !important;
+  padding: 0.4rem 1rem !important;
+  background: transparent !important;
+  border-color: var(--intennse-text-muted) !important;
+  color: var(--intennse-text-muted) !important;
+}
+
 .intennse-ctrl-btn {
   display: flex;
   align-items: center;
@@ -503,6 +512,12 @@
 .intennse-ctrl-btn--active {
   background: var(--intennse-accent);
   color: var(--intennse-text);
+  animation: pulse-glow 1.5s infinite;
+}
+
+.intennse-ctrl-btn--paused {
+  background: var(--intennse-urgent);
+  color: #000;
   animation: pulse-glow 1.5s infinite;
 }
 

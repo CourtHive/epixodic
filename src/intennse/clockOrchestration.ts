@@ -10,7 +10,7 @@
 
 export const BOLT_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 export const SERVE_CLOCK_DURATION_MS = 14 * 1000; // 14 seconds
-export const TIMEOUT_DURATION_MS = 2 * 60 * 1000; // 2 minutes
+export const TIMEOUT_DURATION_MS = 60 * 1000; // 60 seconds
 
 export const BOLT_TICK_MS = 200;
 export const SERVE_TICK_MS = 100;

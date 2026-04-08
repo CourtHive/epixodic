@@ -10,9 +10,12 @@
     onPointStart,
     timeoutTeamName = '',
     onDismissTimeout,
+    onCancelTimeout,
     onBack,
     rallyInProgress = false,
+    officialPause = false,
     boltStarted = false,
+    boltComplete = false,
   }: {
     canUndo?: boolean;
     canRedo?: boolean;
@@ -21,9 +24,12 @@
     onPointStart: () => void;
     timeoutTeamName?: string;
     onDismissTimeout: () => void;
+    onCancelTimeout?: () => void;
     onBack?: () => void;
     rallyInProgress?: boolean;
+    officialPause?: boolean;
     boltStarted?: boolean;
+    boltComplete?: boolean;
   } = $props();
 
   const timeoutSnapshot = $derived(getClockSnapshot('timeoutTimer'));
@@ -41,6 +47,11 @@
       <button class="intennse-ctrl-btn intennse-timeout-dismiss" onclick={onDismissTimeout}>
         END TIMEOUT
       </button>
+      {#if onCancelTimeout}
+        <button class="intennse-ctrl-btn intennse-timeout-cancel" onclick={onCancelTimeout}>
+          CANCEL (doesn't count)
+        </button>
+      {/if}
     </div>
   </div>
 {/if}
@@ -52,13 +63,25 @@
     <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
   </div>
 
-  <!-- Start/Play/Rally — full width -->
+  <!-- Start/Play/Rally/Paused — full width -->
   <button
     class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
-    class:intennse-ctrl-btn--active={rallyInProgress}
+    class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
+    class:intennse-ctrl-btn--paused={officialPause}
     onclick={onPointStart}
+    disabled={boltComplete}
     title="Point Start"
   >
-    {!boltStarted ? '▶ START' : rallyInProgress ? '⏵ RALLY' : '⏯ PLAY'}
+    {#if boltComplete}
+      BOLT COMPLETE
+    {:else if !boltStarted}
+      ▶ START
+    {:else if officialPause}
+      ⏸ PAUSED
+    {:else if rallyInProgress}
+      ⏵ RALLY
+    {:else}
+      ⏯ PLAY
+    {/if}
   </button>
 </div>

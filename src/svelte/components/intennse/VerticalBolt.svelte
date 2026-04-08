@@ -16,7 +16,10 @@
     side1CourtTimeMs = 0,
     side2CourtTimeMs = 0,
     rallyInProgress = false,
+    officialPause = false,
     boltStarted = false,
+    boltComplete = false,
+    boltExpired = false,
     onWinner,
     onTouch,
     onForcedError,
@@ -27,9 +30,11 @@
     onRedo,
     onPointStart,
     onTimeout,
+    onCancelTimeout,
     onSubstitute,
     onPenalty,
     timeoutTeamName = '',
+    timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
     onBack,
   }: {
@@ -46,7 +51,10 @@
     side1CourtTimeMs?: number;
     side2CourtTimeMs?: number;
     rallyInProgress?: boolean;
+    officialPause?: boolean;
     boltStarted?: boolean;
+    boltComplete?: boolean;
+    boltExpired?: boolean;
     onWinner: (side: 0 | 1) => void;
     onTouch: (side: 0 | 1) => void;
     onForcedError: (side: 0 | 1) => void;
@@ -57,9 +65,11 @@
     onRedo: () => void;
     onPointStart: () => void;
     onTimeout: (side: 1 | 2) => void;
+    onCancelTimeout?: () => void;
     onSubstitute: (side: 1 | 2) => void;
     onPenalty: (side: 1 | 2) => void;
     timeoutTeamName?: string;
+    timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
     onBack: () => void;
   } = $props();
@@ -116,6 +126,11 @@
       <button class="intennse-ctrl-btn intennse-timeout-dismiss" onclick={onDismissTimeout}>
         END TIMEOUT
       </button>
+      {#if onCancelTimeout}
+        <button class="intennse-ctrl-btn intennse-timeout-cancel" onclick={onCancelTimeout}>
+          CANCEL (doesn't count)
+        </button>
+      {/if}
     </div>
   </div>
 {/if}
@@ -180,7 +195,7 @@
         class="intennse-btn {info.cls}"
         class:intennse-btn--selected={pendingAction === action}
         onclick={() => actionButton(action)}
-        disabled={!boltStarted}
+        disabled={!boltStarted || boltComplete}
       >
         <span class="intennse-btn-label">{info.label}</span>
         {#if info.value}
@@ -208,8 +223,8 @@
     <button class="intennse-footer-btn" onclick={() => onSubstitute(1)}>
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 1
     </button>
-    <button class="intennse-footer-btn" onclick={() => onTimeout(1)}>
-      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> 1
+    <button class="intennse-footer-btn" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0}>
+      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
     </button>
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
       <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
@@ -217,8 +232,8 @@
     <button class="intennse-footer-btn" onclick={() => onSubstitute(2)}>
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
     </button>
-    <button class="intennse-footer-btn" onclick={() => onTimeout(2)}>
-      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> 2
+    <button class="intennse-footer-btn" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
+      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
     </button>
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>
       <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 2

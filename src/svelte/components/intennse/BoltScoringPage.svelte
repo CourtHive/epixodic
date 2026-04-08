@@ -61,10 +61,16 @@
   const playerTime = getPlayerTimeState();
 
   let rallyInProgress = $state(false);
+  let officialPause = $state(false);
   let boltStarted = $state(false);
+  let boltExpired = $state(false);
+  let boltComplete = $state(false);
   let serveClockExpired = $state(false);
   let serveClockWasRunning = false;
   let timeoutTeamName = $state('');
+  let timeoutSide = $state<1 | 2 | null>(null);
+  let timeoutsUsed = $state<{ 1: number; 2: number }>({ 1: 0, 2: 0 });
+  const maxTimeoutsPerSide = (INTENNSE_STANDARD as any).timeoutRules?.maxPerSide ?? 5;
   let serveSide = $state<ServeSide>('DEUCE');
   let isLandscape = $state(window.innerWidth > window.innerHeight);
 
@@ -177,12 +183,18 @@
 
   function afterPoint() {
     rallyInProgress = false;
+    if (boltExpired) {
+      boltComplete = true;
+      broadcastState();
+      return;
+    }
     executeClockCommands(onPointComplete());
     checkPlayerTimeLimits();
     broadcastState();
   }
 
   function handleAction(action: string, side: Side) {
+    if (boltComplete) return;
     const { winner, result } = resolvePointAttribution(action, side);
     if (winner === null) {
       // Fault: no point awarded
@@ -199,18 +211,35 @@
   }
 
   function handlePointStart() {
+    if (boltComplete) return;
     if (!boltStarted) {
       boltStarted = true;
       executeClockCommands(onBoltStart());
       return;
     }
-    if (!rallyInProgress) {
-      rallyInProgress = true;
-      executeClockCommands(onRallyStart());
+    if (officialPause) {
+      // Resume from official pause
+      officialPause = false;
+      resumeClock('boltTimer');
+      if (rallyInProgress) return;
+      resumeClock('serveClock');
+      return;
     }
+    if (rallyInProgress) {
+      // Official pause — freeze everything
+      officialPause = true;
+      pauseClock('boltTimer');
+      pauseClock('serveClock');
+      return;
+    }
+    // Start rally
+    rallyInProgress = true;
+    executeClockCommands(onRallyStart());
   }
 
   function handleTimeout(side: 1 | 2) {
+    if (timeoutsUsed[side] >= maxTimeoutsPerSide) return;
+    timeoutSide = side;
     timeoutTeamName = side === 1 ? side1Name : side2Name;
     const serveSnapshot = getClockSnapshot('serveClock');
     serveClockWasRunning = serveSnapshot?.state === 'running';
@@ -218,11 +247,26 @@
   }
 
   function handleDismissTimeout() {
+    if (timeoutSide) {
+      timeoutsUsed[timeoutSide]++;
+    }
     executeClockCommands(onTimeoutEnd(serveClockWasRunning));
     timeoutTeamName = '';
+    timeoutSide = null;
+  }
+
+  function handleCancelTimeout() {
+    // Return elapsed time to bolt clock by resuming without counting the timeout
+    const timeoutSnapshot = getClockSnapshot('timeoutTimer');
+    const elapsedMs = timeoutSnapshot?.elapsedMs ?? 0;
+    executeClockCommands(onTimeoutEnd(serveClockWasRunning));
+    // Bolt clock resumed by onTimeoutEnd; no timeout counted
+    timeoutTeamName = '';
+    timeoutSide = null;
   }
 
   function handleBoltExpired() {
+    boltExpired = true;
     pauseClock('serveClock');
   }
 
@@ -368,7 +412,10 @@
     side1CourtTimeMs,
     side2CourtTimeMs,
     rallyInProgress,
+    officialPause,
     boltStarted,
+    boltComplete,
+    boltExpired,
     onWinner: (side: Side) => handleAction('winner', side),
     onTouch: (side: Side) => handleAction('touch', side),
     onForcedError: (side: Side) => handleAction('forcedError', side),
@@ -379,9 +426,11 @@
     onRedo: () => redo(),
     onPointStart: handlePointStart,
     onTimeout: handleTimeout,
+    onCancelTimeout: handleCancelTimeout,
     onSubstitute: handleSubstitute,
     onPenalty: handlePenalty,
     timeoutTeamName,
+    timeoutsRemaining: { 1: maxTimeoutsPerSide - timeoutsUsed[1], 2: maxTimeoutsPerSide - timeoutsUsed[2] },
     onDismissTimeout: handleDismissTimeout,
     onBack: handleBack,
   });

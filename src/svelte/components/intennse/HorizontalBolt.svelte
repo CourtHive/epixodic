@@ -20,7 +20,10 @@
     side1CourtTimeMs = 0,
     side2CourtTimeMs = 0,
     rallyInProgress = false,
+    officialPause = false,
     boltStarted = false,
+    boltComplete = false,
+    boltExpired = false,
     onWinner,
     onTouch,
     onForcedError,
@@ -31,9 +34,11 @@
     onRedo,
     onPointStart,
     onTimeout,
+    onCancelTimeout,
     onSubstitute,
     onPenalty,
     timeoutTeamName = '',
+    timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
     onBack,
   }: {
@@ -51,7 +56,10 @@
     side1CourtTimeMs?: number;
     side2CourtTimeMs?: number;
     rallyInProgress?: boolean;
+    officialPause?: boolean;
     boltStarted?: boolean;
+    boltComplete?: boolean;
+    boltExpired?: boolean;
     onWinner: (side: 0 | 1) => void;
     onTouch: (side: 0 | 1) => void;
     onForcedError: (side: 0 | 1) => void;
@@ -62,9 +70,11 @@
     onRedo: () => void;
     onPointStart: () => void;
     onTimeout: (side: 1 | 2) => void;
+    onCancelTimeout?: () => void;
     onSubstitute: (side: 1 | 2) => void;
     onPenalty: (side: 1 | 2) => void;
     timeoutTeamName?: string;
+    timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
     onBack: () => void;
   } = $props();
@@ -85,7 +95,7 @@
     <ActionPanel
       side={0}
       isServing={server === 0}
-      disabled={!boltStarted}
+      disabled={!boltStarted || boltComplete}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
   </div>
@@ -106,8 +116,8 @@
       </div>
     </div>
     <ControlBar
-      {canUndo} {canRedo} {rallyInProgress} {boltStarted}
-      {onUndo} {onRedo} {onPointStart} {timeoutTeamName} {onDismissTimeout}
+      {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete}
+      {onUndo} {onRedo} {onPointStart} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
     />
   </div>
 
@@ -117,7 +127,7 @@
     <ActionPanel
       side={1}
       isServing={server === 1}
-      disabled={!boltStarted}
+      disabled={!boltStarted || boltComplete}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
   </div>
@@ -128,8 +138,8 @@
       <button class="intennse-footer-btn" onclick={() => onSubstitute(1)} title="Substitution Side 1">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
       </button>
-      <button class="intennse-footer-btn" onclick={() => onTimeout(1)} title="Timeout Side 1">
-        <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span>
+      <button class="intennse-footer-btn" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0} title="Timeout Side 1">
+        <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
       </button>
       <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)} title="Penalty Side 1">
         <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
@@ -140,8 +150,8 @@
       <button class="intennse-footer-btn" onclick={() => onSubstitute(2)} title="Substitution Side 2">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
       </button>
-      <button class="intennse-footer-btn" onclick={() => onTimeout(2)} title="Timeout Side 2">
-        <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span>
+      <button class="intennse-footer-btn" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0} title="Timeout Side 2">
+        <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
       </button>
       <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)} title="Penalty Side 2">
         <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
