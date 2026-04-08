@@ -8,9 +8,6 @@
     onUndo,
     onRedo,
     onPointStart,
-    onTimeout,
-    onSubstitute,
-    onPenalty,
     timeoutTeamName = '',
     onDismissTimeout,
     onBack,
@@ -19,12 +16,9 @@
   }: {
     canUndo?: boolean;
     canRedo?: boolean;
-    onUndo: () => void;
-    onRedo: () => void;
+    onUndo?: () => void;
+    onRedo?: () => void;
     onPointStart: () => void;
-    onTimeout: (side: 1 | 2) => void;
-    onSubstitute: (side: 1 | 2) => void;
-    onPenalty: (side: 1 | 2) => void;
     timeoutTeamName?: string;
     onDismissTimeout: () => void;
     onBack?: () => void;
@@ -52,31 +46,7 @@
 {/if}
 
 <div class="intennse-control-bar">
-  <!-- Row 1: Penalty -->
-  <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--penalty" onclick={() => onPenalty(1)} title="Penalty Side 1">PEN 1</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--penalty" onclick={() => onPenalty(2)} title="Penalty Side 2">PEN 2</button>
-  </div>
-
-  <!-- Row 2: Timeout -->
-  <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={() => onTimeout(1)} title="Timeout Side 1">TO 1</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={() => onTimeout(2)} title="Timeout Side 2">TO 2</button>
-  </div>
-
-  <!-- Row 3: Substitution -->
-  <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={() => onSubstitute(1)} title="Sub Side 1">SUB 1</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={() => onSubstitute(2)} title="Sub Side 2">SUB 2</button>
-  </div>
-
-  <!-- Row 4: Undo / Redo -->
-  <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onUndo} disabled={!canUndo} title="Undo">↩ UNDO</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
-  </div>
-
-  <!-- Row 5: Start/Play/Rally — full width -->
+  <!-- Start/Play/Rally — full width -->
   <button
     class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
     class:intennse-ctrl-btn--active={rallyInProgress}

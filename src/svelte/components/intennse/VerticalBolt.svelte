@@ -130,6 +130,13 @@
     <ClockDisplay clockId="serveClock" label="SERVE" size="compact" urgentAt={5000} criticalAt={3000} />
   </div>
 
+  <!-- Aggregate score above bolt score -->
+  <AggregateBar
+    side1Total={aggregateScore.side1}
+    side2Total={aggregateScore.side2}
+    {side1Name} {side2Name}
+  />
+
   <!-- Score: tap left/right to select side when action is pending -->
   <div class="iv-score" class:iv-score--selecting={!!pendingAction}>
     <button
@@ -181,10 +188,9 @@
     {/each}
   </div>
 
-  <!-- Controls -->
+  <!-- Play button -->
   <div class="iv-controls">
     <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
-    <button class="intennse-ctrl-btn" onclick={() => onTimeout(1)}>TO1</button>
     <button
       class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
       class:intennse-ctrl-btn--active={rallyInProgress}
@@ -192,16 +198,18 @@
     >
       {!boltStarted ? '▶' : rallyInProgress ? '⏵' : '⏯'}
     </button>
-    <button class="intennse-ctrl-btn" onclick={() => onTimeout(2)}>TO2</button>
     <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
   </div>
 
-  <!-- Aggregate bar -->
-  <AggregateBar
-    side1Total={aggregateScore.side1}
-    side2Total={aggregateScore.side2}
-    {side1Name} {side2Name}
-  />
+  <!-- Footer: Sub / Timeout / Penalty -->
+  <div class="iv-footer">
+    <button class="intennse-footer-btn" onclick={() => onSubstitute(1)}>SUB 1</button>
+    <button class="intennse-footer-btn" onclick={() => onTimeout(1)}>TO 1</button>
+    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>PEN 1</button>
+    <button class="intennse-footer-btn" onclick={() => onSubstitute(2)}>SUB 2</button>
+    <button class="intennse-footer-btn" onclick={() => onTimeout(2)}>TO 2</button>
+    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>PEN 2</button>
+  </div>
 </div>
 
 <style>
@@ -332,5 +340,14 @@
   :global(.intennse-btn--selected) {
     outline: 2px solid var(--intennse-text);
     outline-offset: 1px;
+  }
+
+  .iv-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.3rem;
+    padding: 0.4rem;
+    border-top: 1px solid var(--intennse-accent);
+    background: var(--intennse-surface);
   }
 </style>

@@ -34,6 +34,51 @@
   overflow: hidden;
 }
 
+/* ── Footer (Sub / Timeout / Penalty) ────────────────────── */
+
+.intennse-h-footer {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--intennse-accent);
+  background: var(--intennse-surface);
+}
+
+.intennse-h-footer-col {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.intennse-footer-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--intennse-accent);
+  border-radius: 8px;
+  background: var(--intennse-surface);
+  color: var(--intennse-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: opacity 0.1s;
+}
+
+.intennse-footer-btn:active { opacity: 0.7; transform: scale(0.97); }
+.intennse-footer-btn:disabled { opacity: 0.3; cursor: default; }
+
+.intennse-footer-btn--penalty {
+  border-color: var(--intennse-error);
+  color: var(--intennse-error);
+}
+
 .intennse-h-header {
   grid-column: 1 / -1;
   display: flex;
@@ -472,14 +517,11 @@
 /* ── Aggregate Bar ─────────────────────────────────────────── */
 
 .intennse-aggregate-bar {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1.5rem;
   padding: 0.4rem 1rem;
-  background: var(--intennse-surface);
-  border-top: 1px solid var(--intennse-accent);
   font-size: 0.8rem;
 }
 
