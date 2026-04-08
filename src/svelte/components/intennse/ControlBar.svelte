@@ -48,8 +48,8 @@
 <div class="intennse-control-bar">
   <!-- Undo / Redo — full width row -->
   <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onUndo} disabled={!canUndo} title="Undo">↩ UNDO</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
+    <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onUndo} disabled={!canUndo} title="Undo">↩ UNDO</button>
+    <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
   </div>
 
   <!-- Start/Play/Rally — full width -->

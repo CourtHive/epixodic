@@ -424,6 +424,12 @@
   min-width: unset;
 }
 
+.intennse-ctrl-btn--undo-redo {
+  min-height: 44px;
+  font-size: 0.85rem;
+  border-color: var(--intennse-text-muted);
+}
+
 /* ── Timeout Overlay ──────────────────────────────────────── */
 .intennse-timeout-overlay {
   position: fixed;
