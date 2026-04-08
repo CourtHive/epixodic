@@ -38,6 +38,7 @@
     const parentMatchUp = teamState.teamMatchUp;
     const matchData: any = {
       matchUpId: tieMatchUp.matchUpId,
+      parentMatchUpId: parentMatchUp?.matchUpId,
       matchUpFormat: tieMatchUp.matchUpFormat || parentMatchUp?.matchUpFormat || 'SET3-S:6/TB7',
       matchUpType: tieMatchUp.matchUpType,
       sides: tieMatchUp.sides,

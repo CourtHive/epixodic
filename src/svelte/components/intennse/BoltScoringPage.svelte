@@ -68,6 +68,7 @@
   let boltComplete = $state(false);
   let serveClockExpired = $state(false);
   let serveClockWasRunning = false;
+  let arcBaseScore = $state({ side1: 0, side2: 0 });
   let timeoutTeamName = $state('');
   let timeoutSide = $state<1 | 2 | null>(null);
   let timeoutsUsed = $state<{ 1: number; 2: number }>({ 1: 0, 2: 0 });
@@ -93,7 +94,11 @@
 
   const currentAggregateScore = $derived.by(() => {
     void scoring.version;
-    return getAggregateScore(getEngineState());
+    const local = getAggregateScore(getEngineState());
+    return {
+      side1: arcBaseScore.side1 + local.side1,
+      side2: arcBaseScore.side2 + local.side2,
+    };
   });
 
   const matchComplete = $derived.by(() => {
@@ -160,6 +165,9 @@
 
         // Register team rosters for substitution support
         initTeamRosters(matchData, s1, s2);
+
+        // Compute ARC base from other tieMatchUps in the team matchUp
+        loadArcBaseScore(matchData.parentMatchUpId, matchUpId);
       } catch {
         initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
       }
@@ -369,6 +377,28 @@
   }
 
   // ── Helpers ──
+
+  function loadArcBaseScore(parentMatchUpId: string | undefined, currentMatchUpId: string) {
+    if (!parentMatchUpId) return;
+    const teamStored = browserStorage.get('team-' + parentMatchUpId);
+    if (!teamStored) return;
+    try {
+      const teamData = JSON.parse(teamStored);
+      const tieMatchUps = teamData.tieMatchUps ?? [];
+      let side1 = 0;
+      let side2 = 0;
+      for (const tm of tieMatchUps) {
+        if (tm.matchUpId === currentMatchUpId) continue;
+        for (const set of tm.score?.sets ?? []) {
+          side1 += set.side1Score ?? 0;
+          side2 += set.side2Score ?? 0;
+        }
+      }
+      arcBaseScore = { side1, side2 };
+    } catch {
+      // ignore
+    }
+  }
 
   function broadcastState() {
     const boltTimer = getClockSnapshot('boltTimer');
