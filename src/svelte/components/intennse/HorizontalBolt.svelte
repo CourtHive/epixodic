@@ -135,10 +135,7 @@
         <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
       </button>
     </div>
-    <div class="intennse-h-footer-col">
-      <button class="intennse-footer-btn" onclick={onUndo} disabled={!canUndo} title="Undo">↩</button>
-      <button class="intennse-footer-btn" onclick={onRedo} disabled={!canRedo} title="Redo">↪</button>
-    </div>
+    <div class="intennse-h-footer-col"></div>
     <div class="intennse-h-footer-col">
       <button class="intennse-footer-btn" onclick={() => onSubstitute(2)} title="Substitution Side 2">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
