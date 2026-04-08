@@ -309,6 +309,10 @@
     overflow-y: auto;
   }
 
+  .iv-actions :global(.intennse-btn) {
+    flex: 1;
+  }
+
   .iv-controls {
     display: flex;
     align-items: center;

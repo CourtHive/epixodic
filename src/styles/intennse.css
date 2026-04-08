@@ -310,6 +310,10 @@
   flex: 1;
 }
 
+.intennse-action-panel .intennse-btn {
+  flex: 1;
+}
+
 .intennse-btn {
   display: flex;
   align-items: center;
