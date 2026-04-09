@@ -86,7 +86,9 @@
   let penaltySubPlayer = $state<{ participantId: string; participantName: string } | null>(null);
   let penaltyModalSide = $state<1 | 2 | null>(null);
   let sideRoster = $state<Record<string, 1 | 2>>({});
+  let playerTimePanelOpen = $state(false);
   let timeWarning = $state<{ playerName: string; remainingMs: number } | null>(null);
+  let autoTimePenaltyTriggered = $state<Set<string>>(new Set());
 
   // ── Derived scores (read engine directly, version triggers reactivity) ──
 
@@ -213,7 +215,6 @@
       return;
     }
     executeClockCommands(onPointComplete());
-    checkPlayerTimeLimits();
     broadcastState();
   }
 
@@ -223,6 +224,7 @@
     boltStarted = false;
     rallyInProgress = false;
     officialPause = false;
+    autoTimePenaltyTriggered = new Set();
     serveClockExpired = false;
     // Recreate clocks for the next bolt
     destroyClock('boltTimer');
@@ -361,7 +363,6 @@
     }
     subModalSide = null;
     penaltySubPlayer = null;
-    checkPlayerTimeLimits();
   }
 
   function handlePenalty(side: 1 | 2) {
@@ -480,21 +481,36 @@
     if (s2ActiveId) startTracking(s2ActiveId);
   }
 
-  function checkPlayerTimeLimits() {
-    for (const name of [side1Player, side2Player]) {
-      if (!name) continue;
-      const check = checkTimeLimit(name);
-      if (check.exceeded) {
-        timeWarning = { playerName: name, remainingMs: 0 };
-        return;
+  // ── Reactive time monitoring ──
+
+  $effect(() => {
+    void playerTime.version;
+    if (!boltStarted || boltComplete) return;
+
+    let warning: { playerName: string; remainingMs: number } | null = null;
+
+    for (const [participantId, entry] of Object.entries(playerTime.players)) {
+      if (!entry.isOnCourt) continue;
+      const check = checkTimeLimit(participantId);
+
+      // Auto-penalty when time is exhausted
+      if (check.exceeded && !autoTimePenaltyTriggered.has(participantId)) {
+        autoTimePenaltyTriggered = new Set([...autoTimePenaltyTriggered, participantId]);
+        const side = sideRoster[participantId] as 1 | 2 | undefined;
+        if (side) {
+          // Defer to avoid mutating state during effect
+          queueMicrotask(() => handlePenalty(side));
+        }
       }
-      if (check.remainingMs <= 120000) {
-        timeWarning = { playerName: name, remainingMs: check.remainingMs };
-        return;
+
+      // Track the most urgent warning
+      if (check.remainingMs <= 120000 && (!warning || check.remainingMs < warning.remainingMs)) {
+        warning = { playerName: entry.participantName, remainingMs: check.remainingMs };
       }
     }
-    timeWarning = null;
-  }
+
+    timeWarning = warning;
+  });
 
   // ── Layout props ──
 
@@ -536,6 +552,9 @@
     timeoutTeamName,
     timeoutsRemaining: { 1: maxTimeoutsPerSide - timeoutsUsed[1], 2: maxTimeoutsPerSide - timeoutsUsed[2] },
     onDismissTimeout: handleDismissTimeout,
+    playerTimePanelOpen,
+    onTogglePlayerTimePanel: () => { playerTimePanelOpen = !playerTimePanelOpen; },
+    sideRoster,
     onBack: handleBack,
   });
 </script>

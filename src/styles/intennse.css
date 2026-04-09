@@ -25,7 +25,7 @@
 .intennse-horizontal {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr auto auto;
   height: 100%;
   width: 100%;
   background: var(--intennse-bg);
@@ -84,9 +84,25 @@
   color: var(--intennse-ace);
 }
 
+.intennse-footer-btn--info {
+  border-color: var(--intennse-text-muted);
+  color: var(--intennse-text-muted);
+}
+
+.intennse-footer-btn--active {
+  border-color: var(--intennse-serving);
+  color: var(--intennse-serving);
+}
+
 .intennse-footer-btn--penalty {
   border-color: var(--intennse-error);
   color: var(--intennse-error);
+}
+
+.intennse-h-info-panel {
+  grid-column: 1 / -1;
+  padding: 0.3rem 0.5rem;
+  border-top: 1px solid var(--intennse-accent);
 }
 
 .intennse-h-header {

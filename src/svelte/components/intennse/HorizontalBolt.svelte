@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
   import ScoreDisplay from './ScoreDisplay.svelte';
   import ActionPanel from './ActionPanel.svelte';
@@ -43,6 +44,9 @@
     timeoutTeamName = '',
     timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
+    playerTimePanelOpen = false,
+    onTogglePlayerTimePanel,
+    sideRoster = {},
     onBack,
   }: {
     side1Name: string;
@@ -82,6 +86,9 @@
     timeoutTeamName?: string;
     timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
+    playerTimePanelOpen?: boolean;
+    onTogglePlayerTimePanel?: () => void;
+    sideRoster?: Record<string, 1 | 2>;
     onBack: () => void;
   } = $props();
 </script>
@@ -138,6 +145,12 @@
     />
   </div>
 
+  {#if playerTimePanelOpen}
+    <div class="intennse-h-info-panel">
+      <PlayerTimeInfoPanel {sideRoster} />
+    </div>
+  {/if}
+
   <!-- Footer: Sub / Timeout / Penalty under respective columns -->
   <div class="intennse-h-footer">
     <div class="intennse-h-footer-col">
@@ -151,7 +164,15 @@
         <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
       </button>
     </div>
-    <div class="intennse-h-footer-col"></div>
+    <div class="intennse-h-footer-col intennse-h-footer-col--center">
+      <button
+        class="intennse-footer-btn intennse-footer-btn--info"
+        class:intennse-footer-btn--active={playerTimePanelOpen}
+        onclick={onTogglePlayerTimePanel}
+      >
+        <span class="footer-label-full">Player Time</span><span class="footer-label-short">TIME</span>
+      </button>
+    </div>
     <div class="intennse-h-footer-col">
       <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)} disabled={!boltStarted} title="Substitution Side 2">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>

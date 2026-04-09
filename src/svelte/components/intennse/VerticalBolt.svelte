@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
   import { getClockSnapshot } from '../../../clock';
 
@@ -39,6 +40,9 @@
     timeoutTeamName = '',
     timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
+    playerTimePanelOpen = false,
+    onTogglePlayerTimePanel,
+    sideRoster = {},
     onBack,
   }: {
     side1Name: string;
@@ -77,6 +81,9 @@
     timeoutTeamName?: string;
     timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
+    playerTimePanelOpen?: boolean;
+    onTogglePlayerTimePanel?: () => void;
+    sideRoster?: Record<string, 1 | 2>;
     onBack: () => void;
   } = $props();
 
@@ -232,6 +239,20 @@
     <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
   </div>
 
+  <!-- Player Time toggle + panel -->
+  <div class="iv-info-toggle">
+    <button
+      class="intennse-footer-btn intennse-footer-btn--info"
+      class:intennse-footer-btn--active={playerTimePanelOpen}
+      onclick={onTogglePlayerTimePanel}
+    >
+      <span class="footer-label-full">Player Time</span><span class="footer-label-short">TIME</span>
+    </button>
+  </div>
+  {#if playerTimePanelOpen}
+    <PlayerTimeInfoPanel {sideRoster} />
+  {/if}
+
   <!-- Footer: Sub / Timeout / Penalty -->
   <div class="iv-footer">
     <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)}>
@@ -378,6 +399,12 @@
     min-width: 28px;
     min-height: 28px;
     padding: 0.2rem;
+  }
+
+  .iv-info-toggle {
+    padding: 0.3rem 0.5rem;
+    display: flex;
+    justify-content: center;
   }
 
   :global(.intennse-btn--selected) {
