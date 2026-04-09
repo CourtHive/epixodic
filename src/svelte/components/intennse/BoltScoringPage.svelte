@@ -409,18 +409,19 @@
     const durationMs = (boxProfile?.durationSeconds ?? 120) * 1000;
     sendToBox(participantId, participantName, side, durationMs);
 
-    // Award penalty points to opposing team
+    // Award penalty as a single event (one point record with scoreValue = points)
     const receiver = side === 1 ? 1 : 0;
     const winnerParticipantId = receiver === 0 ? side1PlayerId : side2PlayerId;
-    for (let i = 0; i < points; i++) {
-      addPoint(receiver as 0 | 1, {
-        result: 'Penalty',
-        penaltyAgainstParticipantId: participantId,
-        side1ParticipantId: side1PlayerId,
-        side2ParticipantId: side2PlayerId,
-        winnerParticipantId,
-      });
-    }
+    addPoint(receiver as 0 | 1, {
+      result: 'Penalty',
+      scoreValue: points,
+      penaltyEvent: true,
+      penaltyPoints: points,
+      penaltyAgainstParticipantId: participantId,
+      side1ParticipantId: side1PlayerId,
+      side2ParticipantId: side2PlayerId,
+      winnerParticipantId,
+    });
     broadcastState();
 
     penaltyModalSide = null;
