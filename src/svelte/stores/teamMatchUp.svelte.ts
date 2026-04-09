@@ -53,6 +53,36 @@ export function setActiveTieMatchUp(tieMatchUpId: string) {
   activeTieMatchUpId = tieMatchUpId;
 }
 
+/**
+ * Update which participant is currently active on a tieMatchUp side
+ * (used after a substitution). Looks up the new participant from the
+ * parent team matchUp's roster so the full participant object is set.
+ */
+export function setTieMatchUpActiveParticipant(
+  tieMatchUpId: string,
+  sideNumber: 1 | 2,
+  participantId: string,
+) {
+  if (!teamMatchUp?.tieMatchUps) return;
+  const tieMatchUp = teamMatchUp.tieMatchUps.find((m) => m.matchUpId === tieMatchUpId);
+  if (!tieMatchUp?.sides) return;
+  const side = tieMatchUp.sides.find((s: any) => s.sideNumber === sideNumber);
+  if (!side) return;
+
+  // Look up the full participant object from the parent team matchUp roster
+  const teamSide = teamMatchUp.sides?.find((s: any) => s.sideNumber === sideNumber);
+  const rosterParticipant = (teamSide as any)?.participant?.individualParticipants?.find(
+    (p: any) => p.participantId === participantId,
+  );
+  if (rosterParticipant) {
+    (side as any).participant = rosterParticipant;
+  } else {
+    // Fallback: at least set the participantId
+    (side as any).participant = { participantId };
+  }
+  recalculateTeamScore();
+}
+
 export function clearActiveTieMatchUp() {
   activeTieMatchUpId = null;
 }

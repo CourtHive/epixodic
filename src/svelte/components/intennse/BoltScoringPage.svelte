@@ -42,6 +42,7 @@
     persistTieMatchUpState,
     restoreTeamMatchUp,
     findParentMatchUpId,
+    setTieMatchUpActiveParticipant,
   } from '../../stores/teamMatchUp.svelte';
   import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
@@ -209,7 +210,7 @@
       if (s1?.teamParticipant?.participantName) side1Name = s1.teamParticipant.participantName;
       if (s2?.teamParticipant?.participantName) side2Name = s2.teamParticipant.participantName;
 
-      // Restore previous engine state if present (must run before deriving active players)
+      // Restore previous engine state if present
       if (tieMatchUp.engineState) {
         setEngineState(tieMatchUp.engineState);
         const sets = tieMatchUp.engineState?.score?.sets ?? [];
@@ -223,13 +224,10 @@
         }
       }
 
-      // Active player IDs — derive from engine's current lineUp (reflects substitutions).
-      // Fall back to original tieMatchUp.sides assignment for fresh engines.
-      const restoredEngineSides = getEngineState()?.sides ?? [];
-      const engineSide1ActiveId = restoredEngineSides[0]?.lineUp?.[0]?.participantId;
-      const engineSide2ActiveId = restoredEngineSides[1]?.lineUp?.[0]?.participantId;
-      side1PlayerId = engineSide1ActiveId || s1?.participant?.participantId || '';
-      side2PlayerId = engineSide2ActiveId || s2?.participant?.participantId || '';
+      // Active player IDs — read directly from the tieMatchUp sides.
+      // setTieMatchUpActiveParticipant updates these on every substitution.
+      side1PlayerId = s1?.participant?.participantId ?? '';
+      side2PlayerId = s2?.participant?.participantId ?? '';
 
       // Register team rosters for substitution support
       const teamRosters = parentMatchUp?.sides?.map((side: any) => ({
@@ -240,18 +238,13 @@
           gender: p.person?.sex || p.person?.gender,
         })) ?? [],
       })) ?? [];
-      // Build synthetic s1/s2 with the actual active player IDs (post-substitution)
       const activeS1 = { participant: { participantId: side1PlayerId } };
       const activeS2 = { participant: { participantId: side2PlayerId } };
       initTeamRosters({ teamRosters }, activeS1, activeS2);
 
-      // Ensure the engine has lineUps so engine.substitute() works on subsequent subs
-      if (!engineSide1ActiveId && side1PlayerId) {
-        setLineUp(1, [{ participantId: side1PlayerId }]);
-      }
-      if (!engineSide2ActiveId && side2PlayerId) {
-        setLineUp(2, [{ participantId: side2PlayerId }]);
-      }
+      // Ensure the engine has lineUps so engine.substitute() works
+      if (side1PlayerId) setLineUp(1, [{ participantId: side1PlayerId }]);
+      if (side2PlayerId) setLineUp(2, [{ participantId: side2PlayerId }]);
 
       // Compute ARC base from other tieMatchUps in the team matchUp
       loadArcBaseScoreFromTeam(parentMatchUp, matchUpId);
@@ -503,6 +496,8 @@
     } else {
       side2PlayerId = inId;
     }
+    // Update the tieMatchUp's side participant so the scorecard reflects the new player
+    setTieMatchUpActiveParticipant(matchUpId, subModalSide, inId);
     subModalSide = null;
     penaltySubPlayer = null;
   }
