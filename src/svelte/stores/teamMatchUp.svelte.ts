@@ -57,6 +57,48 @@ export function updateTieMatchUpResult(
   recalculateTeamScore();
 }
 
+/**
+ * Get a tieMatchUp by id from the current team matchUp.
+ */
+export function getTieMatchUp(tieMatchUpId: string): HydratedMatchUp | undefined {
+  return teamMatchUp?.tieMatchUps?.find((m) => m.matchUpId === tieMatchUpId);
+}
+
+/**
+ * Persist a tieMatchUp's full bolt scoring state directly on the team matchUp.
+ * This is the single source of truth for bolt history (points, sets, flags).
+ */
+export function persistTieMatchUpState(
+  tieMatchUpId: string,
+  patch: {
+    score?: any;
+    history?: any;
+    matchUpStatus?: string;
+    winningSide?: number;
+    boltStarted?: boolean;
+    boltExpired?: boolean;
+    boltComplete?: boolean;
+    timeoutsUsed?: { 1: number; 2: number };
+    engineState?: any;
+  },
+) {
+  if (!teamMatchUp?.tieMatchUps) return;
+  const tieMatchUp = teamMatchUp.tieMatchUps.find((m) => m.matchUpId === tieMatchUpId);
+  if (!tieMatchUp) return;
+
+  if (patch.score !== undefined) tieMatchUp.score = patch.score;
+  if (patch.history !== undefined) (tieMatchUp as any).history = patch.history;
+  if (patch.matchUpStatus !== undefined) tieMatchUp.matchUpStatus = patch.matchUpStatus;
+  if (patch.winningSide !== undefined) tieMatchUp.winningSide = patch.winningSide;
+  if (patch.boltStarted !== undefined) (tieMatchUp as any).boltStarted = patch.boltStarted;
+  if (patch.boltExpired !== undefined) (tieMatchUp as any).boltExpired = patch.boltExpired;
+  if (patch.boltComplete !== undefined) (tieMatchUp as any).boltComplete = patch.boltComplete;
+  if (patch.timeoutsUsed !== undefined) (tieMatchUp as any).timeoutsUsed = patch.timeoutsUsed;
+  if (patch.engineState !== undefined) (tieMatchUp as any).engineState = patch.engineState;
+
+  recalculateTeamScore();
+}
+
 export function recalculateTeamScore() {
   if (!teamMatchUp) return;
 
@@ -139,27 +181,3 @@ export function clearTeamMatchUp() {
   scoreVersion = 0;
 }
 
-// Listen for matcharchive:updated events to patch tieMatchUp scores
-if (typeof window !== 'undefined') {
-  window.addEventListener('matcharchive:updated', ((event: CustomEvent) => {
-    const { matchUpId } = event.detail || {};
-    if (!matchUpId || !teamMatchUp?.tieMatchUps) return;
-
-    const tieMatchUp = teamMatchUp.tieMatchUps.find((m) => m.matchUpId === matchUpId);
-    if (!tieMatchUp) return;
-
-    // Read updated match data from browserStorage
-    const stored = browserStorage.get(matchUpId);
-    if (!stored) return;
-
-    try {
-      const matchData = JSON.parse(stored);
-      if (matchData.score) tieMatchUp.score = matchData.score;
-      if (matchData.winningSide) tieMatchUp.winningSide = matchData.winningSide;
-      if (matchData.matchUpStatus) tieMatchUp.matchUpStatus = matchData.matchUpStatus;
-      recalculateTeamScore();
-    } catch {
-      // ignore parse errors
-    }
-  }) as EventListener);
-}

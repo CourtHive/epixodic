@@ -33,7 +33,7 @@
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
   import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock } from '../../../clock';
-  import { browserStorage } from '../../../state/browserStorage';
+  import { getTieMatchUp, getTeamMatchUpState, persistTieMatchUpState } from '../../stores/teamMatchUp.svelte';
   import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
 
@@ -165,64 +165,79 @@
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
-    const stored = browserStorage.get(matchUpId);
-    if (stored) {
-      try {
-        const matchData = JSON.parse(stored);
-        const format = matchData.matchUpFormat || matchData.competitionFormat?.matchUpFormat || 'SET7XA-S:T10P';
-        const competitionFormat = matchData.competitionFormat ?? INTENNSE_STANDARD;
-        initScoringEngine({ matchUpFormat: format, competitionFormat });
+    // Primary source of truth: the tieMatchUp inside the team matchUp store
+    const tieMatchUp = getTieMatchUp(matchUpId) as any;
+    const teamState = getTeamMatchUpState();
+    const parentMatchUp = teamState.teamMatchUp as any;
 
-        // Team names are hydrated onto tieMatchUp sides as .teamParticipant
-        const s1 = matchData.sides?.[0];
-        const s2 = matchData.sides?.[1];
-        if (s1?.teamParticipant?.participantName) side1Name = s1.teamParticipant.participantName;
-        if (s2?.teamParticipant?.participantName) side2Name = s2.teamParticipant.participantName;
+    if (tieMatchUp) {
+      const format =
+        tieMatchUp.matchUpFormat ||
+        parentMatchUp?.matchUpFormat ||
+        tieMatchUp.competitionFormat?.matchUpFormat ||
+        parentMatchUp?.competitionFormat?.matchUpFormat ||
+        'SET7XA-S:T10P';
+      const competitionFormat =
+        tieMatchUp.competitionFormat || parentMatchUp?.competitionFormat || INTENNSE_STANDARD;
+      initScoringEngine({ matchUpFormat: format, competitionFormat });
 
-        // Active player IDs from the tieMatchUp sides
-        if (s1?.participant?.participantId) side1PlayerId = s1.participant.participantId;
-        if (s2?.participant?.participantId) side2PlayerId = s2.participant.participantId;
+      // Team names from the parent team matchUp's sides
+      const s1 = tieMatchUp.sides?.[0];
+      const s2 = tieMatchUp.sides?.[1];
+      const ts1 = parentMatchUp?.sides?.[0];
+      const ts2 = parentMatchUp?.sides?.[1];
+      if (ts1?.participant?.participantName) side1Name = ts1.participant.participantName;
+      if (ts2?.participant?.participantName) side2Name = ts2.participant.participantName;
+      if (s1?.teamParticipant?.participantName) side1Name = s1.teamParticipant.participantName;
+      if (s2?.teamParticipant?.participantName) side2Name = s2.teamParticipant.participantName;
 
-        // Register team rosters for substitution support
-        initTeamRosters(matchData, s1, s2);
+      // Active player IDs from the tieMatchUp sides
+      if (s1?.participant?.participantId) side1PlayerId = s1.participant.participantId;
+      if (s2?.participant?.participantId) side2PlayerId = s2.participant.participantId;
 
-        // Compute ARC base from other tieMatchUps in the team matchUp
-        loadArcBaseScore(matchData.parentMatchUpId, matchUpId);
+      // Register team rosters for substitution support
+      const teamRosters = parentMatchUp?.sides?.map((side: any) => ({
+        sideNumber: side.sideNumber,
+        participants: side.participant?.individualParticipants?.map((p: any) => ({
+          participantId: p.participantId,
+          participantName: p.participantName,
+          gender: p.person?.sex || p.person?.gender,
+        })) ?? [],
+      })) ?? [];
+      initTeamRosters({ teamRosters }, s1, s2);
 
-        // Restore previous engine state and bolt flags if available
-        if (matchData.engineState) {
-          setEngineState(matchData.engineState);
-          // Derive bolt state from the restored engine
-          const sets = matchData.engineState?.score?.sets ?? [];
-          if (sets.length > 0) {
-            boltStarted = true;
-            const lastSet = sets[sets.length - 1];
-            if (lastSet.winningSide !== undefined) {
-              // Last bolt finished — show NEXT BOLT button
-              boltExpired = true;
-              boltComplete = true;
-            }
-          }
-          if (matchData.timeoutsUsed) {
-            timeoutsUsed = matchData.timeoutsUsed;
+      // Compute ARC base from other tieMatchUps in the team matchUp
+      loadArcBaseScoreFromTeam(parentMatchUp, matchUpId);
+
+      // Restore previous engine state and bolt flags from the tieMatchUp itself
+      if (tieMatchUp.engineState) {
+        setEngineState(tieMatchUp.engineState);
+        const sets = tieMatchUp.engineState?.score?.sets ?? [];
+        if (sets.length > 0) {
+          boltStarted = true;
+          const lastSet = sets[sets.length - 1];
+          if (lastSet.winningSide !== undefined) {
+            boltExpired = true;
+            boltComplete = true;
           }
         }
-
-        console.log('[bolt mount]', {
-          matchUpId,
-          format,
-          hasEngineState: !!matchData.engineState,
-          sets: matchData.engineState?.score?.sets ?? [],
-          boltStarted,
-          boltExpired,
-          boltComplete,
-          arcBaseScore,
-        });
-      } catch (err) {
-        console.error('[bolt mount] error', err);
-        initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
       }
+      if (tieMatchUp.timeoutsUsed) timeoutsUsed = tieMatchUp.timeoutsUsed;
+
+      console.log('[bolt mount]', {
+        matchUpId,
+        format,
+        source: 'tieMatchUp',
+        hasEngineState: !!tieMatchUp.engineState,
+        sets: tieMatchUp.engineState?.score?.sets ?? [],
+        boltStarted,
+        boltExpired,
+        boltComplete,
+        arcBaseScore,
+      });
     } else {
+      // Fallback: tieMatchUp not in team store (e.g. direct nav, page refresh before team load)
+      console.warn('[bolt mount] no tieMatchUp in team store for', matchUpId);
       initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
     }
 
@@ -480,26 +495,19 @@
 
   // ── Helpers ──
 
-  function loadArcBaseScore(parentMatchUpId: string | undefined, currentMatchUpId: string) {
-    if (!parentMatchUpId) return;
-    const teamStored = browserStorage.get('team-' + parentMatchUpId);
-    if (!teamStored) return;
-    try {
-      const teamData = JSON.parse(teamStored);
-      const tieMatchUps = teamData.tieMatchUps ?? [];
-      let side1 = 0;
-      let side2 = 0;
-      for (const tm of tieMatchUps) {
-        if (tm.matchUpId === currentMatchUpId) continue;
-        for (const set of tm.score?.sets ?? []) {
-          side1 += set.side1Score ?? 0;
-          side2 += set.side2Score ?? 0;
-        }
+  function loadArcBaseScoreFromTeam(teamMatchUp: any, currentMatchUpId: string) {
+    if (!teamMatchUp) return;
+    const tieMatchUps = teamMatchUp.tieMatchUps ?? [];
+    let side1 = 0;
+    let side2 = 0;
+    for (const tm of tieMatchUps) {
+      if (tm.matchUpId === currentMatchUpId) continue;
+      for (const set of tm.score?.sets ?? []) {
+        side1 += set.side1Score ?? 0;
+        side2 += set.side2Score ?? 0;
       }
-      arcBaseScore = { side1, side2 };
-    } catch {
-      // ignore
     }
+    arcBaseScore = { side1, side2 };
   }
 
   function broadcastState() {
@@ -510,29 +518,21 @@
     const isComplete = state?.matchUpStatus === 'COMPLETED' || boltComplete;
     const matchUpStatus = isComplete ? 'COMPLETED' : 'IN_PROGRESS';
 
-    // Persist score AND full engine state to browserStorage so we can resume on re-entry
-    const stored = browserStorage.get(matchUpId);
-    const matchData = stored ? JSON.parse(stored) : {};
-    matchData.score = { sets };
-    matchData.matchUpStatus = matchUpStatus;
-    matchData.engineState = state;
-    matchData.boltStarted = boltStarted;
-    matchData.boltExpired = boltExpired;
-    matchData.boltComplete = boltComplete;
-    matchData.timeoutsUsed = timeoutsUsed;
-    browserStorage.set(matchUpId, JSON.stringify(matchData));
+    // Single source of truth: persist directly onto the tieMatchUp inside the team matchUp
+    persistTieMatchUpState(matchUpId, {
+      score: { sets },
+      history: state?.history,
+      matchUpStatus,
+      engineState: state,
+      boltStarted,
+      boltExpired,
+      boltComplete,
+      timeoutsUsed,
+    });
 
     if (boltComplete) {
-      console.log('[bolt persist]', {
-        matchUpId,
-        sets,
-        boltComplete,
-        boltStarted,
-      });
+      console.log('[bolt persist]', { matchUpId, sets, boltComplete, boltStarted });
     }
-
-    // Notify scorecard listener
-    window.dispatchEvent(new CustomEvent('matcharchive:updated', { detail: { matchUpId } }));
 
     sendScore({ matchUpId, score: { sets }, matchUpStatus });
 

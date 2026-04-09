@@ -8,7 +8,6 @@
     setActiveTieMatchUp,
     restoreTeamMatchUp,
   } from '../../stores/teamMatchUp.svelte';
-  import { browserStorage } from '../../../state/browserStorage';
   import { onMount } from 'svelte';
   import type { HydratedMatchUp } from '../../types';
 
@@ -33,65 +32,16 @@
     return format?.sport === 'INTENNSE' || (matchUp.matchUpFormat || '').includes('XA-S:T');
   }
 
-  function safeParse(s: string): any {
-    try { return JSON.parse(s); } catch { return {}; }
-  }
-
   function handleTieMatchUpClick(tieMatchUp: HydratedMatchUp) {
-    // Preserve any existing engine state / bolt flags from previous scoring sessions
-    const existingStored = browserStorage.get(tieMatchUp.matchUpId);
-    const existingData = existingStored ? safeParse(existingStored) : {};
-
     const parentMatchUp = teamState.teamMatchUp;
-    const matchData: any = {
-      ...existingData,
-      matchUpId: tieMatchUp.matchUpId,
-      parentMatchUpId: parentMatchUp?.matchUpId,
-      matchUpFormat: tieMatchUp.matchUpFormat || parentMatchUp?.matchUpFormat || 'SET3-S:6/TB7',
-      matchUpType: tieMatchUp.matchUpType,
-      sides: tieMatchUp.sides,
-      // Prefer the existing (more recent) score if engine state was persisted
-      score: existingData.engineState ? existingData.score : tieMatchUp.score,
-      match: {
-        matchUpId: tieMatchUp.matchUpId,
-        tournamentId: parentMatchUp?.tournamentId,
-      },
-      tournament: {
-        tournamentId: parentMatchUp?.tournamentId,
-      },
-    };
-
-    // Team rosters from the parent TEAM matchUp for substitution support
-    if (parentMatchUp?.sides) {
-      matchData.teamRosters = parentMatchUp.sides.map((s: any) => ({
-        sideNumber: s.sideNumber,
-        participants: s.participant?.individualParticipants?.map((p: any) => ({
-          participantId: p.participantId,
-          participantName: p.participantName,
-          gender: p.person?.sex || p.person?.gender,
-        })) ?? [],
-        lineUp: s.lineUp,
-      }));
-    }
-
-    // Pass competitionFormat through for INTENNSE detection
-    if ((parentMatchUp as any)?.competitionFormat) {
-      matchData.competitionFormat = (parentMatchUp as any).competitionFormat;
-    }
-    if ((tieMatchUp as any)?.competitionFormat) {
-      matchData.competitionFormat = (tieMatchUp as any).competitionFormat;
-    }
-
-    browserStorage.set(tieMatchUp.matchUpId, JSON.stringify(matchData));
     setActiveTieMatchUp(tieMatchUp.matchUpId);
 
     console.log('[scorecard→bolt]', {
       matchUpId: tieMatchUp.matchUpId,
-      hasEngineState: !!matchData.engineState,
-      sets: matchData.engineState?.score?.sets ?? matchData.score?.sets ?? [],
-      boltStarted: matchData.boltStarted,
-      boltComplete: matchData.boltComplete,
-      score: matchData.score,
+      hasEngineState: !!(tieMatchUp as any).engineState,
+      sets: (tieMatchUp as any).engineState?.score?.sets ?? tieMatchUp.score?.sets ?? [],
+      boltStarted: (tieMatchUp as any).boltStarted,
+      boltComplete: (tieMatchUp as any).boltComplete,
     });
 
     const router = (window as any).appRouter;
