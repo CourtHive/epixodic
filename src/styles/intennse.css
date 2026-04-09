@@ -188,6 +188,7 @@
 
 .clock--urgent .clock-time { color: var(--intennse-urgent); }
 .clock--critical .clock-time { color: var(--intennse-critical); animation: clock-flash 0.5s infinite; }
+.clock--critical.clock--paused .clock-time { animation: none; }
 .clock--expired .clock-time { color: var(--intennse-expired); }
 .clock--paused .clock-time { opacity: 0.5; }
 .clock--editable { cursor: pointer; }
