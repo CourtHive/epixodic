@@ -18,7 +18,9 @@
     onClose: () => void;
   } = $props();
 
-  let selectedOut = $state<string | null>(preSelectedOut ?? null);
+  let selectedOut = $state<string | null>(
+    preSelectedOut ?? (activePlayers.length === 1 ? activePlayers[0].participantId : null),
+  );
 
   function selectOut(participantId: string) {
     if (participantId === preSelectedOut) return;
