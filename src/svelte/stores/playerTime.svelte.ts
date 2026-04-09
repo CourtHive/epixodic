@@ -117,7 +117,9 @@ export function restorePlayerTimeSnapshots(
   for (const [id, snap] of Object.entries(snapshots)) {
     const entry = players[id];
     if (!entry) continue;
-    // Pause first so setRemainingMs is allowed
+    // Transition idle → running → paused so the clock is in paused state
+    // (Clock.pause() is a no-op from idle, and setRemainingMs requires non-running)
+    entry.clock.start();
     entry.clock.pause();
     // For count-up clocks: remaining = maxSafe - elapsed
     entry.clock.setRemainingMs(Number.MAX_SAFE_INTEGER - snap.elapsedMs);

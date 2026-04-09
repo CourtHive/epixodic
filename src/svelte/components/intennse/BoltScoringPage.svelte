@@ -281,11 +281,13 @@
       const boltRemaining = restored.boltClockRemainingMs;
       const serveRemaining = restored.serveClockRemainingMs;
       if (typeof boltRemaining === 'number' && boltRemaining < BOLT_DURATION_MS) {
-        // Bolt was already in progress when we exited
+        // Transition idle → running → paused so resume() will work later
+        restartClock('boltTimer');
         pauseClock('boltTimer');
         setClockRemaining('boltTimer', boltRemaining);
       }
       if (typeof serveRemaining === 'number' && serveRemaining < SERVE_CLOCK_DURATION_MS) {
+        restartClock('serveClock');
         pauseClock('serveClock');
         setClockRemaining('serveClock', serveRemaining);
       }
