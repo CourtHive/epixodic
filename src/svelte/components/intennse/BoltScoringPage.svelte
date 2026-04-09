@@ -262,11 +262,8 @@
   function handleAction(action: string, side: Side) {
     if (boltComplete) return;
     const { winner, result } = resolvePointAttribution(action, side);
-    if (winner === null) {
-      // Fault: no point awarded
-    } else {
-      addPoint(winner, { result });
-    }
+    if (winner === null) return;
+    addPoint(winner, { result });
 
     // Apply INTENNSE serving rules: winner serves, serve side from aggregate
     const serving = getServingState(winner, scoring.server, currentAggregateScore);

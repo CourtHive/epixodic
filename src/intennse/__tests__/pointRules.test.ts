@@ -27,9 +27,9 @@ describe('resolvePointAttribution', () => {
     expect(resolvePointAttribution('unforcedError', 1)).toEqual({ winner: 0, result: 'Unforced Error' });
   });
 
-  it('fault: no point awarded (null winner)', () => {
-    expect(resolvePointAttribution('fault', 0)).toEqual({ winner: null, result: 'Fault' });
-    expect(resolvePointAttribution('fault', 1)).toEqual({ winner: null, result: 'Fault' });
+  it('fault: opponent gets the point', () => {
+    expect(resolvePointAttribution('fault', 0)).toEqual({ winner: 1, result: 'Fault' });
+    expect(resolvePointAttribution('fault', 1)).toEqual({ winner: 0, result: 'Fault' });
   });
 
   it('unknown action: defaults to pressing side', () => {
