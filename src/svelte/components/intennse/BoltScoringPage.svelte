@@ -8,6 +8,7 @@
   import {
     getScoringState,
     getEngineState,
+    setEngineState,
     initScoringEngine,
     addPoint,
     undo,
@@ -184,6 +185,25 @@
 
         // Compute ARC base from other tieMatchUps in the team matchUp
         loadArcBaseScore(matchData.parentMatchUpId, matchUpId);
+
+        // Restore previous engine state and bolt flags if available
+        if (matchData.engineState) {
+          setEngineState(matchData.engineState);
+          // Derive bolt state from the restored engine
+          const sets = matchData.engineState?.score?.sets ?? [];
+          if (sets.length > 0) {
+            boltStarted = true;
+            const lastSet = sets[sets.length - 1];
+            if (lastSet.winningSide !== undefined) {
+              // Last bolt finished — show NEXT BOLT button
+              boltExpired = true;
+              boltComplete = true;
+            }
+          }
+          if (matchData.timeoutsUsed) {
+            timeoutsUsed = matchData.timeoutsUsed;
+          }
+        }
       } catch {
         initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
       }
@@ -475,11 +495,16 @@
     const isComplete = state?.matchUpStatus === 'COMPLETED' || boltComplete;
     const matchUpStatus = isComplete ? 'COMPLETED' : 'IN_PROGRESS';
 
-    // Persist score to browserStorage so scorecard can read it
+    // Persist score AND full engine state to browserStorage so we can resume on re-entry
     const stored = browserStorage.get(matchUpId);
     const matchData = stored ? JSON.parse(stored) : {};
     matchData.score = { sets };
     matchData.matchUpStatus = matchUpStatus;
+    matchData.engineState = state;
+    matchData.boltStarted = boltStarted;
+    matchData.boltExpired = boltExpired;
+    matchData.boltComplete = boltComplete;
+    matchData.timeoutsUsed = timeoutsUsed;
     browserStorage.set(matchUpId, JSON.stringify(matchData));
 
     // Notify scorecard listener
