@@ -237,3 +237,28 @@ export function clearTeamMatchUp() {
   scoreVersion = 0;
 }
 
+/**
+ * DEV helper: clears all persisted team matchUps and tie→parent reverse
+ * lookups from browser storage. Useful for resetting test scenarios after
+ * data model changes. Call from console: dev.resetTeamMatchUps()
+ */
+export function resetAllTeamMatchUps(): { teamsRemoved: number; lookupsRemoved: number } {
+  let teamsRemoved = 0;
+  let lookupsRemoved = 0;
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    if (key.startsWith(STORAGE_KEY_PREFIX)) {
+      localStorage.removeItem(key);
+      teamsRemoved++;
+    } else if (key.startsWith(TIE_PARENT_PREFIX)) {
+      localStorage.removeItem(key);
+      lookupsRemoved++;
+    }
+  }
+  teamMatchUp = null;
+  activeTieMatchUpId = null;
+  scoreVersion = 0;
+  return { teamsRemoved, lookupsRemoved };
+}
+

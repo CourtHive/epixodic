@@ -43,6 +43,7 @@
     restoreTeamMatchUp,
     findParentMatchUpId,
     setTieMatchUpActiveParticipant,
+    setActiveTieMatchUp,
   } from '../../stores/teamMatchUp.svelte';
   import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
@@ -184,6 +185,7 @@
         teamState = getTeamMatchUpState();
       }
     }
+    setActiveTieMatchUp(matchUpId);
 
     // Primary source of truth: the tieMatchUp inside the team matchUp store
     const tieMatchUp = getTieMatchUp(matchUpId) as any;
