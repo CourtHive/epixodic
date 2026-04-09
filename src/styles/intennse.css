@@ -418,7 +418,6 @@
 .intennse-btn--fault { background: var(--intennse-fault); color: #000; }
 
 .intennse-btn--rally {
-  flex: 2;
   background: var(--intennse-accent);
   color: var(--intennse-text);
   font-size: 1.1rem;
@@ -426,6 +425,7 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   justify-content: center;
+  margin-top: 1.5rem;
 }
 
 .intennse-btn-placeholder {
