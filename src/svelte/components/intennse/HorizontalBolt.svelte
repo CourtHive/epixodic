@@ -1,5 +1,4 @@
 <script lang="ts">
-  import PenaltyBoxDisplay from './PenaltyBoxDisplay.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
   import ScoreDisplay from './ScoreDisplay.svelte';
   import ActionPanel from './ActionPanel.svelte';
@@ -103,7 +102,6 @@
       disabled={!boltStarted || boltComplete}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
-    <PenaltyBoxDisplay sideNumber={1} />
   </div>
 
   <!-- Center column -->
@@ -138,7 +136,6 @@
       disabled={!boltStarted || boltComplete}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
-    <PenaltyBoxDisplay sideNumber={2} />
   </div>
 
   <!-- Footer: Sub / Timeout / Penalty under respective columns -->

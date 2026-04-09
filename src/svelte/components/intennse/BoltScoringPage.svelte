@@ -3,6 +3,7 @@
   import VerticalBolt from './VerticalBolt.svelte';
   import SubstitutionModal from './SubstitutionModal.svelte';
   import PenaltyModal from './PenaltyModal.svelte';
+  import PenaltyBoxDisplay from './PenaltyBoxDisplay.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
   import {
     getScoringState,
@@ -550,6 +551,16 @@
     </div>
   {/if}
 
+  <div class="intennse-penalty-bar">
+    <div class="intennse-penalty-bar-side intennse-penalty-bar-side--left">
+      <PenaltyBoxDisplay sideNumber={1} />
+    </div>
+    <div class="intennse-penalty-bar-spacer"></div>
+    <div class="intennse-penalty-bar-side intennse-penalty-bar-side--right">
+      <PenaltyBoxDisplay sideNumber={2} />
+    </div>
+  </div>
+
   {#if isLandscape}
     <HorizontalBolt {...layoutProps} />
   {:else}
@@ -618,6 +629,29 @@
     display: flex;
     flex-direction: column;
     position: relative;
+  }
+  .intennse-penalty-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.5rem;
+    min-height: 0;
+  }
+  .intennse-penalty-bar-side {
+    display: flex;
+  }
+  .intennse-penalty-bar-side--left {
+    justify-content: flex-end;
+  }
+  .intennse-penalty-bar-side--right {
+    justify-content: flex-start;
+  }
+  .intennse-penalty-bar-spacer {
+    min-width: 200px;
+    flex-shrink: 0;
+  }
+  .intennse-penalty-bar:not(:has(.penalty-box-display)) {
+    display: none;
   }
   .intennse-warnings {
     position: absolute;
