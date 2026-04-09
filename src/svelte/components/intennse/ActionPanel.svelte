@@ -33,13 +33,6 @@
     <span class="intennse-btn-value">1</span>
   </button>
 
-  {#if isServing}
-    <button class="intennse-btn intennse-btn--ace" onclick={() => onAce(side)} {disabled}>
-      <span class="intennse-btn-label">Ace</span>
-      <span class="intennse-btn-value">2</span>
-    </button>
-  {/if}
-
   <button class="intennse-btn intennse-btn--forced" onclick={() => onForcedError(side)} {disabled}>
     <span class="intennse-btn-label">Forced</span>
     <span class="intennse-btn-value">1</span>
@@ -51,8 +44,15 @@
   </button>
 
   {#if isServing}
+    <button class="intennse-btn intennse-btn--ace" onclick={() => onAce(side)} {disabled}>
+      <span class="intennse-btn-label">Ace</span>
+      <span class="intennse-btn-value">2</span>
+    </button>
     <button class="intennse-btn intennse-btn--fault" onclick={() => onFault(side)} {disabled}>
       <span class="intennse-btn-label">Fault</span>
     </button>
+  {:else}
+    <div class="intennse-btn-placeholder"></div>
+    <div class="intennse-btn-placeholder"></div>
   {/if}
 </div>

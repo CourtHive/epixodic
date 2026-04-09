@@ -132,9 +132,12 @@ export function initScoringEngine(config: {
   return engine;
 }
 
-export function addPoint(winner: 0 | 1, options?: { result?: string; server?: 0 | 1 }) {
+export function addPoint(
+  winner: 0 | 1,
+  options?: { result?: string; server?: 0 | 1; [key: string]: any },
+) {
   if (!engine) return;
-  engine.addPoint({ winner, result: options?.result, server: options?.server });
+  engine.addPoint({ winner, ...options });
   bump();
 }
 

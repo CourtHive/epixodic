@@ -79,16 +79,18 @@
   let serveSide = $state<ServeSide>('DEUCE');
   let isLandscape = $state(window.innerWidth > window.innerHeight);
 
-  let side1Player = $state('Player 1');
-  let side2Player = $state('Player 2');
+  let side1PlayerId = $state<string>('');
+  let side2PlayerId = $state<string>('');
+  const side1Player = $derived(side1PlayerId ? (playerTime.players[side1PlayerId]?.participantName ?? '') : '');
+  const side2Player = $derived(side2PlayerId ? (playerTime.players[side2PlayerId]?.participantName ?? '') : '');
   let side1CourtTimeMs = $derived.by(() => {
     void playerTime.version;
-    const entry = Object.values(playerTime.players).find((p) => p.participantName === side1Player && p.isOnCourt);
+    const entry = side1PlayerId ? playerTime.players[side1PlayerId] : undefined;
     return entry ? Math.max(0, playerTime.maxCourtTimeMs - entry.clock.getElapsedMs()) : 0;
   });
   let side2CourtTimeMs = $derived.by(() => {
     void playerTime.version;
-    const entry = Object.values(playerTime.players).find((p) => p.participantName === side2Player && p.isOnCourt);
+    const entry = side2PlayerId ? playerTime.players[side2PlayerId] : undefined;
     return entry ? Math.max(0, playerTime.maxCourtTimeMs - entry.clock.getElapsedMs()) : 0;
   });
 
@@ -174,9 +176,9 @@
         if (s1?.teamParticipant?.participantName) side1Name = s1.teamParticipant.participantName;
         if (s2?.teamParticipant?.participantName) side2Name = s2.teamParticipant.participantName;
 
-        // Active player names from the tieMatchUp sides
-        if (s1?.participant?.participantName) side1Player = s1.participant.participantName;
-        if (s2?.participant?.participantName) side2Player = s2.participant.participantName;
+        // Active player IDs from the tieMatchUp sides
+        if (s1?.participant?.participantId) side1PlayerId = s1.participant.participantId;
+        if (s2?.participant?.participantId) side2PlayerId = s2.participant.participantId;
 
         // Register team rosters for substitution support
         initTeamRosters(matchData, s1, s2);
@@ -263,7 +265,15 @@
     if (boltComplete) return;
     const { winner, result } = resolvePointAttribution(action, side);
     if (winner === null) return;
-    addPoint(winner, { result });
+
+    const winnerParticipantId = winner === 0 ? side1PlayerId : side2PlayerId;
+
+    addPoint(winner, {
+      result,
+      side1ParticipantId: side1PlayerId,
+      side2ParticipantId: side2PlayerId,
+      winnerParticipantId,
+    } as any);
 
     // Apply INTENNSE serving rules: winner serves, serve side from aggregate
     const serving = getServingState(winner, scoring.server, currentAggregateScore);
@@ -345,7 +355,13 @@
 
   function handleServeViolationConfirm() {
     const receiver = scoring.server === 0 ? 1 : 0;
-    addPoint(receiver as 0 | 1, { result: 'Serve Clock Violation' });
+    const winnerParticipantId = receiver === 0 ? side1PlayerId : side2PlayerId;
+    addPoint(receiver as 0 | 1, {
+      result: 'Serve Clock Violation',
+      side1ParticipantId: side1PlayerId,
+      side2ParticipantId: side2PlayerId,
+      winnerParticipantId,
+    });
     const serving = getServingState(receiver, scoring.server, currentAggregateScore);
     setServer(serving.server);
     serveSide = serving.serveSide;
@@ -368,11 +384,9 @@
     engineSubstitute(subModalSide, outId, inId);
     trackSubstitution(outId, inId);
     if (subModalSide === 1) {
-      const entry = playerTime.players[inId];
-      if (entry) side1Player = entry.participantName;
+      side1PlayerId = inId;
     } else {
-      const entry = playerTime.players[inId];
-      if (entry) side2Player = entry.participantName;
+      side2PlayerId = inId;
     }
     subModalSide = null;
     penaltySubPlayer = null;
@@ -397,8 +411,15 @@
 
     // Award penalty points to opposing team
     const receiver = side === 1 ? 1 : 0;
+    const winnerParticipantId = receiver === 0 ? side1PlayerId : side2PlayerId;
     for (let i = 0; i < points; i++) {
-      addPoint(receiver as 0 | 1, { result: 'Penalty' });
+      addPoint(receiver as 0 | 1, {
+        result: 'Penalty',
+        penaltyAgainstParticipantId: participantId,
+        side1ParticipantId: side1PlayerId,
+        side2ParticipantId: side2PlayerId,
+        winnerParticipantId,
+      });
     }
     broadcastState();
 

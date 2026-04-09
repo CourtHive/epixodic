@@ -412,10 +412,15 @@
 
 .intennse-btn--winner { background: var(--intennse-winner); color: #000; }
 .intennse-btn--touch { background: var(--intennse-touch); color: #000; }
-.intennse-btn--ace { background: var(--intennse-ace); color: #000; }
+.intennse-btn--ace { background: var(--intennse-winner); color: #000; }
 .intennse-btn--forced { background: var(--intennse-error); color: #fff; }
 .intennse-btn--unforced { background: #c62828; color: #fff; }
 .intennse-btn--fault { background: var(--intennse-fault); color: #000; }
+
+.intennse-btn-placeholder {
+  flex: 1;
+  visibility: hidden;
+}
 
 /* ── Control Bar ───────────────────────────────────────────── */
 
