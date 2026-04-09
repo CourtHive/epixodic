@@ -11,6 +11,9 @@ import type { Component } from 'svelte';
 export abstract class SvelteViewPage extends ViewPage {
   private svelteInstance: Record<string, any> | null = null;
 
+  // Svelte components handle their own reactivity on resize; don't remount
+  refreshOnOrientationChange = false;
+
   protected abstract getComponent(): Component<any>;
   protected abstract getContainerId(): string;
   protected getProps(): Record<string, any> {

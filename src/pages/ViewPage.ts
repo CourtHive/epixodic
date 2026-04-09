@@ -9,6 +9,13 @@
 export abstract class ViewPage {
   protected mounted = false;
 
+  /**
+   * Whether this page should be re-mounted when the window is resized
+   * (e.g. orientation change). Legacy DOM views need this to re-layout;
+   * reactive Svelte views should opt out to preserve their internal state.
+   */
+  refreshOnOrientationChange = true;
+
   async mount(): Promise<void> {
     if (this.mounted) return;
     this.activate();
