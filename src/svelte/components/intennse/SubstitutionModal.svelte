@@ -6,19 +6,22 @@
     side,
     activePlayers,
     benchPlayers,
+    preSelectedOut,
     onSubstitute,
     onClose,
   }: {
     side: 1 | 2;
     activePlayers: { participantId: string; participantName: string }[];
     benchPlayers: { participantId: string; participantName: string; gender?: string }[];
+    preSelectedOut?: string;
     onSubstitute: (outId: string, inId: string) => void;
     onClose: () => void;
   } = $props();
 
-  let selectedOut = $state<string | null>(null);
+  let selectedOut = $state<string | null>(preSelectedOut ?? null);
 
   function selectOut(participantId: string) {
+    if (participantId === preSelectedOut) return;
     selectedOut = selectedOut === participantId ? null : participantId;
   }
 
@@ -43,13 +46,16 @@
       {#each activePlayers as player (player.participantId)}
         {@const remaining = getRemainingMs(player.participantId)}
         {@const exhausted = isTimeExhausted(player.participantId)}
+        {@const locked = player.participantId === preSelectedOut}
         <button
           class="sub-player"
           class:sub-player--selected={selectedOut === player.participantId}
+          class:sub-player--locked={locked}
           class:sub-player--exhausted={exhausted}
           onclick={() => selectOut(player.participantId)}
+          disabled={locked}
         >
-          <span class="sub-player-name">{player.participantName}</span>
+          <span class="sub-player-name">{player.participantName}{locked ? ' (penalized)' : ''}</span>
           <span class="sub-player-time" class:player-time--critical={remaining < 60000 && !exhausted}>
             {exhausted ? 'TIME' : formatTime(remaining)}
           </span>
@@ -57,29 +63,27 @@
       {/each}
     </div>
 
-    {#if selectedOut}
-      <div class="sub-section">
-        <div class="sub-section-label">Bench — tap replacement</div>
-        {#each benchPlayers as player (player.participantId)}
-          {@const remaining = getRemainingMs(player.participantId)}
-          {@const exhausted = isTimeExhausted(player.participantId)}
-          <button
-            class="sub-player sub-player--bench"
-            class:sub-player--exhausted={exhausted}
-            onclick={() => selectIn(player.participantId)}
-            disabled={exhausted}
-          >
-            <span class="sub-player-name">{player.participantName}</span>
-            <span class="sub-player-time">
-              {exhausted ? 'TIME' : formatTime(remaining)}
-            </span>
-          </button>
-        {/each}
-        {#if benchPlayers.length === 0}
-          <div class="sub-empty">No eligible bench players</div>
-        {/if}
-      </div>
-    {/if}
+    <div class="sub-section">
+      <div class="sub-section-label">Bench — tap replacement{selectedOut ? '' : ' (select a player above first)'}</div>
+      {#each benchPlayers as player (player.participantId)}
+        {@const remaining = getRemainingMs(player.participantId)}
+        {@const exhausted = isTimeExhausted(player.participantId)}
+        <button
+          class="sub-player sub-player--bench"
+          class:sub-player--exhausted={exhausted}
+          onclick={() => selectIn(player.participantId)}
+          disabled={exhausted || !selectedOut}
+        >
+          <span class="sub-player-name">{player.participantName}</span>
+          <span class="sub-player-time">
+            {exhausted ? 'TIME' : formatTime(remaining)}
+          </span>
+        </button>
+      {/each}
+      {#if benchPlayers.length === 0}
+        <div class="sub-empty">No eligible bench players</div>
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -154,6 +158,7 @@
 
   .sub-player:active { opacity: 0.7; }
   .sub-player--selected { border-color: var(--intennse-serving, #00d4aa); box-shadow: 0 0 0 1px var(--intennse-serving); }
+  .sub-player--locked { border-color: var(--intennse-critical, #ef5350); opacity: 0.5; cursor: default; }
   .sub-player--exhausted { opacity: 0.4; }
   .sub-player--exhausted .sub-player-time { color: var(--intennse-expired, #b71c1c); font-weight: 700; }
 

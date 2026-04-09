@@ -603,9 +603,12 @@
   {#if subModalSide}
     <SubstitutionModal
       side={subModalSide}
+      preSelectedOut={penaltySubPlayer?.participantId}
       activePlayers={
         penaltySubPlayer
-          ? [penaltySubPlayer]
+          ? [penaltySubPlayer, ...Object.values(playerTime.players)
+              .filter((p) => p.isOnCourt && sideRoster[p.participantId] === subModalSide && p.participantId !== penaltySubPlayer.participantId)
+              .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))]
           : Object.values(playerTime.players)
               .filter((p) => p.isOnCourt && sideRoster[p.participantId] === subModalSide)
               .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
