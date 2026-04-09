@@ -3,7 +3,6 @@
   import VerticalBolt from './VerticalBolt.svelte';
   import SubstitutionModal from './SubstitutionModal.svelte';
   import PenaltyModal from './PenaltyModal.svelte';
-  import PenaltyBoxDisplay from './PenaltyBoxDisplay.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
   import {
     getScoringState,
@@ -83,6 +82,7 @@
   let side2CourtTimeMs = $derived(side2Player ? getRemainingMs(side2Player) : 0);
 
   let subModalSide = $state<1 | 2 | null>(null);
+  let penaltySubPlayer = $state<{ participantId: string; participantName: string } | null>(null);
   let penaltyModalSide = $state<1 | 2 | null>(null);
   let sideRoster = $state<Record<string, 1 | 2>>({});
   let timeWarning = $state<{ playerName: string; remainingMs: number } | null>(null);
@@ -359,6 +359,7 @@
       if (entry) side2Player = entry.participantName;
     }
     subModalSide = null;
+    penaltySubPlayer = null;
     checkPlayerTimeLimits();
   }
 
@@ -390,6 +391,7 @@
 
     // Auto-open substitution modal if the penalized player was on court
     if (isOnCourt) {
+      penaltySubPlayer = { participantId, participantName };
       subModalSide = side;
     }
   }
@@ -548,10 +550,6 @@
     </div>
   {/if}
 
-  <div class="intennse-penalty-area">
-    <PenaltyBoxDisplay />
-  </div>
-
   {#if isLandscape}
     <HorizontalBolt {...layoutProps} />
   {:else}
@@ -595,9 +593,11 @@
     <SubstitutionModal
       side={subModalSide}
       activePlayers={
-        Object.values(playerTime.players)
-          .filter((p) => p.isOnCourt && sideRoster[p.participantId] === subModalSide)
-          .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
+        penaltySubPlayer
+          ? [penaltySubPlayer]
+          : Object.values(playerTime.players)
+              .filter((p) => p.isOnCourt && sideRoster[p.participantId] === subModalSide)
+              .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
       }
       benchPlayers={
         getBenchPlayers(subModalSide, sideRoster)
@@ -605,7 +605,7 @@
           .map((p) => ({ participantId: p.participantId, participantName: p.participantName, gender: p.gender }))
       }
       onSubstitute={executeSubstitution}
-      onClose={() => (subModalSide = null)}
+      onClose={() => { subModalSide = null; penaltySubPlayer = null; }}
     />
   {/if}
 </div>
@@ -618,14 +618,6 @@
     display: flex;
     flex-direction: column;
     position: relative;
-  }
-  .intennse-penalty-area {
-    display: flex;
-    justify-content: center;
-    padding: 0 0.5rem;
-  }
-  .intennse-penalty-area:empty {
-    display: none;
   }
   .intennse-warnings {
     position: absolute;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PenaltyBoxDisplay from './PenaltyBoxDisplay.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
   import ScoreDisplay from './ScoreDisplay.svelte';
   import ActionPanel from './ActionPanel.svelte';
@@ -93,7 +94,7 @@
     <span class="intennse-bolt-label">{boltLabel}</span>
   </div>
 
-  <!-- Left side: Side 1 player + actions -->
+  <!-- Left side: Side 1 player + actions + penalty box -->
   <div class="intennse-h-side intennse-h-side--left">
     <PlayerPanel playerName={side1Player} teamName={side1Name} courtTimeRemainingMs={side1CourtTimeMs} isServing={server === 0} {serveSide} side={1} />
     <ActionPanel
@@ -102,6 +103,7 @@
       disabled={!boltStarted || boltComplete}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
+    <PenaltyBoxDisplay sideNumber={1} />
   </div>
 
   <!-- Center column -->
@@ -127,7 +129,7 @@
     />
   </div>
 
-  <!-- Right side: Side 2 player + actions -->
+  <!-- Right side: Side 2 player + actions + penalty box -->
   <div class="intennse-h-side intennse-h-side--right">
     <PlayerPanel playerName={side2Player} teamName={side2Name} courtTimeRemainingMs={side2CourtTimeMs} isServing={server === 1} {serveSide} side={2} />
     <ActionPanel
@@ -136,30 +138,31 @@
       disabled={!boltStarted || boltComplete}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
+    <PenaltyBoxDisplay sideNumber={2} />
   </div>
 
   <!-- Footer: Sub / Timeout / Penalty under respective columns -->
   <div class="intennse-h-footer">
     <div class="intennse-h-footer-col">
-      <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)} title="Substitution Side 1">
+      <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)} disabled={!boltStarted} title="Substitution Side 1">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
       </button>
-      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0} title="Timeout Side 1">
+      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={!boltStarted || timeoutsRemaining[1] <= 0} title="Timeout Side 1">
         <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
       </button>
-      <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)} title="Penalty Side 1">
+      <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)} disabled={!boltStarted} title="Penalty Side 1">
         <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
       </button>
     </div>
     <div class="intennse-h-footer-col"></div>
     <div class="intennse-h-footer-col">
-      <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)} title="Substitution Side 2">
+      <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)} disabled={!boltStarted} title="Substitution Side 2">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
       </button>
-      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0} title="Timeout Side 2">
+      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={!boltStarted || timeoutsRemaining[2] <= 0} title="Timeout Side 2">
         <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
       </button>
-      <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)} title="Penalty Side 2">
+      <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)} disabled={!boltStarted} title="Penalty Side 2">
         <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
       </button>
     </div>

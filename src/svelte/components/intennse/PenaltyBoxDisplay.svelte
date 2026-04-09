@@ -2,12 +2,13 @@
   import { formatTime } from '../../../clock/formatTime';
   import { getPenaltyBoxState, getBoxedPlayers } from '../../stores/penaltyBox.svelte';
 
+  let { sideNumber }: { sideNumber?: 1 | 2 } = $props();
+
   const boxState = getPenaltyBoxState();
 
-  // Re-derive on every version bump
   const boxedPlayers = $derived.by(() => {
     void boxState.version;
-    return getBoxedPlayers();
+    return getBoxedPlayers(sideNumber);
   });
 
   const hasEntries = $derived(boxedPlayers.length > 0);
@@ -15,9 +16,9 @@
 
 {#if hasEntries}
   <div class="penalty-box-display">
-    <div class="pb-label">PENALTY BOX</div>
+    <div class="pb-label">PEN BOX</div>
     {#each boxedPlayers as player (player.participantId)}
-      <div class="pb-entry pb-entry--side{player.sideNumber}">
+      <div class="pb-entry">
         <span class="pb-name">{player.participantName}</span>
         <span class="pb-timer">{formatTime(player.remainingMs)}</span>
       </div>
