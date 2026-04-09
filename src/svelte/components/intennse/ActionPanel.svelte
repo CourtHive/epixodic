@@ -56,6 +56,7 @@
       <span class="intennse-btn-label">Fault</span>
     </button>
   {:else}
+    <div class="intennse-btn-placeholder"></div>
     <button
       class="intennse-btn intennse-btn--rally"
       onclick={() => onRallyStart?.()}
