@@ -80,6 +80,10 @@ export function persistTieMatchUpState(
     boltComplete?: boolean;
     timeoutsUsed?: { 1: number; 2: number };
     engineState?: any;
+    boltClockRemainingMs?: number;
+    serveClockRemainingMs?: number;
+    playerTimeSnapshots?: Record<string, { elapsedMs: number; isOnCourt: boolean }>;
+    pausedOnExit?: boolean;
   },
 ) {
   if (!teamMatchUp?.tieMatchUps) return;
@@ -95,6 +99,10 @@ export function persistTieMatchUpState(
   if (patch.boltComplete !== undefined) (tieMatchUp as any).boltComplete = patch.boltComplete;
   if (patch.timeoutsUsed !== undefined) (tieMatchUp as any).timeoutsUsed = patch.timeoutsUsed;
   if (patch.engineState !== undefined) (tieMatchUp as any).engineState = patch.engineState;
+  if (patch.boltClockRemainingMs !== undefined) (tieMatchUp as any).boltClockRemainingMs = patch.boltClockRemainingMs;
+  if (patch.serveClockRemainingMs !== undefined) (tieMatchUp as any).serveClockRemainingMs = patch.serveClockRemainingMs;
+  if (patch.playerTimeSnapshots !== undefined) (tieMatchUp as any).playerTimeSnapshots = patch.playerTimeSnapshots;
+  if (patch.pausedOnExit !== undefined) (tieMatchUp as any).pausedOnExit = patch.pausedOnExit;
 
   recalculateTeamScore();
 }

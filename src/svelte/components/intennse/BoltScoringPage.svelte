@@ -25,6 +25,8 @@
     setOnCourt,
     pauseAllOnCourtClocks,
     resumeAllOnCourtClocks,
+    getPlayerTimeSnapshots,
+    restorePlayerTimeSnapshots,
     checkTimeLimit,
     getBenchPlayers,
     stopTracking,
@@ -32,7 +34,7 @@
   import { sendToBox, isInBox } from '../../stores/penaltyBox.svelte';
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
-  import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock } from '../../../clock';
+  import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock, setClockRemaining } from '../../../clock';
   import { getTieMatchUp, getTeamMatchUpState, persistTieMatchUpState } from '../../stores/teamMatchUp.svelte';
   import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
@@ -257,9 +259,33 @@
       tickIntervalMs: SERVE_TICK_MS,
       onExpire: handleServeClockExpired,
     });
+
+    // Restore clock state from the persisted tieMatchUp (if any)
+    const restored = getTieMatchUp(matchUpId) as any;
+    if (restored) {
+      const boltRemaining = restored.boltClockRemainingMs;
+      const serveRemaining = restored.serveClockRemainingMs;
+      if (typeof boltRemaining === 'number' && boltRemaining < BOLT_DURATION_MS) {
+        // Bolt was already in progress when we exited
+        pauseClock('boltTimer');
+        setClockRemaining('boltTimer', boltRemaining);
+      }
+      if (typeof serveRemaining === 'number' && serveRemaining < SERVE_CLOCK_DURATION_MS) {
+        pauseClock('serveClock');
+        setClockRemaining('serveClock', serveRemaining);
+      }
+      if (restored.playerTimeSnapshots) {
+        restorePlayerTimeSnapshots(restored.playerTimeSnapshots);
+      }
+      // If bolt was paused on exit, surface as officialPause so user must press resume
+      if (restored.pausedOnExit && boltStarted && !boltComplete) {
+        officialPause = true;
+      }
+    }
   });
 
   onDestroy(() => {
+    pauseAndPersistOnExit();
     window.removeEventListener('resize', handleResize);
     window.removeEventListener('orientationchange', handleResize);
     destroyClock('boltTimer');
@@ -490,7 +516,37 @@
   }
 
   function handleBack() {
+    pauseAndPersistOnExit();
     window.history.back();
+  }
+
+  /**
+   * Pause everything and persist the full clock state so the bolt can be
+   * resumed exactly where it was when the user returns.
+   */
+  function pauseAndPersistOnExit() {
+    if (boltStarted && !boltComplete) {
+      pauseClock('boltTimer');
+      pauseClock('serveClock');
+      pauseAllOnCourtClocks();
+      officialPause = true;
+    }
+    const boltSnap = getClockSnapshot('boltTimer');
+    const serveSnap = getClockSnapshot('serveClock');
+    persistTieMatchUpState(matchUpId, {
+      boltClockRemainingMs: boltSnap?.remainingMs,
+      serveClockRemainingMs: serveSnap?.remainingMs,
+      playerTimeSnapshots: getPlayerTimeSnapshots(),
+      pausedOnExit: boltStarted && !boltComplete,
+      // Also flush the latest engine + flags
+      score: { sets: getEngineState()?.score?.sets ?? [] },
+      history: getEngineState()?.history,
+      engineState: getEngineState(),
+      boltStarted,
+      boltExpired,
+      boltComplete,
+      timeoutsUsed,
+    });
   }
 
   // ── Helpers ──

@@ -98,6 +98,34 @@ export function resumeAllOnCourtClocks() {
   bump();
 }
 
+/** Snapshot of all player elapsed times — used for cross-navigation persistence */
+export function getPlayerTimeSnapshots(): Record<string, { elapsedMs: number; isOnCourt: boolean }> {
+  const result: Record<string, { elapsedMs: number; isOnCourt: boolean }> = {};
+  for (const [id, entry] of Object.entries(players)) {
+    result[id] = {
+      elapsedMs: entry.clock.getElapsedMs(),
+      isOnCourt: entry.isOnCourt,
+    };
+  }
+  return result;
+}
+
+/** Restore player elapsed times from a previous snapshot. Clocks are left paused. */
+export function restorePlayerTimeSnapshots(
+  snapshots: Record<string, { elapsedMs: number; isOnCourt: boolean }>,
+) {
+  for (const [id, snap] of Object.entries(snapshots)) {
+    const entry = players[id];
+    if (!entry) continue;
+    // Pause first so setRemainingMs is allowed
+    entry.clock.pause();
+    // For count-up clocks: remaining = maxSafe - elapsed
+    entry.clock.setRemainingMs(Number.MAX_SAFE_INTEGER - snap.elapsedMs);
+    entry.isOnCourt = snap.isOnCourt;
+  }
+  bump();
+}
+
 export function getCourtTimeMs(participantId: string): number {
   return players[participantId]?.clock.getElapsedMs() ?? 0;
 }
