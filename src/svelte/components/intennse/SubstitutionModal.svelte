@@ -24,6 +24,11 @@
 
   function selectOut(participantId: string) {
     if (participantId === preSelectedOut) return;
+    // Don't allow deselecting when only one active player (singles)
+    if (activePlayers.length === 1) {
+      selectedOut = participantId;
+      return;
+    }
     selectedOut = selectedOut === participantId ? null : participantId;
   }
 

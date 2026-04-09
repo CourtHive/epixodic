@@ -24,7 +24,6 @@
     setOnCourt,
     pauseAllOnCourtClocks,
     resumeAllOnCourtClocks,
-    handleSubstitution as trackSubstitution,
     checkTimeLimit,
     getBenchPlayers,
     stopTracking,
@@ -382,7 +381,14 @@
   function executeSubstitution(outId: string, inId: string) {
     if (!subModalSide) return;
     engineSubstitute(subModalSide, outId, inId);
-    trackSubstitution(outId, inId);
+    stopTracking(outId);
+    // Only start the new player's clock if the bolt clock is currently running
+    const boltSnapshot = getClockSnapshot('boltTimer');
+    if (boltSnapshot?.state === 'running') {
+      startTracking(inId);
+    } else {
+      setOnCourt(inId);
+    }
     if (subModalSide === 1) {
       side1PlayerId = inId;
     } else {
