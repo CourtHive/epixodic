@@ -33,16 +33,25 @@
     return format?.sport === 'INTENNSE' || (matchUp.matchUpFormat || '').includes('XA-S:T');
   }
 
+  function safeParse(s: string): any {
+    try { return JSON.parse(s); } catch { return {}; }
+  }
+
   function handleTieMatchUpClick(tieMatchUp: HydratedMatchUp) {
-    // Save tieMatchUp data for the scoring interface to load
+    // Preserve any existing engine state / bolt flags from previous scoring sessions
+    const existingStored = browserStorage.get(tieMatchUp.matchUpId);
+    const existingData = existingStored ? safeParse(existingStored) : {};
+
     const parentMatchUp = teamState.teamMatchUp;
     const matchData: any = {
+      ...existingData,
       matchUpId: tieMatchUp.matchUpId,
       parentMatchUpId: parentMatchUp?.matchUpId,
       matchUpFormat: tieMatchUp.matchUpFormat || parentMatchUp?.matchUpFormat || 'SET3-S:6/TB7',
       matchUpType: tieMatchUp.matchUpType,
       sides: tieMatchUp.sides,
-      score: tieMatchUp.score,
+      // Prefer the existing (more recent) score if engine state was persisted
+      score: existingData.engineState ? existingData.score : tieMatchUp.score,
       match: {
         matchUpId: tieMatchUp.matchUpId,
         tournamentId: parentMatchUp?.tournamentId,
@@ -75,6 +84,15 @@
 
     browserStorage.set(tieMatchUp.matchUpId, JSON.stringify(matchData));
     setActiveTieMatchUp(tieMatchUp.matchUpId);
+
+    console.log('[scorecard→bolt]', {
+      matchUpId: tieMatchUp.matchUpId,
+      hasEngineState: !!matchData.engineState,
+      sets: matchData.engineState?.score?.sets ?? matchData.score?.sets ?? [],
+      boltStarted: matchData.boltStarted,
+      boltComplete: matchData.boltComplete,
+      score: matchData.score,
+    });
 
     const router = (window as any).appRouter;
     if (isIntennseFormat(tieMatchUp) || (parentMatchUp && isIntennseFormat(parentMatchUp))) {

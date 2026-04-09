@@ -126,6 +126,9 @@
   const currentBoltNumber = $derived.by(() => {
     void scoring.version;
     const sets = getEngineState()?.score?.sets ?? [];
+    // No bolts started yet → next bolt is bolt 1
+    if (sets.length === 0) return 1;
+    // Last bolt complete → showing the just-finished bolt's number; NEXT BOLT button will display N+1
     return sets.length;
   });
 
@@ -204,7 +207,19 @@
             timeoutsUsed = matchData.timeoutsUsed;
           }
         }
-      } catch {
+
+        console.log('[bolt mount]', {
+          matchUpId,
+          format,
+          hasEngineState: !!matchData.engineState,
+          sets: matchData.engineState?.score?.sets ?? [],
+          boltStarted,
+          boltExpired,
+          boltComplete,
+          arcBaseScore,
+        });
+      } catch (err) {
+        console.error('[bolt mount] error', err);
         initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
       }
     } else {
@@ -506,6 +521,15 @@
     matchData.boltComplete = boltComplete;
     matchData.timeoutsUsed = timeoutsUsed;
     browserStorage.set(matchUpId, JSON.stringify(matchData));
+
+    if (boltComplete) {
+      console.log('[bolt persist]', {
+        matchUpId,
+        sets,
+        boltComplete,
+        boltStarted,
+      });
+    }
 
     // Notify scorecard listener
     window.dispatchEvent(new CustomEvent('matcharchive:updated', { detail: { matchUpId } }));
