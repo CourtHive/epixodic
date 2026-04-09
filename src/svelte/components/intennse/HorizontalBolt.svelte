@@ -127,6 +127,11 @@
         <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
       </div>
     </div>
+    {#if playerTimePanelOpen}
+      <div class="intennse-h-center-info">
+        <PlayerTimeInfoPanel {sideRoster} />
+      </div>
+    {/if}
     <ControlBar
       serveClock={true}
       {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
@@ -144,12 +149,6 @@
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
   </div>
-
-  {#if playerTimePanelOpen}
-    <div class="intennse-h-info-panel">
-      <PlayerTimeInfoPanel {sideRoster} />
-    </div>
-  {/if}
 
   <!-- Footer: Sub / Timeout / Penalty under respective columns -->
   <div class="intennse-h-footer">

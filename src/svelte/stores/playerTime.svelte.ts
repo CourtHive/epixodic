@@ -74,6 +74,30 @@ export function stopTracking(participantId: string) {
   bump();
 }
 
+/** Mark player as on court without starting their clock (used when bolt hasn't started) */
+export function setOnCourt(participantId: string) {
+  const entry = players[participantId];
+  if (!entry || entry.isOnCourt) return;
+  entry.isOnCourt = true;
+  bump();
+}
+
+/** Pause clocks for all on-court players without changing isOnCourt status */
+export function pauseAllOnCourtClocks() {
+  for (const entry of Object.values(players)) {
+    if (entry.isOnCourt) entry.clock.pause();
+  }
+  bump();
+}
+
+/** Resume clocks for all on-court players */
+export function resumeAllOnCourtClocks() {
+  for (const entry of Object.values(players)) {
+    if (entry.isOnCourt) entry.clock.start();
+  }
+  bump();
+}
+
 export function getCourtTimeMs(participantId: string): number {
   return players[participantId]?.clock.getElapsedMs() ?? 0;
 }

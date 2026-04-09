@@ -21,8 +21,10 @@
     getPlayerTimeState,
     registerPlayers,
     startTracking,
+    setOnCourt,
+    pauseAllOnCourtClocks,
+    resumeAllOnCourtClocks,
     handleSubstitution as trackSubstitution,
-    getRemainingMs,
     checkTimeLimit,
     getBenchPlayers,
     stopTracking,
@@ -79,8 +81,16 @@
 
   let side1Player = $state('Player 1');
   let side2Player = $state('Player 2');
-  let side1CourtTimeMs = $derived(side1Player ? getRemainingMs(side1Player) : 0);
-  let side2CourtTimeMs = $derived(side2Player ? getRemainingMs(side2Player) : 0);
+  let side1CourtTimeMs = $derived.by(() => {
+    void playerTime.version;
+    const entry = Object.values(playerTime.players).find((p) => p.participantName === side1Player && p.isOnCourt);
+    return entry ? Math.max(0, playerTime.maxCourtTimeMs - entry.clock.getElapsedMs()) : 0;
+  });
+  let side2CourtTimeMs = $derived.by(() => {
+    void playerTime.version;
+    const entry = Object.values(playerTime.players).find((p) => p.participantName === side2Player && p.isOnCourt);
+    return entry ? Math.max(0, playerTime.maxCourtTimeMs - entry.clock.getElapsedMs()) : 0;
+  });
 
   let subModalSide = $state<1 | 2 | null>(null);
   let penaltySubPlayer = $state<{ participantId: string; participantName: string } | null>(null);
@@ -186,6 +196,8 @@
       direction: 'down',
       tickIntervalMs: BOLT_TICK_MS,
       onExpire: handleBoltExpired,
+      onResume: () => resumeAllOnCourtClocks(),
+      onPause: () => pauseAllOnCourtClocks(),
     });
     createClock({
       id: 'serveClock',
@@ -235,6 +247,8 @@
       direction: 'down',
       tickIntervalMs: BOLT_TICK_MS,
       onExpire: handleBoltExpired,
+      onResume: () => resumeAllOnCourtClocks(),
+      onPause: () => pauseAllOnCourtClocks(),
     });
     createClock({
       id: 'serveClock',
@@ -267,6 +281,7 @@
     if (!boltStarted) {
       boltStarted = true;
       executeClockCommands(onBoltStart());
+      resumeAllOnCourtClocks();
       return;
     }
     if (officialPause) {
@@ -320,6 +335,7 @@
   function handleBoltExpired() {
     boltExpired = true;
     pauseClock('serveClock');
+    pauseAllOnCourtClocks();
   }
 
   function handleServeClockExpired() {
@@ -474,11 +490,11 @@
 
     sideRoster = rosterMap;
 
-    // Start tracking the active players (the ones assigned to this tieMatchUp)
+    // Mark active players as on court (clocks start when bolt starts)
     const s1ActiveId = s1?.participant?.participantId;
     const s2ActiveId = s2?.participant?.participantId;
-    if (s1ActiveId) startTracking(s1ActiveId);
-    if (s2ActiveId) startTracking(s2ActiveId);
+    if (s1ActiveId) setOnCourt(s1ActiveId);
+    if (s2ActiveId) setOnCourt(s2ActiveId);
   }
 
   // ── Reactive time monitoring ──

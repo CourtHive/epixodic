@@ -25,7 +25,7 @@
 .intennse-horizontal {
   display: grid;
   grid-template-columns: 1fr 2fr 1fr;
-  grid-template-rows: auto 1fr auto auto;
+  grid-template-rows: auto 1fr auto;
   height: 100%;
   width: 100%;
   background: var(--intennse-bg);
@@ -99,10 +99,10 @@
   color: var(--intennse-error);
 }
 
-.intennse-h-info-panel {
-  grid-column: 1 / -1;
-  padding: 0.3rem 0.5rem;
-  border-top: 1px solid var(--intennse-accent);
+.intennse-h-center-info {
+  width: 100%;
+  margin: auto 0;
+  padding: 0.5rem 0;
 }
 
 .intennse-h-header {
