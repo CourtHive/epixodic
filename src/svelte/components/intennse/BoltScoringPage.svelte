@@ -35,7 +35,13 @@
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
   import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock, setClockRemaining } from '../../../clock';
-  import { getTieMatchUp, getTeamMatchUpState, persistTieMatchUpState } from '../../stores/teamMatchUp.svelte';
+  import {
+    getTieMatchUp,
+    getTeamMatchUpState,
+    persistTieMatchUpState,
+    restoreTeamMatchUp,
+    findParentMatchUpId,
+  } from '../../stores/teamMatchUp.svelte';
   import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
 
@@ -167,9 +173,18 @@
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
+    // Ensure the team matchUp is loaded into the store (handles page refresh)
+    let teamState = getTeamMatchUpState();
+    if (!teamState.teamMatchUp) {
+      const parentId = findParentMatchUpId(matchUpId);
+      if (parentId) {
+        restoreTeamMatchUp(parentId);
+        teamState = getTeamMatchUpState();
+      }
+    }
+
     // Primary source of truth: the tieMatchUp inside the team matchUp store
     const tieMatchUp = getTieMatchUp(matchUpId) as any;
-    const teamState = getTeamMatchUpState();
     const parentMatchUp = teamState.teamMatchUp as any;
 
     if (tieMatchUp) {

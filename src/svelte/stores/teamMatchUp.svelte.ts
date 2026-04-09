@@ -5,6 +5,7 @@ import { browserStorage } from '../../state/browserStorage';
 import type { HydratedMatchUp } from '../types';
 
 const STORAGE_KEY_PREFIX = 'team-';
+const TIE_PARENT_PREFIX = 'tie-parent-';
 
 let teamMatchUp = $state<HydratedMatchUp | null>(null);
 let activeTieMatchUpId = $state<string | null>(null);
@@ -27,8 +28,25 @@ export function getTeamMatchUpState() {
 export function setTeamMatchUp(matchUp: HydratedMatchUp) {
   teamMatchUp = matchUp;
   activeTieMatchUpId = null;
-  // Persist for page refresh recovery
+  persistTeamMatchUp(matchUp);
+}
+
+function persistTeamMatchUp(matchUp: HydratedMatchUp) {
   browserStorage.set(STORAGE_KEY_PREFIX + matchUp.matchUpId, JSON.stringify(matchUp));
+  // Write reverse lookups so any tieMatchUp can find its parent on refresh
+  for (const tm of matchUp.tieMatchUps ?? []) {
+    if (tm.matchUpId) {
+      browserStorage.set(TIE_PARENT_PREFIX + tm.matchUpId, matchUp.matchUpId);
+    }
+  }
+}
+
+/**
+ * Find the parent team matchUp id for a given tieMatchUp id.
+ * Used for refresh recovery when only the tieMatchUp id is in the URL.
+ */
+export function findParentMatchUpId(tieMatchUpId: string): string | undefined {
+  return browserStorage.get(TIE_PARENT_PREFIX + tieMatchUpId) ?? undefined;
 }
 
 export function setActiveTieMatchUp(tieMatchUpId: string) {
@@ -117,7 +135,7 @@ export function recalculateTeamScore() {
   }
 
   scoreVersion++;
-  browserStorage.set(STORAGE_KEY_PREFIX + teamMatchUp.matchUpId, JSON.stringify(teamMatchUp));
+  persistTeamMatchUp(teamMatchUp);
 }
 
 function recalculateIntennseScore(matchUp: HydratedMatchUp) {
