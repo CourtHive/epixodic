@@ -2,6 +2,7 @@
   import HorizontalBolt from './HorizontalBolt.svelte';
   import VerticalBolt from './VerticalBolt.svelte';
   import SubstitutionModal from './SubstitutionModal.svelte';
+  import PenaltyModal from './PenaltyModal.svelte';
   import PenaltyBoxDisplay from './PenaltyBoxDisplay.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
   import {
@@ -82,6 +83,7 @@
   let side2CourtTimeMs = $derived(side2Player ? getRemainingMs(side2Player) : 0);
 
   let subModalSide = $state<1 | 2 | null>(null);
+  let penaltyModalSide = $state<1 | 2 | null>(null);
   let sideRoster = $state<Record<string, 1 | 2>>({});
   let timeWarning = $state<{ playerName: string; remainingMs: number } | null>(null);
 
@@ -361,15 +363,35 @@
   }
 
   function handlePenalty(side: 1 | 2) {
-    const activeName = side === 1 ? side1Player : side2Player;
-    const activeEntry = Object.values(playerTime.players).find(
-      (p) => p.participantName === activeName && p.isOnCourt,
+    penaltyModalSide = side;
+  }
+
+  function executePenalty(participantId: string, participantName: string, points: number) {
+    const side = penaltyModalSide;
+    if (!side) return;
+
+    // Send player to penalty box
+    const isOnCourt = Object.values(playerTime.players).some(
+      (p) => p.participantId === participantId && p.isOnCourt,
     );
-    if (!activeEntry) return;
-    stopTracking(activeEntry.participantId);
+    if (isOnCourt) stopTracking(participantId);
     const boxProfile = getPenaltyBoxProfile();
     const durationMs = (boxProfile?.durationSeconds ?? 120) * 1000;
-    sendToBox(activeEntry.participantId, activeEntry.participantName, side, durationMs);
+    sendToBox(participantId, participantName, side, durationMs);
+
+    // Award penalty points to opposing team
+    const receiver = side === 1 ? 1 : 0;
+    for (let i = 0; i < points; i++) {
+      addPoint(receiver as 0 | 1, { result: 'Penalty' });
+    }
+    broadcastState();
+
+    penaltyModalSide = null;
+
+    // Auto-open substitution modal if the penalized player was on court
+    if (isOnCourt) {
+      subModalSide = side;
+    }
   }
 
   function handleBack() {
@@ -548,6 +570,25 @@
         </button>
       </div>
     </div>
+  {/if}
+
+  {#if penaltyModalSide}
+    <PenaltyModal
+      side={penaltyModalSide}
+      teamName={penaltyModalSide === 1 ? side1Name : side2Name}
+      activePlayers={
+        Object.values(playerTime.players)
+          .filter((p) => p.isOnCourt && sideRoster[p.participantId] === penaltyModalSide)
+          .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
+      }
+      benchPlayers={
+        getBenchPlayers(penaltyModalSide, sideRoster)
+          .filter((p) => !isInBox(p.participantId))
+          .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
+      }
+      onConfirm={executePenalty}
+      onClose={() => (penaltyModalSide = null)}
+    />
   {/if}
 
   {#if subModalSide}
