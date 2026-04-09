@@ -75,7 +75,7 @@
     <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
   </div>
 
-  <!-- Start/Play/Rally/Paused/Next Bolt — full width -->
+  <!-- Start/Pause/Resume/Next Bolt — full width -->
   {#if boltComplete && !matchComplete && onNextBolt}
     <button
       class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
@@ -87,22 +87,19 @@
   {:else}
     <button
       class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
-      class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
       class:intennse-ctrl-btn--paused={officialPause}
       onclick={onPointStart}
       disabled={boltComplete}
-      title="Point Start"
+      title="Start / Pause"
     >
       {#if matchComplete}
         MATCH COMPLETE
       {:else if !boltStarted}
         ▶ START BOLT {currentBoltNumber}
       {:else if officialPause}
-        ⏸ PAUSED
-      {:else if rallyInProgress}
-        ⏵ RALLY
+        ▶ RESUME
       {:else}
-        ⏯ PLAY
+        ⏸ PAUSE
       {/if}
     </button>
   {/if}

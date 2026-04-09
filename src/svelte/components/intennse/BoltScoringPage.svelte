@@ -286,28 +286,23 @@
   function handlePointStart() {
     if (boltComplete) return;
     if (!boltStarted) {
+      // First press: start the bolt
       boltStarted = true;
       executeClockCommands(onBoltStart());
       resumeAllOnCourtClocks();
       return;
     }
     if (officialPause) {
-      // Resume from official pause
+      // Resume from pause
       officialPause = false;
       resumeClock('boltTimer');
-      if (rallyInProgress) return;
-      resumeClock('serveClock');
+      if (!rallyInProgress) resumeClock('serveClock');
       return;
     }
-    if (rallyInProgress) {
-      // Official pause — freeze everything
-      officialPause = true;
-      pauseClock('boltTimer');
-      pauseClock('serveClock');
-      return;
-    }
-    // Start rally
-    handleRallyStart();
+    // Pause everything
+    officialPause = true;
+    pauseClock('boltTimer');
+    pauseClock('serveClock');
   }
 
   function handleRallyStart() {
