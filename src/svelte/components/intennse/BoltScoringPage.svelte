@@ -208,9 +208,19 @@
       if (s1?.teamParticipant?.participantName) side1Name = s1.teamParticipant.participantName;
       if (s2?.teamParticipant?.participantName) side2Name = s2.teamParticipant.participantName;
 
-      // Active player IDs from the tieMatchUp sides
-      if (s1?.participant?.participantId) side1PlayerId = s1.participant.participantId;
-      if (s2?.participant?.participantId) side2PlayerId = s2.participant.participantId;
+      // Active player IDs — prefer persisted values (which reflect substitutions)
+      const persistedSide1Id = (tieMatchUp as any).side1PlayerId;
+      const persistedSide2Id = (tieMatchUp as any).side2PlayerId;
+      if (persistedSide1Id) {
+        side1PlayerId = persistedSide1Id;
+      } else if (s1?.participant?.participantId) {
+        side1PlayerId = s1.participant.participantId;
+      }
+      if (persistedSide2Id) {
+        side2PlayerId = persistedSide2Id;
+      } else if (s2?.participant?.participantId) {
+        side2PlayerId = s2.participant.participantId;
+      }
 
       // Register team rosters for substitution support
       const teamRosters = parentMatchUp?.sides?.map((side: any) => ({
@@ -221,7 +231,10 @@
           gender: p.person?.sex || p.person?.gender,
         })) ?? [],
       })) ?? [];
-      initTeamRosters({ teamRosters }, s1, s2);
+      // Build synthetic s1/s2 with the actual active player IDs (post-substitution)
+      const activeS1 = { participant: { participantId: side1PlayerId } };
+      const activeS2 = { participant: { participantId: side2PlayerId } };
+      initTeamRosters({ teamRosters }, activeS1, activeS2);
 
       // Compute ARC base from other tieMatchUps in the team matchUp
       loadArcBaseScoreFromTeam(parentMatchUp, matchUpId);
@@ -555,6 +568,8 @@
       serveClockRemainingMs: serveSnap?.remainingMs,
       playerTimeSnapshots: getPlayerTimeSnapshots(),
       pausedOnExit: boltStarted && !boltComplete,
+      side1PlayerId,
+      side2PlayerId,
       // Also flush the latest engine + flags
       score: { sets: getEngineState()?.score?.sets ?? [] },
       history: getEngineState()?.history,
@@ -601,6 +616,8 @@
       boltExpired,
       boltComplete,
       timeoutsUsed,
+      side1PlayerId,
+      side2PlayerId,
     });
 
     if (boltComplete) {
