@@ -14,6 +14,7 @@
     undo,
     redo,
     setServer,
+    setLineUp,
     substitute as engineSubstitute,
     endSegment,
     getPenaltyBoxProfile,
@@ -208,19 +209,27 @@
       if (s1?.teamParticipant?.participantName) side1Name = s1.teamParticipant.participantName;
       if (s2?.teamParticipant?.participantName) side2Name = s2.teamParticipant.participantName;
 
-      // Active player IDs — prefer persisted values (which reflect substitutions)
-      const persistedSide1Id = (tieMatchUp as any).side1PlayerId;
-      const persistedSide2Id = (tieMatchUp as any).side2PlayerId;
-      if (persistedSide1Id) {
-        side1PlayerId = persistedSide1Id;
-      } else if (s1?.participant?.participantId) {
-        side1PlayerId = s1.participant.participantId;
+      // Restore previous engine state if present (must run before deriving active players)
+      if (tieMatchUp.engineState) {
+        setEngineState(tieMatchUp.engineState);
+        const sets = tieMatchUp.engineState?.score?.sets ?? [];
+        if (sets.length > 0) {
+          boltStarted = true;
+          const lastSet = sets[sets.length - 1];
+          if (lastSet.winningSide !== undefined) {
+            boltExpired = true;
+            boltComplete = true;
+          }
+        }
       }
-      if (persistedSide2Id) {
-        side2PlayerId = persistedSide2Id;
-      } else if (s2?.participant?.participantId) {
-        side2PlayerId = s2.participant.participantId;
-      }
+
+      // Active player IDs — derive from engine's current lineUp (reflects substitutions).
+      // Fall back to original tieMatchUp.sides assignment for fresh engines.
+      const restoredEngineSides = getEngineState()?.sides ?? [];
+      const engineSide1ActiveId = restoredEngineSides[0]?.lineUp?.[0]?.participantId;
+      const engineSide2ActiveId = restoredEngineSides[1]?.lineUp?.[0]?.participantId;
+      side1PlayerId = engineSide1ActiveId || s1?.participant?.participantId || '';
+      side2PlayerId = engineSide2ActiveId || s2?.participant?.participantId || '';
 
       // Register team rosters for substitution support
       const teamRosters = parentMatchUp?.sides?.map((side: any) => ({
@@ -236,22 +245,16 @@
       const activeS2 = { participant: { participantId: side2PlayerId } };
       initTeamRosters({ teamRosters }, activeS1, activeS2);
 
+      // Ensure the engine has lineUps so engine.substitute() works on subsequent subs
+      if (!engineSide1ActiveId && side1PlayerId) {
+        setLineUp(1, [{ participantId: side1PlayerId }]);
+      }
+      if (!engineSide2ActiveId && side2PlayerId) {
+        setLineUp(2, [{ participantId: side2PlayerId }]);
+      }
+
       // Compute ARC base from other tieMatchUps in the team matchUp
       loadArcBaseScoreFromTeam(parentMatchUp, matchUpId);
-
-      // Restore previous engine state and bolt flags from the tieMatchUp itself
-      if (tieMatchUp.engineState) {
-        setEngineState(tieMatchUp.engineState);
-        const sets = tieMatchUp.engineState?.score?.sets ?? [];
-        if (sets.length > 0) {
-          boltStarted = true;
-          const lastSet = sets[sets.length - 1];
-          if (lastSet.winningSide !== undefined) {
-            boltExpired = true;
-            boltComplete = true;
-          }
-        }
-      }
       if (tieMatchUp.timeoutsUsed) timeoutsUsed = tieMatchUp.timeoutsUsed;
 
       console.log('[bolt mount]', {
@@ -568,9 +571,9 @@
       serveClockRemainingMs: serveSnap?.remainingMs,
       playerTimeSnapshots: getPlayerTimeSnapshots(),
       pausedOnExit: boltStarted && !boltComplete,
-      side1PlayerId,
-      side2PlayerId,
-      // Also flush the latest engine + flags
+      // Flush the latest engine state — sides[i].lineUp carries the
+      // current active players (post-substitution) and history.substitutions
+      // has the full sub log
       score: { sets: getEngineState()?.score?.sets ?? [] },
       history: getEngineState()?.history,
       engineState: getEngineState(),
@@ -616,8 +619,6 @@
       boltExpired,
       boltComplete,
       timeoutsUsed,
-      side1PlayerId,
-      side2PlayerId,
     });
 
     if (boltComplete) {

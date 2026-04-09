@@ -102,8 +102,6 @@ export function persistTieMatchUpState(
     serveClockRemainingMs?: number;
     playerTimeSnapshots?: Record<string, { elapsedMs: number; isOnCourt: boolean }>;
     pausedOnExit?: boolean;
-    side1PlayerId?: string;
-    side2PlayerId?: string;
   },
 ) {
   if (!teamMatchUp?.tieMatchUps) return;
@@ -123,8 +121,6 @@ export function persistTieMatchUpState(
   if (patch.serveClockRemainingMs !== undefined) (tieMatchUp as any).serveClockRemainingMs = patch.serveClockRemainingMs;
   if (patch.playerTimeSnapshots !== undefined) (tieMatchUp as any).playerTimeSnapshots = patch.playerTimeSnapshots;
   if (patch.pausedOnExit !== undefined) (tieMatchUp as any).pausedOnExit = patch.pausedOnExit;
-  if (patch.side1PlayerId !== undefined) (tieMatchUp as any).side1PlayerId = patch.side1PlayerId;
-  if (patch.side2PlayerId !== undefined) (tieMatchUp as any).side2PlayerId = patch.side2PlayerId;
 
   recalculateTeamScore();
 }
