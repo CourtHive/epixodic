@@ -307,6 +307,11 @@
       return;
     }
     // Start rally
+    handleRallyStart();
+  }
+
+  function handleRallyStart() {
+    if (boltComplete || !boltStarted || rallyInProgress || officialPause) return;
     rallyInProgress = true;
     executeClockCommands(onRallyStart());
   }
@@ -577,6 +582,7 @@
     onUnforcedError: (side: Side) => handleAction('unforcedError', side),
     onAce: (side: Side) => handleAction('ace', side),
     onFault: (side: Side) => handleAction('fault', side),
+    onReceiverRallyStart: handleRallyStart,
     onUndo: () => undo(),
     onRedo: () => redo(),
     onPointStart: handlePointStart,

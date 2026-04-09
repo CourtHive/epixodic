@@ -34,6 +34,7 @@
     onUnforcedError,
     onAce,
     onFault,
+    onReceiverRallyStart,
     onUndo,
     onRedo,
     onPointStart,
@@ -76,6 +77,7 @@
     onUnforcedError: (side: 0 | 1) => void;
     onAce: (side: 0 | 1) => void;
     onFault: (side: 0 | 1) => void;
+    onReceiverRallyStart?: () => void;
     onUndo: () => void;
     onRedo: () => void;
     onPointStart: () => void;
@@ -106,7 +108,9 @@
     <ActionPanel
       side={0}
       isServing={server === 0}
+      {rallyInProgress}
       disabled={!boltStarted || boltComplete}
+      onRallyStart={onReceiverRallyStart}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
   </div>
@@ -145,7 +149,9 @@
     <ActionPanel
       side={1}
       isServing={server === 1}
+      {rallyInProgress}
       disabled={!boltStarted || boltComplete}
+      onRallyStart={onReceiverRallyStart}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
     />
   </div>

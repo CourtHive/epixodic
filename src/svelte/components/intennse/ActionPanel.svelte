@@ -2,6 +2,7 @@
   let {
     side,
     isServing = false,
+    rallyInProgress = false,
     disabled = false,
     onWinner,
     onTouch,
@@ -9,9 +10,11 @@
     onUnforcedError,
     onAce,
     onFault,
+    onRallyStart,
   }: {
     side: 0 | 1;
     isServing?: boolean;
+    rallyInProgress?: boolean;
     disabled?: boolean;
     onWinner: (side: 0 | 1) => void;
     onTouch: (side: 0 | 1) => void;
@@ -19,6 +22,7 @@
     onUnforcedError: (side: 0 | 1) => void;
     onAce: (side: 0 | 1) => void;
     onFault: (side: 0 | 1) => void;
+    onRallyStart?: () => void;
   } = $props();
 </script>
 
@@ -52,7 +56,12 @@
       <span class="intennse-btn-label">Fault</span>
     </button>
   {:else}
-    <div class="intennse-btn-placeholder"></div>
-    <div class="intennse-btn-placeholder"></div>
+    <button
+      class="intennse-btn intennse-btn--rally"
+      onclick={() => onRallyStart?.()}
+      disabled={disabled || rallyInProgress || !onRallyStart}
+    >
+      Rally
+    </button>
   {/if}
 </div>
