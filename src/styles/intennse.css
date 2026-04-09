@@ -167,6 +167,8 @@
 .clock--compact .clock-time { font-size: 1rem; }
 .clock--normal .clock-time { font-size: 1.4rem; }
 .clock--large .clock-time { font-size: 2rem; }
+.clock--xlarge .clock-time { font-size: 3rem; }
+.clock--xlarge .clock-label { font-size: 0.7rem; }
 
 .clock--urgent .clock-time { color: var(--intennse-urgent); }
 .clock--critical .clock-time { color: var(--intennse-critical); animation: clock-flash 0.5s infinite; }

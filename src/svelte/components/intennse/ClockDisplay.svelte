@@ -6,7 +6,7 @@
   let { clockId, label = '', size = 'normal', urgentAt = 5000, criticalAt = 3000 }: {
     clockId: string;
     label?: string;
-    size?: 'compact' | 'normal' | 'large';
+    size?: 'compact' | 'normal' | 'large' | 'xlarge';
     urgentAt?: number;
     criticalAt?: number;
   } = $props();

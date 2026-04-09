@@ -12,6 +12,7 @@
     onDismissTimeout,
     onCancelTimeout,
     onBack,
+    serveClock = false,
     rallyInProgress = false,
     officialPause = false,
     boltStarted = false,
@@ -29,6 +30,7 @@
     onDismissTimeout: () => void;
     onCancelTimeout?: () => void;
     onBack?: () => void;
+    serveClock?: boolean;
     rallyInProgress?: boolean;
     officialPause?: boolean;
     boltStarted?: boolean;
@@ -63,6 +65,10 @@
 {/if}
 
 <div class="intennse-control-bar">
+  {#if serveClock}
+    <ClockDisplay clockId="serveClock" label="SERVE" size="xlarge" urgentAt={5000} criticalAt={3000} />
+  {/if}
+
   <!-- Undo / Redo — full width row -->
   <div class="intennse-controls-row">
     <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onUndo} disabled={!canUndo} title="Undo">↩ UNDO</button>

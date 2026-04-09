@@ -10,9 +10,11 @@
 </script>
 
 <div class="intennse-score-display">
-  <div class="intennse-score-side" class:intennse-score-side--serving={server === 0}>
-    <span class="intennse-score-name">{side1Name}</span>
-  </div>
+  {#if side1Name}
+    <div class="intennse-score-side" class:intennse-score-side--serving={server === 0}>
+      <span class="intennse-score-name">{side1Name}</span>
+    </div>
+  {/if}
 
   <div class="intennse-score-row">
     <span class="intennse-score-value" class:intennse-score-value--serving={server === 0}>{side1Score}</span>
@@ -20,9 +22,11 @@
     <span class="intennse-score-value" class:intennse-score-value--serving={server === 1}>{side2Score}</span>
   </div>
 
-  <div class="intennse-score-side" class:intennse-score-side--serving={server === 1}>
-    <span class="intennse-score-name">{side2Name}</span>
-  </div>
+  {#if side2Name}
+    <div class="intennse-score-side" class:intennse-score-side--serving={server === 1}>
+      <span class="intennse-score-name">{side2Name}</span>
+    </div>
+  {/if}
 
   {#if statusMessage}
     <div class="intennse-status-message">{statusMessage}</div>

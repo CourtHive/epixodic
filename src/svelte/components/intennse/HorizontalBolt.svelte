@@ -106,11 +106,11 @@
 
   <!-- Center column -->
   <div class="intennse-h-center">
-    <ClockDisplay clockId="boltTimer" label="BOLT" size="large" urgentAt={60000} criticalAt={30000} />
+    <ClockDisplay clockId="boltTimer" label="BOLT" size="xlarge" urgentAt={60000} criticalAt={30000} />
     <ScoreDisplay
       side1Score={boltScore.side1}
       side2Score={boltScore.side2}
-      {side1Name} {side2Name} {server}
+      {server}
     />
     <div class="intennse-arc-compact intennse-arc-compact--large">
       <div class="intennse-arc-compact-label">ARC</div>
@@ -120,8 +120,8 @@
         <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
       </div>
     </div>
-    <ClockDisplay clockId="serveClock" label="SERVE" size="normal" urgentAt={5000} criticalAt={3000} />
     <ControlBar
+      serveClock={true}
       {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
       {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
     />
