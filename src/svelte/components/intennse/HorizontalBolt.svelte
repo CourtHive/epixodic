@@ -87,12 +87,10 @@
 </script>
 
 <div class="intennse-horizontal">
-  <!-- Top header: back button + clocks (spans all columns) -->
+  <!-- Top header: back button + bolt label (spans all columns) -->
   <div class="intennse-h-header">
     <button class="intennse-ctrl-btn intennse-h-back" onclick={onBack} title="Back to Arc">← Arc</button>
-    <ClockDisplay clockId="boltTimer" label="BOLT" size="normal" urgentAt={60000} criticalAt={30000} />
     <span class="intennse-bolt-label">{boltLabel}</span>
-    <ClockDisplay clockId="serveClock" label="SERVE" size="normal" urgentAt={5000} criticalAt={3000} />
   </div>
 
   <!-- Left side: Side 1 player + actions -->
@@ -106,14 +104,15 @@
     />
   </div>
 
-  <!-- Center: score + arc + controls -->
+  <!-- Center column -->
   <div class="intennse-h-center">
+    <ClockDisplay clockId="boltTimer" label="BOLT" size="large" urgentAt={60000} criticalAt={30000} />
     <ScoreDisplay
       side1Score={boltScore.side1}
       side2Score={boltScore.side2}
       {side1Name} {side2Name} {server}
     />
-    <div class="intennse-arc-compact">
+    <div class="intennse-arc-compact intennse-arc-compact--large">
       <div class="intennse-arc-compact-label">ARC</div>
       <div class="intennse-arc-compact-score">
         <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
@@ -121,6 +120,7 @@
         <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
       </div>
     </div>
+    <ClockDisplay clockId="serveClock" label="SERVE" size="normal" urgentAt={5000} criticalAt={3000} />
     <ControlBar
       {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
       {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
