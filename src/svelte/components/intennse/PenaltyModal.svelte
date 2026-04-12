@@ -16,6 +16,9 @@
   } = $props();
 
   const allPlayers = $derived([...activePlayers, ...benchPlayers]);
+  // svelte-ignore state_referenced_locally — initial selection only; the modal
+  // is mounted per open with a stable activePlayers list and the user mutates
+  // selectedPlayer directly.
   let selectedPlayer = $state<string | null>(activePlayers[0]?.participantId ?? null);
   let penaltyPoints = $state(5);
 

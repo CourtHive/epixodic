@@ -18,7 +18,11 @@
     onClose: () => void;
   } = $props();
 
+  // svelte-ignore state_referenced_locally — initial value only; the modal
+  // is mounted once per open with a stable activePlayers list, and the user
+  // mutates selectedOut directly via selectOut().
   let selectedOut = $state<string | null>(
+    // svelte-ignore state_referenced_locally
     preSelectedOut ?? (activePlayers.length === 1 ? activePlayers[0].participantId : null),
   );
 

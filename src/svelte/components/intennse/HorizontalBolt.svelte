@@ -3,7 +3,7 @@
   import ClockDisplay from './ClockDisplay.svelte';
   import ScoreDisplay from './ScoreDisplay.svelte';
   import ActionPanel from './ActionPanel.svelte';
-  import PlayerPanel from './PlayerPanel.svelte';
+  import PlayerPanel, { type PlayerSlot } from './PlayerPanel.svelte';
   import ControlBar from './ControlBar.svelte';
 
   let {
@@ -16,10 +16,8 @@
     serveSide = 'DEUCE',
     canUndo,
     canRedo,
-    side1Player = '',
-    side2Player = '',
-    side1CourtTimeMs = 0,
-    side2CourtTimeMs = 0,
+    side1Players = [],
+    side2Players = [],
     rallyInProgress = false,
     officialPause = false,
     boltStarted = false,
@@ -42,6 +40,8 @@
     onCancelTimeout,
     onSubstitute,
     onPenalty,
+    onSelectPlayers,
+    selectionRequired = false,
     timeoutTeamName = '',
     timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
@@ -59,10 +59,8 @@
     serveSide?: string;
     canUndo: boolean;
     canRedo: boolean;
-    side1Player: string;
-    side2Player: string;
-    side1CourtTimeMs?: number;
-    side2CourtTimeMs?: number;
+    side1Players?: PlayerSlot[];
+    side2Players?: PlayerSlot[];
     rallyInProgress?: boolean;
     officialPause?: boolean;
     boltStarted?: boolean;
@@ -85,6 +83,8 @@
     onCancelTimeout?: () => void;
     onSubstitute: (side: 1 | 2) => void;
     onPenalty: (side: 1 | 2) => void;
+    onSelectPlayers?: (side: 1 | 2) => void;
+    selectionRequired?: boolean;
     timeoutTeamName?: string;
     timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
@@ -104,7 +104,14 @@
 
   <!-- Left side: Side 1 player + actions + penalty box -->
   <div class="intennse-h-side intennse-h-side--left">
-    <PlayerPanel playerName={side1Player} teamName={side1Name} courtTimeRemainingMs={side1CourtTimeMs} isServing={server === 0} {serveSide} side={1} />
+    <PlayerPanel
+      players={side1Players}
+      teamName={side1Name}
+      isServingTeam={server === 0}
+      {serveSide}
+      side={1}
+      onSelect={!boltStarted ? () => onSelectPlayers?.(1) : undefined}
+    />
     <ActionPanel
       side={0}
       isServing={server === 0}
@@ -145,7 +152,14 @@
 
   <!-- Right side: Side 2 player + actions + penalty box -->
   <div class="intennse-h-side intennse-h-side--right">
-    <PlayerPanel playerName={side2Player} teamName={side2Name} courtTimeRemainingMs={side2CourtTimeMs} isServing={server === 1} {serveSide} side={2} />
+    <PlayerPanel
+      players={side2Players}
+      teamName={side2Name}
+      isServingTeam={server === 1}
+      {serveSide}
+      side={2}
+      onSelect={!boltStarted ? () => onSelectPlayers?.(2) : undefined}
+    />
     <ActionPanel
       side={1}
       isServing={server === 1}

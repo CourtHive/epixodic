@@ -2,6 +2,7 @@
   import HorizontalBolt from './HorizontalBolt.svelte';
   import VerticalBolt from './VerticalBolt.svelte';
   import SubstitutionModal from './SubstitutionModal.svelte';
+  import PlayerSelectModal from './PlayerSelectModal.svelte';
   import PenaltyModal from './PenaltyModal.svelte';
   import PenaltyBoxDisplay from './PenaltyBoxDisplay.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
@@ -40,11 +41,14 @@
     getTieMatchUp,
     getTeamMatchUpState,
     persistTieMatchUpState,
+    applyServerDocument,
     restoreTeamMatchUp,
     findParentMatchUpId,
+    setTeamMatchUp,
     setTieMatchUpActiveParticipant,
     setActiveTieMatchUp,
   } from '../../stores/teamMatchUp.svelte';
+  import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/boltHistoryApi';
   import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
 
@@ -58,7 +62,7 @@
     type ClockCommand,
   } from '../../../intennse/clockOrchestration';
   import { getCurrentBoltScore, getAggregateScore } from '../../../intennse/scoreComputation';
-  import { getServingState, type ServeSide } from '../../../intennse/servingRules';
+  import { getServingState, updateSideServerIndices, type ServeSide } from '../../../intennse/servingRules';
 
   let { matchUpId = '', boltLabel = '', side1Name: propSide1Name = '', side2Name: propSide2Name = '' }: {
     matchUpId: string;
@@ -90,28 +94,90 @@
   let serveSide = $state<ServeSide>('DEUCE');
   let isLandscape = $state(window.innerWidth > window.innerHeight);
 
-  let side1PlayerId = $state<string>('');
-  let side2PlayerId = $state<string>('');
-  const side1Player = $derived(side1PlayerId ? (playerTime.players[side1PlayerId]?.participantName ?? '') : '');
-  const side2Player = $derived(side2PlayerId ? (playerTime.players[side2PlayerId]?.participantName ?? '') : '');
-  let side1CourtTimeMs = $derived.by(() => {
+  // Active player IDs per side. Singles → length 1, doubles → length 2.
+  // For doubles, side[N]ServerIndex points at the partner currently cued up
+  // to serve when sideN holds the serve; it rotates between tours via
+  // updateSideServerIndices() in servingRules.
+  let side1PlayerIds = $state<string[]>([]);
+  let side2PlayerIds = $state<string[]>([]);
+  let side1ServerIndex = $state<0 | 1>(0);
+  let side2ServerIndex = $state<0 | 1>(0);
+  let isDoublesMatchUp = $state<boolean>(false);
+
+  /** Active server participant id for the currently serving side. */
+  function currentServerParticipantId(): string {
+    const serverIds = scoring.server === 0 ? side1PlayerIds : side2PlayerIds;
+    const idx = scoring.server === 0 ? side1ServerIndex : side2ServerIndex;
+    return serverIds[idx] ?? serverIds[0] ?? '';
+  }
+
+  /** Last token of a participantName (used for compact mobile display). */
+  function getLastName(name: string): string {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    return parts[parts.length - 1] || name;
+  }
+
+  /**
+   * Per-side player slot view-model. The bolt layouts and PlayerPanel render
+   * straight off this — it carries everything they need (display strings,
+   * remaining time, on-court flag, and which player is the active server).
+   */
+  type PlayerSlot = {
+    participantId: string;
+    participantName: string;
+    lastName: string;
+    courtTimeRemainingMs: number;
+    isOnCourt: boolean;
+    isServer: boolean;
+  };
+
+  function buildSlots(ids: string[], serverIndex: 0 | 1, isServingSide: boolean): PlayerSlot[] {
+    return ids.map((id, idx) => {
+      const entry = playerTime.players[id];
+      const name = entry?.participantName ?? '';
+      const remaining = entry
+        ? Math.max(0, playerTime.maxCourtTimeMs - entry.clock.getElapsedMs())
+        : 0;
+      return {
+        participantId: id,
+        participantName: name,
+        lastName: getLastName(name),
+        courtTimeRemainingMs: remaining,
+        isOnCourt: entry?.isOnCourt ?? false,
+        isServer: isServingSide && idx === serverIndex,
+      };
+    });
+  }
+
+  const side1Players = $derived.by<PlayerSlot[]>(() => {
     void playerTime.version;
-    const entry = side1PlayerId ? playerTime.players[side1PlayerId] : undefined;
-    return entry ? Math.max(0, playerTime.maxCourtTimeMs - entry.clock.getElapsedMs()) : 0;
+    void scoring.version;
+    return buildSlots(side1PlayerIds, side1ServerIndex, scoring.server === 0);
   });
-  let side2CourtTimeMs = $derived.by(() => {
+  const side2Players = $derived.by<PlayerSlot[]>(() => {
     void playerTime.version;
-    const entry = side2PlayerId ? playerTime.players[side2PlayerId] : undefined;
-    return entry ? Math.max(0, playerTime.maxCourtTimeMs - entry.clock.getElapsedMs()) : 0;
+    void scoring.version;
+    return buildSlots(side2PlayerIds, side2ServerIndex, scoring.server === 1);
   });
 
   let subModalSide = $state<1 | 2 | null>(null);
   let penaltySubPlayer = $state<{ participantId: string; participantName: string } | null>(null);
   let penaltyModalSide = $state<1 | 2 | null>(null);
+  let selectModalSide = $state<1 | 2 | null>(null);
   let sideRoster = $state<Record<string, 1 | 2>>({});
   let playerTimePanelOpen = $state(false);
   let timeWarning = $state<{ playerName: string; remainingMs: number } | null>(null);
   let autoTimePenaltyTriggered = $state<Set<string>>(new Set());
+
+  // ── Pre-bolt player selection ──
+  // Required active players per side: 1 for singles, 2 for doubles. The user
+  // confirms selection (or accepts the pre-assigned roster) before the first
+  // BOLT can be started; subsequent player changes go through Substitute.
+  const playersPerSide = $derived(isDoublesMatchUp ? 2 : 1);
+  const side1SelectionComplete = $derived(side1PlayerIds.length === playersPerSide);
+  const side2SelectionComplete = $derived(side2PlayerIds.length === playersPerSide);
+  const selectionComplete = $derived(side1SelectionComplete && side2SelectionComplete);
 
   // ── Derived scores (read engine directly, version triggers reactivity) ──
 
@@ -172,7 +238,7 @@
     isLandscape = window.innerWidth > window.innerHeight;
   }
 
-  onMount(() => {
+  onMount(async () => {
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
@@ -185,7 +251,46 @@
         teamState = getTeamMatchUpState();
       }
     }
+
+    // Fully-fresh-device fallback: no localStorage at all for this
+    // tieMatchUp. Ask the server for the parent team matchUp by
+    // tieMatchUpId so the store can be populated, then proceed with
+    // hydration as usual. This is the cross-device handoff path where
+    // the new device has no prior context whatsoever.
+    if (!teamState.teamMatchUp) {
+      try {
+        const parentResult = await fetchParentMatchUp(matchUpId);
+        if (parentResult.teamMatchUp) {
+          setTeamMatchUp(parentResult.teamMatchUp);
+          teamState = getTeamMatchUpState();
+          console.log('[bolt mount] fetched parent matchUp from server');
+        } else if (parentResult.error && parentResult.error !== 'not_found') {
+          console.warn('[bolt mount] fetchParentMatchUp failed:', parentResult.error);
+        }
+      } catch (err) {
+        console.warn('[bolt mount] fetchParentMatchUp error', err);
+      }
+    }
+
     setActiveTieMatchUp(matchUpId);
+
+    // Hydrate from server BEFORE reading the tieMatchUp into the engine.
+    // If the server's stored document is newer than the local cached
+    // tieMatchUp (cross-device handoff or stale-device-returns), apply
+    // it to the store now so the engine init below sees the right state.
+    if (teamState.teamMatchUp) {
+      const localTie = getTieMatchUp(matchUpId) as any;
+      const localUpdatedAt = localTie?.updatedAt;
+      try {
+        const hydration = await hydrateBoltHistoryOnMount(matchUpId, localUpdatedAt);
+        if (hydration.source === 'server' && hydration.document) {
+          applyServerDocument(matchUpId, hydration.document);
+          console.log(`[bolt mount] hydrated from server (v${hydration.document.version})`);
+        }
+      } catch (err) {
+        console.warn('[bolt mount] hydration failed, proceeding with local state', err);
+      }
+    }
 
     // Primary source of truth: the tieMatchUp inside the team matchUp store
     const tieMatchUp = getTieMatchUp(matchUpId) as any;
@@ -200,7 +305,8 @@
         'SET7XA-S:T10P';
       const competitionFormat =
         tieMatchUp.competitionFormat || parentMatchUp?.competitionFormat || INTENNSE_STANDARD;
-      initScoringEngine({ matchUpFormat: format, competitionFormat });
+      isDoublesMatchUp = tieMatchUp.matchUpType === 'DOUBLES';
+      initScoringEngine({ matchUpFormat: format, competitionFormat, isDoubles: isDoublesMatchUp });
 
       // Team names from the parent team matchUp's sides
       const s1 = tieMatchUp.sides?.[0];
@@ -227,9 +333,10 @@
       }
 
       // Active player IDs — read directly from the tieMatchUp sides.
-      // setTieMatchUpActiveParticipant updates these on every substitution.
-      side1PlayerId = s1?.participant?.participantId ?? '';
-      side2PlayerId = s2?.participant?.participantId ?? '';
+      // For doubles, the side participant is a PAIR with individualParticipants;
+      // for singles it's a single participant.
+      side1PlayerIds = extractActiveIds(s1);
+      side2PlayerIds = extractActiveIds(s2);
 
       // Register team rosters for substitution support
       const teamRosters = parentMatchUp?.sides?.map((side: any) => ({
@@ -240,22 +347,30 @@
           gender: p.person?.sex || p.person?.gender,
         })) ?? [],
       })) ?? [];
-      const activeS1 = { participant: { participantId: side1PlayerId } };
-      const activeS2 = { participant: { participantId: side2PlayerId } };
-      initTeamRosters({ teamRosters }, activeS1, activeS2);
+      initTeamRosters({ teamRosters }, side1PlayerIds, side2PlayerIds);
 
-      // Ensure the engine has lineUps so engine.substitute() works
-      if (side1PlayerId) setLineUp(1, [{ participantId: side1PlayerId }]);
-      if (side2PlayerId) setLineUp(2, [{ participantId: side2PlayerId }]);
+      // Ensure the engine has lineUps so engine.substitute() works.
+      // Doubles: 2 participants per side; singles: 1.
+      if (side1PlayerIds.length) setLineUp(1, side1PlayerIds.map((id) => ({ participantId: id })));
+      if (side2PlayerIds.length) setLineUp(2, side2PlayerIds.map((id) => ({ participantId: id })));
 
       // Compute ARC base from other tieMatchUps in the team matchUp
       loadArcBaseScoreFromTeam(parentMatchUp, matchUpId);
       if (tieMatchUp.timeoutsUsed) timeoutsUsed = tieMatchUp.timeoutsUsed;
+      if (tieMatchUp.side1ServerIndex === 0 || tieMatchUp.side1ServerIndex === 1) {
+        side1ServerIndex = tieMatchUp.side1ServerIndex;
+      }
+      if (tieMatchUp.side2ServerIndex === 0 || tieMatchUp.side2ServerIndex === 1) {
+        side2ServerIndex = tieMatchUp.side2ServerIndex;
+      }
 
       console.log('[bolt mount]', {
         matchUpId,
         format,
         source: 'tieMatchUp',
+        isDoubles: isDoublesMatchUp,
+        side1PlayerIds: $state.snapshot(side1PlayerIds),
+        side2PlayerIds: $state.snapshot(side2PlayerIds),
         hasEngineState: !!tieMatchUp.engineState,
         sets: tieMatchUp.engineState?.score?.sets ?? [],
         boltStarted,
@@ -309,6 +424,12 @@
       if (restored.pausedOnExit && boltStarted && !boltComplete) {
         officialPause = true;
       }
+    }
+
+    // If the bolt hasn't started yet and either side is missing players,
+    // surface the picker for whichever side needs attention first.
+    if (!boltStarted && !selectionComplete) {
+      selectModalSide = side1SelectionComplete ? 2 : 1;
     }
   });
 
@@ -369,26 +490,68 @@
     const { winner, result } = resolvePointAttribution(action, side);
     if (winner === null) return;
 
-    const winnerParticipantId = winner === 0 ? side1PlayerId : side2PlayerId;
-
+    const previousServer = scoring.server as 0 | 1;
     addPoint(winner, {
       result,
-      side1ParticipantId: side1PlayerId,
-      side2ParticipantId: side2PlayerId,
-      winnerParticipantId,
+      ...buildPointAttribution(winner),
     } as any);
 
     // Apply INTENNSE serving rules: winner serves, serve side from aggregate
-    const serving = getServingState(winner, scoring.server, currentAggregateScore);
+    const serving = getServingState(winner, previousServer, currentAggregateScore);
     setServer(serving.server);
     serveSide = serving.serveSide;
+    rotateServerIndices(winner, previousServer);
 
     afterPoint();
+  }
+
+  /**
+   * Build the participant-id metadata for an addPoint call. Singles passes a
+   * single id per side; doubles passes the full active pair plus the rotating
+   * server id. `serverParticipantId` always identifies the actual player on
+   * serve (rotated within-side via updateSideServerIndices).
+   */
+  function buildPointAttribution(winner: 0 | 1) {
+    const winnerSideIds = winner === 0 ? side1PlayerIds : side2PlayerIds;
+    const winnerIdx = winner === 0 ? side1ServerIndex : side2ServerIndex;
+    return {
+      side1ParticipantIds: side1PlayerIds.slice(),
+      side2ParticipantIds: side2PlayerIds.slice(),
+      side1ServerIndex,
+      side2ServerIndex,
+      // Legacy single-id fields kept for any downstream consumers; for doubles
+      // they hold the first slot rather than the whole pair.
+      side1ParticipantId: side1PlayerIds[0] ?? '',
+      side2ParticipantId: side2PlayerIds[0] ?? '',
+      // For doubles winnerParticipantId reflects whichever player is cued up
+      // for the winning side (not strictly "the player who hit the winner",
+      // but the team's nominal server slot — the closest unambiguous proxy).
+      winnerParticipantId: winnerSideIds[winnerIdx] ?? winnerSideIds[0] ?? '',
+      serverParticipantId: currentServerParticipantId(),
+    };
+  }
+
+  /** Apply within-side server rotation after a recorded point. */
+  function rotateServerIndices(pointWinner: 0 | 1, previousServer: 0 | 1) {
+    const next = updateSideServerIndices({
+      pointWinner,
+      previousServer,
+      side1ServerIndex,
+      side2ServerIndex,
+    });
+    side1ServerIndex = next.side1ServerIndex;
+    side2ServerIndex = next.side2ServerIndex;
   }
 
   function handlePointStart() {
     if (boltComplete) return;
     if (!boltStarted) {
+      // Block first start until each side has the required number of active
+      // players selected — surface the picker for whichever side is incomplete.
+      if (!selectionComplete) {
+        selectModalSide = side1SelectionComplete ? 2 : 1;
+        return;
+      }
       // First press: start the bolt
       boltStarted = true;
       executeClockCommands(onBoltStart());
@@ -457,17 +620,16 @@
   }
 
   function handleServeViolationConfirm() {
-    const receiver = scoring.server === 0 ? 1 : 0;
-    const winnerParticipantId = receiver === 0 ? side1PlayerId : side2PlayerId;
-    addPoint(receiver as 0 | 1, {
+    const previousServer = scoring.server as 0 | 1;
+    const receiver = (previousServer === 0 ? 1 : 0) as 0 | 1;
+    addPoint(receiver, {
       result: 'Serve Clock Violation',
-      side1ParticipantId: side1PlayerId,
-      side2ParticipantId: side2PlayerId,
-      winnerParticipantId,
+      ...buildPointAttribution(receiver),
     });
-    const serving = getServingState(receiver, scoring.server, currentAggregateScore);
+    const serving = getServingState(receiver, previousServer, currentAggregateScore);
     setServer(serving.server);
     serveSide = serving.serveSide;
+    rotateServerIndices(receiver, previousServer);
     serveClockExpired = false;
     afterPoint();
   }
@@ -482,6 +644,80 @@
     subModalSide = side;
   }
 
+  /**
+   * Open the player-selection modal for a side. Allowed only before the bolt
+   * starts; once play has begun, roster changes go through Substitute.
+   */
+  function handleOpenSelect(side: 1 | 2) {
+    if (boltStarted) return;
+    selectModalSide = side;
+  }
+
+  /**
+   * Confirm the active players for a side from the selection modal. Order
+   * matters: index 0 is the first server (it seeds side[N]ServerIndex = 0).
+   */
+  function executeSelect(selectedIds: string[]) {
+    const side = selectModalSide;
+    if (!side) return;
+
+    const previousIds = side === 1 ? side1PlayerIds : side2PlayerIds;
+    // Stop tracking any player that was on court but isn't in the new selection
+    for (const id of previousIds) {
+      if (!selectedIds.includes(id)) stopTracking(id);
+    }
+    // Mark the new selection as on-court (clocks don't start until bolt starts)
+    for (const id of selectedIds) setOnCourt(id);
+
+    if (side === 1) {
+      side1PlayerIds = selectedIds.slice();
+      side1ServerIndex = 0;
+      setLineUp(1, side1PlayerIds.map((id) => ({ participantId: id })));
+    } else {
+      side2PlayerIds = selectedIds.slice();
+      side2ServerIndex = 0;
+      setLineUp(2, side2PlayerIds.map((id) => ({ participantId: id })));
+    }
+
+    // Mirror the selection onto the tieMatchUp so the scorecard reflects it
+    syncTieMatchUpSidePlayers(side, selectedIds);
+
+    selectModalSide = null;
+  }
+
+  /**
+   * Replace the tieMatchUp side's participant(s) to match `selectedIds`.
+   * Singles → single participant; doubles → PAIR with both individuals.
+   * Looks up the full participant objects from the parent team roster.
+   */
+  function syncTieMatchUpSidePlayers(sideNumber: 1 | 2, selectedIds: string[]) {
+    const teamMatchUp = getTeamMatchUpState().teamMatchUp as any;
+    const tieMatchUp = getTieMatchUp(matchUpId) as any;
+    if (!tieMatchUp?.sides) return;
+    const side = tieMatchUp.sides.find((s: any) => s.sideNumber === sideNumber);
+    if (!side) return;
+
+    const teamSide = teamMatchUp?.sides?.find((s: any) => s.sideNumber === sideNumber);
+    const roster: any[] = teamSide?.participant?.individualParticipants ?? [];
+    const resolved = selectedIds.map(
+      (id) => roster.find((p) => p?.participantId === id) ?? { participantId: id },
+    );
+
+    if (resolved.length > 1) {
+      side.participant = {
+        ...(side.participant ?? {}),
+        participantType: 'PAIR',
+        individualParticipants: resolved,
+        participantName: resolved
+          .map((p: any) => p?.participantName ?? '')
+          .filter(Boolean)
+          .join(' / '),
+      };
+    } else {
+      side.participant = resolved[0];
+    }
+  }
+
   function executeSubstitution(outId: string, inId: string) {
     if (!subModalSide) return;
     engineSubstitute(subModalSide, outId, inId);
@@ -493,13 +729,21 @@
     } else {
       setOnCourt(inId);
     }
+    // Replace the outgoing id in place so doubles preserves the partner's slot
+    const replaceInArray = (ids: string[]): string[] => {
+      const idx = ids.indexOf(outId);
+      if (idx === -1) return ids;
+      const next = ids.slice();
+      next[idx] = inId;
+      return next;
+    };
     if (subModalSide === 1) {
-      side1PlayerId = inId;
+      side1PlayerIds = replaceInArray(side1PlayerIds);
     } else {
-      side2PlayerId = inId;
+      side2PlayerIds = replaceInArray(side2PlayerIds);
     }
     // Update the tieMatchUp's side participant so the scorecard reflects the new player
-    setTieMatchUpActiveParticipant(matchUpId, subModalSide, inId);
+    setTieMatchUpActiveParticipant(matchUpId, subModalSide, outId, inId);
     subModalSide = null;
     penaltySubPlayer = null;
   }
@@ -522,17 +766,14 @@
     sendToBox(participantId, participantName, side, durationMs);
 
     // Award penalty as a single event (one point record with scoreValue = points)
-    const receiver = side === 1 ? 1 : 0;
-    const winnerParticipantId = receiver === 0 ? side1PlayerId : side2PlayerId;
-    addPoint(receiver as 0 | 1, {
+    const receiver = (side === 1 ? 1 : 0) as 0 | 1;
+    addPoint(receiver, {
       result: 'Penalty',
       scoreValue: points,
       penaltyEvent: true,
       penaltyPoints: points,
       penaltyAgainstParticipantId: participantId,
-      side1ParticipantId: side1PlayerId,
-      side2ParticipantId: side2PlayerId,
-      winnerParticipantId,
+      ...buildPointAttribution(receiver),
     });
     broadcastState();
 
@@ -578,6 +819,8 @@
       boltExpired,
       boltComplete,
       timeoutsUsed,
+      side1ServerIndex,
+      side2ServerIndex,
     });
   }
 
@@ -616,6 +859,8 @@
       boltExpired,
       boltComplete,
       timeoutsUsed,
+      side1ServerIndex,
+      side2ServerIndex,
     });
 
     if (boltComplete) {
@@ -636,7 +881,22 @@
     }));
   }
 
-  function initTeamRosters(matchData: any, s1: any, s2: any) {
+  /**
+   * Extract the active player IDs from a tieMatchUp side. For singles a side
+   * has a single `participant`; for doubles it carries a PAIR participant
+   * with an `individualParticipants` array. Either shape resolves to a flat
+   * list of participant ids.
+   */
+  function extractActiveIds(side: any): string[] {
+    if (!side?.participant) return [];
+    const individuals = side.participant.individualParticipants;
+    if (Array.isArray(individuals) && individuals.length) {
+      return individuals.map((p: any) => p?.participantId).filter(Boolean);
+    }
+    return side.participant.participantId ? [side.participant.participantId] : [];
+  }
+
+  function initTeamRosters(matchData: any, s1ActiveIds: string[], s2ActiveIds: string[]) {
     const rosters = matchData.teamRosters;
     if (!rosters) return;
 
@@ -653,10 +913,8 @@
     sideRoster = rosterMap;
 
     // Mark active players as on court (clocks start when bolt starts)
-    const s1ActiveId = s1?.participant?.participantId;
-    const s2ActiveId = s2?.participant?.participantId;
-    if (s1ActiveId) setOnCourt(s1ActiveId);
-    if (s2ActiveId) setOnCourt(s2ActiveId);
+    for (const id of s1ActiveIds) setOnCourt(id);
+    for (const id of s2ActiveIds) setOnCourt(id);
   }
 
   // ── Reactive time monitoring ──
@@ -702,10 +960,8 @@
     serveSide,
     canUndo: scoring.canUndo,
     canRedo: scoring.canRedo,
-    side1Player,
-    side2Player,
-    side1CourtTimeMs,
-    side2CourtTimeMs,
+    side1Players,
+    side2Players,
     rallyInProgress,
     officialPause,
     boltStarted,
@@ -728,6 +984,9 @@
     onCancelTimeout: handleCancelTimeout,
     onSubstitute: handleSubstitute,
     onPenalty: handlePenalty,
+    onSelectPlayers: handleOpenSelect,
+    selectionRequired: !selectionComplete,
+    playersPerSide,
     timeoutTeamName,
     timeoutsRemaining: { 1: maxTimeoutsPerSide - timeoutsUsed[1], 2: maxTimeoutsPerSide - timeoutsUsed[2] },
     onDismissTimeout: handleDismissTimeout,
@@ -818,6 +1077,23 @@
       }
       onSubstitute={executeSubstitution}
       onClose={() => { subModalSide = null; penaltySubPlayer = null; }}
+    />
+  {/if}
+
+  {#if selectModalSide}
+    {@const sideForSelect = selectModalSide}
+    <PlayerSelectModal
+      side={sideForSelect}
+      teamName={sideForSelect === 1 ? side1Name : side2Name}
+      roster={
+        Object.values(playerTime.players)
+          .filter((p) => sideRoster[p.participantId] === sideForSelect)
+          .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
+      }
+      currentIds={sideForSelect === 1 ? side1PlayerIds : side2PlayerIds}
+      requiredCount={playersPerSide as 1 | 2}
+      onConfirm={executeSelect}
+      onClose={() => (selectModalSide = null)}
     />
   {/if}
 </div>

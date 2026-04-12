@@ -2,6 +2,7 @@
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
   import { getClockSnapshot } from '../../../clock';
+  import type { PlayerSlot } from './PlayerPanel.svelte';
 
   let {
     side1Name = '',
@@ -12,10 +13,8 @@
     server,
     canUndo,
     canRedo,
-    side1Player = '',
-    side2Player = '',
-    side1CourtTimeMs = 0,
-    side2CourtTimeMs = 0,
+    side1Players = [],
+    side2Players = [],
     rallyInProgress = false,
     officialPause = false,
     boltStarted = false,
@@ -37,6 +36,8 @@
     onCancelTimeout,
     onSubstitute,
     onPenalty,
+    onSelectPlayers,
+    selectionRequired = false,
     timeoutTeamName = '',
     timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
@@ -53,10 +54,8 @@
     server: number;
     canUndo: boolean;
     canRedo: boolean;
-    side1Player: string;
-    side2Player: string;
-    side1CourtTimeMs?: number;
-    side2CourtTimeMs?: number;
+    side1Players?: PlayerSlot[];
+    side2Players?: PlayerSlot[];
     rallyInProgress?: boolean;
     officialPause?: boolean;
     boltStarted?: boolean;
@@ -78,6 +77,8 @@
     onCancelTimeout?: () => void;
     onSubstitute: (side: 1 | 2) => void;
     onPenalty: (side: 1 | 2) => void;
+    onSelectPlayers?: (side: 1 | 2) => void;
+    selectionRequired?: boolean;
     timeoutTeamName?: string;
     timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
@@ -86,6 +87,15 @@
     sideRoster?: Record<string, 1 | 2>;
     onBack: () => void;
   } = $props();
+
+  /** Compact player label per side: last names joined for doubles, full name for singles. */
+  function compactSideLabel(players: PlayerSlot[]): string {
+    if (players.length === 0) return 'TAP TO SELECT';
+    if (players.length === 1) return players[0].participantName;
+    return players.map((p) => p.lastName).join(' / ');
+  }
+  const side1Label = $derived(compactSideLabel(side1Players));
+  const side2Label = $derived(compactSideLabel(side2Players));
 
   const timeoutSnapshot = $derived(getClockSnapshot('timeoutTimer'));
   const timeoutActive = $derived(timeoutSnapshot?.state === 'running');
@@ -163,10 +173,11 @@
       class="iv-score-side"
       class:iv-score-side--serving={server === 0}
       class:iv-score-side--selectable={!!pendingAction}
+      class:iv-score-side--needs-select={!boltStarted && side1Players.length === 0}
       onclick={() => selectSide(0)}
       disabled={!pendingAction}
     >
-      <span class="iv-player-name">{side1Player}</span>
+      <span class="iv-player-name">{side1Label}</span>
       <span class="iv-score-value">{boltScore.side1}</span>
     </button>
 
@@ -176,13 +187,25 @@
       class="iv-score-side"
       class:iv-score-side--serving={server === 1}
       class:iv-score-side--selectable={!!pendingAction}
+      class:iv-score-side--needs-select={!boltStarted && side2Players.length === 0}
       onclick={() => selectSide(1)}
       disabled={!pendingAction}
     >
       <span class="iv-score-value">{boltScore.side2}</span>
-      <span class="iv-player-name">{side2Player}</span>
+      <span class="iv-player-name">{side2Label}</span>
     </button>
   </div>
+
+  {#if !boltStarted && (side1Players.length === 0 || side2Players.length === 0)}
+    <div class="iv-select-row">
+      <button class="iv-select-btn" onclick={() => onSelectPlayers?.(1)} disabled={side1Players.length > 0 && !onSelectPlayers}>
+        {side1Players.length === 0 ? `Select ${side1Name || 'side 1'} players` : `Edit ${side1Name || 'side 1'}`}
+      </button>
+      <button class="iv-select-btn" onclick={() => onSelectPlayers?.(2)} disabled={side2Players.length > 0 && !onSelectPlayers}>
+        {side2Players.length === 0 ? `Select ${side2Name || 'side 2'} players` : `Edit ${side2Name || 'side 2'}`}
+      </button>
+    </div>
+  {/if}
 
   <!-- Compact ARC score below bolt score -->
   <div class="intennse-arc-compact">
@@ -420,4 +443,32 @@
     border-top: 1px solid var(--intennse-accent);
     background: var(--intennse-surface);
   }
+
+  .iv-score-side--needs-select .iv-player-name {
+    color: var(--intennse-urgent, #ff9800);
+    font-weight: 700;
+  }
+
+  .iv-select-row {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0 0.5rem 0.4rem;
+  }
+
+  .iv-select-btn {
+    flex: 1;
+    padding: 0.55rem 0.5rem;
+    border: 1px dashed var(--intennse-urgent, #ff9800);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--intennse-urgent, #ff9800);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .iv-select-btn:active { opacity: 0.7; }
+  .iv-select-btn:disabled { opacity: 0.4; cursor: default; }
 </style>

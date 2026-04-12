@@ -92,11 +92,13 @@ export function getScoringState() {
 export function initScoringEngine(config: {
   matchUpFormat: string;
   competitionFormat?: any;
+  isDoubles?: boolean;
   eventHandlers?: any;
 }) {
   engine = new ScoringEngine({
     matchUpFormat: config.matchUpFormat,
     competitionFormat: config.competitionFormat,
+    isDoubles: config.isDoubles,
     eventHandlers: {
       onPoint: (ctx: any) => {
         bump();

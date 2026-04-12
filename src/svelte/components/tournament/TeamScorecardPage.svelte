@@ -29,7 +29,17 @@
 
   function isIntennseFormat(matchUp: HydratedMatchUp): boolean {
     const format = (matchUp as any).competitionFormat;
-    return format?.sport === 'INTENNSE' || (matchUp.matchUpFormat || '').includes('XA-S:T');
+    if (format?.sport === 'INTENNSE') return true;
+    if ((matchUp.matchUpFormat || '').includes('XA-S:T')) return true;
+    // Team matchUps don't carry a matchUpFormat and the server doesn't inline
+    // competitionFormat onto them. Detect an INTENNSE team by checking whether
+    // any of its tieMatchUps uses an INTENNSE format — this lets doubles
+    // tieMatchUps (whose own matchUpFormat is a normal doubles format) still
+    // route to the bolt page via the parent fallback in handleTieMatchUpClick.
+    if (matchUp.tieMatchUps?.length) {
+      return matchUp.tieMatchUps.some((tm) => (tm.matchUpFormat || '').includes('XA-S:T'));
+    }
+    return false;
   }
 
   function handleTieMatchUpClick(tieMatchUp: HydratedMatchUp) {

@@ -1,6 +1,8 @@
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 import { createRelay, getMetrics } from './relay.js';
+import { createProjectionIntake } from './projectionIntake.js';
+import { configureVideoBoardForwarder } from './videoBoardForwarder.js';
 import { configurePersistence } from './persistence.js';
 import type { RelayConfig } from './types.js';
 
@@ -13,7 +15,19 @@ const config: RelayConfig = {
   pruneIntervalMinutes: parseFloat(process.env.PRUNE_INTERVAL_MINUTES || '30'),
 };
 
+let projectionIntake: ReturnType<typeof createProjectionIntake> | null = null;
+
 const httpServer = createServer((req, res) => {
+  // Projection intake routes (POST from competition-factory-server's projector)
+  if (req.method === 'POST' && req.url === '/api/projection/scorebug') {
+    void projectionIntake?.handleScorebug(req, res);
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/api/projection/video-board') {
+    void projectionIntake?.handleVideoBoard(req, res);
+    return;
+  }
+
   if (req.url === '/metrics') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getMetrics()));
@@ -41,10 +55,17 @@ if (config.persistScores && config.factoryServerUrl) {
 
 createRelay(io, config);
 
+projectionIntake = createProjectionIntake({
+  io,
+  apiKey: process.env.PROJECTION_API_KEY?.trim() || undefined,
+});
+configureVideoBoardForwarder(process.env.VIDEO_BOARD_UDP_TARGET);
+
 httpServer.listen(config.port, () => {
   console.log(`[relay] score-relay listening on port ${config.port}`);
   console.log(`[relay] tracker namespace: /tracker (mobile trackers connect here)`);
   console.log(`[relay] live namespace:    /live    (listeners subscribe here)`);
+  console.log(`[relay] projection intake: POST /api/projection/{scorebug,video-board}`);
   console.log(`[relay] metrics:          GET /metrics`);
   console.log(`[relay] stale prune: ${config.staleMatchHours}h threshold, ${config.pruneIntervalMinutes}min interval`);
 });
