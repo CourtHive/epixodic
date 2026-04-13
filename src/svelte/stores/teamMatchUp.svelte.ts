@@ -294,7 +294,11 @@ function recalculateStandardScore(matchUp: HydratedMatchUp) {
 function isIntennseMatchUp(matchUp: any): boolean {
   if (matchUp?.competitionFormat?.sport === 'INTENNSE') return true;
   const format = matchUp?.matchUpFormat || '';
-  return format.includes('XA-S:T');
+  if (format.includes('XA-S:T')) return true;
+  // Check tieFormat for aggregate scoring or tieMatchUp formats for INTENNSE codes
+  if (matchUp?.tieFormat?.winCriteria?.aggregateValue) return true;
+  if (matchUp?.tieMatchUps?.some((tm: any) => (tm.matchUpFormat || '').includes('XA-S:T'))) return true;
+  return false;
 }
 
 export function restoreTeamMatchUp(matchUpId: string): boolean {
