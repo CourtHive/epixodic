@@ -63,10 +63,26 @@ export function completeLocalMatchUp(matchUpId: string, winningSide: 1 | 2, matc
 }
 
 export function deleteLocalMatchUp(matchUpId: string) {
-  browserStorage.remove(matchUpId);
+  // Team matchUps are stored with a "team-" prefix in both localStorage and the archive list
+  const teamKey = `team-${matchUpId}`;
+  const isTeam = !!browserStorage.get(teamKey);
+  const storageKey = isTeam ? teamKey : matchUpId;
+
+  // Clean up tie-parent reverse lookups before removing the team matchUp
+  if (isTeam) {
+    try {
+      const data = JSON.parse(browserStorage.get(teamKey) || '{}');
+      for (const tm of data.tieMatchUps ?? []) {
+        if (tm.matchUpId) browserStorage.remove(`tie-parent-${tm.matchUpId}`);
+      }
+    } catch { /* skip */ }
+  }
+
+  browserStorage.remove(storageKey);
+
   const currentMatchId = browserStorage.get('current_match');
   let archive = JSON.parse(browserStorage.get('match_archive') || '[]');
-  archive = archive.filter((id: string) => id !== matchUpId);
+  archive = archive.filter((id: string) => id !== matchUpId && id !== teamKey);
   browserStorage.set('match_archive', JSON.stringify(archive));
 
   if (matchUpId === currentMatchId) {

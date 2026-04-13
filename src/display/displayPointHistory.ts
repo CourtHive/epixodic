@@ -1,5 +1,5 @@
 import { env, getEpisodes } from '../state/env';
-import { supportsGameVisualizations } from '@tennisvisuals/scoring-visualizations';
+import { supportsGameVisualizations } from './vizSupport';
 import { WINNER_RESULTS } from '../utils/constants';
 
 export function displayPointHistory() {

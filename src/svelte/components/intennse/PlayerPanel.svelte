@@ -5,6 +5,7 @@
     participantId: string;
     participantName: string;
     lastName: string;
+    jerseyNumber?: string;
     courtTimeRemainingMs: number;
     isOnCourt: boolean;
     isServer: boolean;
@@ -54,18 +55,21 @@
       {#each players as player (player.participantId)}
         <button
           class="intennse-player-slot"
-          class:intennse-player-slot--server={player.isServer}
+          class:intennse-player-slot--server={player.isServer && players.length > 1}
           onclick={() => onSelect?.()}
           title={player.participantName}
         >
           <span class="intennse-player-name intennse-player-name--full">{player.participantName}</span>
           <span class="intennse-player-name intennse-player-name--short">{player.lastName}</span>
-          <span class="intennse-player-time {timeClass(player.courtTimeRemainingMs)}">
-            {#if player.courtTimeRemainingMs <= 0}
-              TIME
-            {:else}
-              {formatTime(player.courtTimeRemainingMs)}
-            {/if}
+          <span class="intennse-player-timer-row">
+            {#if player.jerseyNumber}<span class="intennse-player-jersey">{player.jerseyNumber}</span>{/if}
+            <span class="intennse-player-time {timeClass(player.courtTimeRemainingMs)}">
+              {#if player.courtTimeRemainingMs <= 0}
+                TIME
+              {:else}
+                {formatTime(player.courtTimeRemainingMs)}
+              {/if}
+            </span>
           </span>
         </button>
       {/each}
@@ -134,6 +138,27 @@
     .intennse-player-row {
       gap: 0.3rem;
     }
+  }
+
+  .intennse-player-timer-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .intennse-player-jersey {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 3px;
+    background: var(--intennse-serving, #00d4aa);
+    color: var(--intennse-surface, #16213e);
+    font-weight: 800;
+    font-size: 0.65rem;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
   }
 
   .intennse-player-empty {

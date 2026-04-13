@@ -218,6 +218,8 @@ export function applyServerDocument(tieMatchUpId: string, document: BoltHistoryD
 
 async function pushBoltHistoryForTie(tieMatchUpId: string): Promise<void> {
   if (!teamMatchUp) return;
+  // Skip server push for local-only matchUps (no tournamentId = demo/offline)
+  if (!teamMatchUp.tournamentId) return;
   const tieMatchUp = teamMatchUp.tieMatchUps?.find((m) => m.matchUpId === tieMatchUpId);
   if (!tieMatchUp) return;
   try {

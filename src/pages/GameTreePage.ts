@@ -2,7 +2,7 @@ import { ViewPage } from './ViewPage';
 import { touchManager } from '../events/touchManager';
 import { charts, env, getEpisodes, getNoAd, getParticipantNames } from '../state/env';
 import { ensureGameTreeChart } from '../display/configureViz';
-import { supportsGameVisualizations } from '@tennisvisuals/scoring-visualizations';
+import { supportsGameVisualizations } from '../display/vizSupport';
 import { mountViewHeader, unmountViewHeader } from '../svelte/bridge/viewHeaderMount';
 import { viewStats, viewMomentum, viewPointHistory, outcomeEntry } from '../events/clickActions';
 

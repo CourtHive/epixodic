@@ -11,8 +11,8 @@
     onClose,
   }: {
     side: 1 | 2;
-    activePlayers: { participantId: string; participantName: string }[];
-    benchPlayers: { participantId: string; participantName: string; gender?: string }[];
+    activePlayers: { participantId: string; participantName: string; jerseyNumber?: string }[];
+    benchPlayers: { participantId: string; participantName: string; gender?: string; jerseyNumber?: string }[];
     preSelectedOut?: string;
     onSubstitute: (outId: string, inId: string) => void;
     onClose: () => void;
@@ -66,7 +66,10 @@
           onclick={() => selectOut(player.participantId)}
           disabled={locked}
         >
-          <span class="sub-player-name">{player.participantName}{locked ? ' (penalized)' : ''}</span>
+          <span class="sub-player-name">
+            {#if player.jerseyNumber}<span class="sub-jersey">{player.jerseyNumber}</span>{/if}
+            {player.participantName}{locked ? ' (penalized)' : ''}
+          </span>
           <span class="sub-player-time" class:player-time--critical={remaining < 60000 && !exhausted}>
             {exhausted ? 'TIME' : formatTime(remaining)}
           </span>
@@ -85,7 +88,10 @@
           onclick={() => selectIn(player.participantId)}
           disabled={exhausted || !selectedOut}
         >
-          <span class="sub-player-name">{player.participantName}</span>
+          <span class="sub-player-name">
+            {#if player.jerseyNumber}<span class="sub-jersey">{player.jerseyNumber}</span>{/if}
+            {player.participantName}
+          </span>
           <span class="sub-player-time">
             {exhausted ? 'TIME' : formatTime(remaining)}
           </span>
@@ -175,7 +181,21 @@
 
   .sub-player--bench { background: var(--intennse-accent, #0f3460); }
 
-  .sub-player-name { font-weight: 600; }
+  .sub-player-name { font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
+  .sub-jersey {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 4px;
+    background: var(--intennse-serving, #00d4aa);
+    color: var(--intennse-surface, #16213e);
+    font-weight: 800;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
   .sub-player-time { font-variant-numeric: tabular-nums; font-size: 0.75rem; color: var(--intennse-text-muted); }
 
   .sub-empty {

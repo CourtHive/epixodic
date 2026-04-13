@@ -9,8 +9,8 @@
   }: {
     side: 1 | 2;
     teamName?: string;
-    activePlayers: { participantId: string; participantName: string }[];
-    benchPlayers: { participantId: string; participantName: string }[];
+    activePlayers: { participantId: string; participantName: string; jerseyNumber?: string }[];
+    benchPlayers: { participantId: string; participantName: string; jerseyNumber?: string }[];
     onConfirm: (participantId: string, participantName: string, points: number) => void;
     onClose: () => void;
   } = $props();
@@ -50,7 +50,7 @@
           class:pen-player--selected={selectedPlayer === player.participantId}
           onclick={() => (selectedPlayer = player.participantId)}
         >
-          {player.participantName}
+          {#if player.jerseyNumber}<span class="pen-jersey">{player.jerseyNumber}</span>{/if}{player.participantName}
         </button>
       {/each}
     </div>
@@ -135,8 +135,24 @@
     font-weight: 600;
   }
 
+  .pen-jersey {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 4px;
+    background: var(--intennse-error, #ef5350);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    margin-right: 0.4rem;
+    flex-shrink: 0;
+  }
+
   .pen-player {
-    display: block;
+    display: flex;
     width: 100%;
     padding: 0.5rem 0.6rem;
     margin-bottom: 0.3rem;

@@ -121,8 +121,14 @@
 
   function navigateToScoring(matchUpId: string) {
     dismissPopup();
+    const matchUp = local.myMatchUps.find((m) => m.matchUpId === matchUpId);
+    if (matchUp?.matchUpType === 'TEAM') {
+      const router = (globalThis as any).appRouter;
+      router?.navigate(`/team/${matchUpId}`);
+      return;
+    }
     if (device.isMobile) {
-      const router = (window as any).appRouter;
+      const router = (globalThis as any).appRouter;
       router?.navigate(matchPath(matchUpId, 'scoring'));
     } else {
       openScoringModal(matchUpId);

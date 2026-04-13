@@ -127,6 +127,7 @@
     participantId: string;
     participantName: string;
     lastName: string;
+    jerseyNumber?: string;
     courtTimeRemainingMs: number;
     isOnCourt: boolean;
     isServer: boolean;
@@ -143,6 +144,7 @@
         participantId: id,
         participantName: name,
         lastName: getLastName(name),
+        jerseyNumber: entry?.jerseyNumber,
         courtTimeRemainingMs: remaining,
         isOnCourt: entry?.isOnCourt ?? false,
         isServer: isServingSide && idx === serverIndex,
@@ -278,7 +280,8 @@
     // If the server's stored document is newer than the local cached
     // tieMatchUp (cross-device handoff or stale-device-returns), apply
     // it to the store now so the engine init below sees the right state.
-    if (teamState.teamMatchUp) {
+    // Skip server hydration for local-only matchUps (no tournamentId = demo/offline)
+    if (teamState.teamMatchUp?.tournamentId) {
       const localTie = getTieMatchUp(matchUpId) as any;
       const localUpdatedAt = localTie?.updatedAt;
       try {
@@ -341,11 +344,18 @@
       // Register team rosters for substitution support
       const teamRosters = parentMatchUp?.sides?.map((side: any) => ({
         sideNumber: side.sideNumber,
-        participants: side.participant?.individualParticipants?.map((p: any) => ({
-          participantId: p.participantId,
-          participantName: p.participantName,
-          gender: p.person?.sex || p.person?.gender,
-        })) ?? [],
+        participants: side.participant?.individualParticipants?.map((p: any) => {
+          const teamAttrs = p.person?.biographicalInformation?.teamAttributes;
+          const jerseyNumber = teamAttrs?.length === 1
+            ? teamAttrs[0].jerseyNumber
+            : teamAttrs?.find((a: any) => a.teamId === side.participant?.participantId)?.jerseyNumber;
+          return {
+            participantId: p.participantId,
+            participantName: p.participantName,
+            gender: p.person?.sex || p.person?.gender,
+            jerseyNumber,
+          };
+        }) ?? [],
       })) ?? [];
       initTeamRosters({ teamRosters }, side1PlayerIds, side2PlayerIds);
 
@@ -786,7 +796,19 @@
     }
   }
 
+  let showBackConfirm = $state(false);
+
   function handleBack() {
+    if (boltStarted && !boltComplete) {
+      showBackConfirm = true;
+      return;
+    }
+    pauseAndPersistOnExit();
+    window.history.back();
+  }
+
+  function confirmBack() {
+    showBackConfirm = false;
     pauseAndPersistOnExit();
     window.history.back();
   }
@@ -1045,12 +1067,12 @@
       activePlayers={
         Object.values(playerTime.players)
           .filter((p) => p.isOnCourt && sideRoster[p.participantId] === penaltyModalSide)
-          .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
+          .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber }))
       }
       benchPlayers={
         getBenchPlayers(penaltyModalSide, sideRoster)
           .filter((p) => !isInBox(p.participantId))
-          .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
+          .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber }))
       }
       onConfirm={executePenalty}
       onClose={() => (penaltyModalSide = null)}
@@ -1065,15 +1087,15 @@
         penaltySubPlayer
           ? [penaltySubPlayer, ...Object.values(playerTime.players)
               .filter((p) => p.isOnCourt && sideRoster[p.participantId] === subModalSide && p.participantId !== penaltySubPlayer.participantId)
-              .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))]
+              .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber }))]
           : Object.values(playerTime.players)
               .filter((p) => p.isOnCourt && sideRoster[p.participantId] === subModalSide)
-              .map((p) => ({ participantId: p.participantId, participantName: p.participantName }))
+              .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber }))
       }
       benchPlayers={
         getBenchPlayers(subModalSide, sideRoster)
           .filter((p) => !isInBox(p.participantId))
-          .map((p) => ({ participantId: p.participantId, participantName: p.participantName, gender: p.gender }))
+          .map((p) => ({ participantId: p.participantId, participantName: p.participantName, gender: p.gender, jerseyNumber: p.jerseyNumber }))
       }
       onSubstitute={executeSubstitution}
       onClose={() => { subModalSide = null; penaltySubPlayer = null; }}
@@ -1096,9 +1118,82 @@
       onClose={() => (selectModalSide = null)}
     />
   {/if}
+  {#if showBackConfirm}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="back-confirm-overlay" onclick={() => (showBackConfirm = false)}>
+      <div class="back-confirm-modal" onclick={(e) => e.stopPropagation()}>
+        <div class="back-confirm-title">Leave active Bolt?</div>
+        <div class="back-confirm-msg">Clocks are still running. Are you sure you want to return to the Scorecard?</div>
+        <div class="back-confirm-buttons">
+          <button class="back-confirm-btn back-confirm-btn--cancel" onclick={() => (showBackConfirm = false)}>
+            Continue Bolt
+          </button>
+          <button class="back-confirm-btn back-confirm-btn--leave" onclick={confirmBack}>
+            Leave
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
+  .back-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .back-confirm-modal {
+    background: var(--intennse-surface, #16213e);
+    color: var(--intennse-text, #e0e0e0);
+    border: 2px solid var(--intennse-serving, #00d4aa);
+    border-radius: 12px;
+    padding: 1.2rem;
+    min-width: 260px;
+    max-width: 340px;
+    width: 85%;
+    text-align: center;
+  }
+  .back-confirm-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .back-confirm-msg {
+    font-size: 0.8rem;
+    color: var(--intennse-text-muted, #8892b0);
+    margin-bottom: 1rem;
+    line-height: 1.4;
+  }
+  .back-confirm-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .back-confirm-btn {
+    flex: 1;
+    padding: 0.6rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .back-confirm-btn:active { opacity: 0.7; }
+  .back-confirm-btn--cancel {
+    background: var(--intennse-serving, #00d4aa);
+    color: var(--intennse-surface, #16213e);
+  }
+  .back-confirm-btn--leave {
+    background: var(--intennse-accent, #0f3460);
+    color: var(--intennse-text, #e0e0e0);
+  }
+
   .intennse-bolt-page {
     height: 100%;
     width: 100%;

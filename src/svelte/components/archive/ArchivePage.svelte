@@ -4,16 +4,37 @@
   import Toast from '../shared/Toast.svelte';
   import MyMatchUps from './MyMatchUps.svelte';
   import TournamentList from './TournamentList.svelte';
+  import { createIntennseDemoMatchUp } from '../../../fixtures/intennseDemo';
   import { setArchiveContext } from '../../stores/navigation.svelte';
   import { refreshLocalMatchUps } from '../../stores/localMatchUps.svelte';
+  import { setTeamMatchUp } from '../../stores/teamMatchUp.svelte';
   import { newMatch } from '../../../match/displayMatchArchive';
+  import { browserStorage } from '../../../state/browserStorage';
   import { onMount } from 'svelte';
   import type { NavAction } from '../../types';
 
   let activeTab = $state<'my' | 'tournaments'>('my');
 
+  function newIntennseDemo() {
+    const matchUp = createIntennseDemoMatchUp();
+    setTeamMatchUp(matchUp as any);
+
+    // Add to local archive so it appears in "My MatchUps"
+    const archiveKey = `team-${matchUp.matchUpId}`;
+    const archive: string[] = JSON.parse(browserStorage.get('match_archive') || '[]');
+    if (!archive.includes(archiveKey)) {
+      archive.push(archiveKey);
+      browserStorage.set('match_archive', JSON.stringify(archive));
+    }
+    refreshLocalMatchUps();
+
+    const router = (globalThis as any).appRouter;
+    router?.navigate(`/team/${matchUp.matchUpId}`);
+  }
+
   const bottomActions: NavAction[] = [
     { label: '+ New Match', action: () => newMatch() },
+    { label: '+ INTENNSE Demo', action: () => newIntennseDemo() },
   ];
 
   onMount(() => {

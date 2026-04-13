@@ -13,6 +13,7 @@ interface PlayerTimeEntry {
   participantId: string;
   participantName: string;
   gender?: string;
+  jerseyNumber?: string;
   clock: Clock;
   isOnCourt: boolean;
 }
@@ -35,11 +36,12 @@ export function setMaxCourtTime(ms: number) {
   maxCourtTimeMs = ms;
 }
 
-export function registerPlayer(participantId: string, participantName: string, gender?: string) {
+export function registerPlayer(participantId: string, participantName: string, gender?: string, jerseyNumber?: string) {
   if (players[participantId]) return;
   players[participantId] = {
     participantId,
     participantName,
+    jerseyNumber,
     gender,
     clock: new Clock({
       id: `playerTime-${participantId}`,
@@ -52,9 +54,9 @@ export function registerPlayer(participantId: string, participantName: string, g
   };
 }
 
-export function registerPlayers(roster: { participantId: string; participantName: string; gender?: string }[]) {
+export function registerPlayers(roster: { participantId: string; participantName: string; gender?: string; jerseyNumber?: string }[]) {
   for (const p of roster) {
-    registerPlayer(p.participantId, p.participantName, p.gender);
+    registerPlayer(p.participantId, p.participantName, p.gender, p.jerseyNumber);
   }
 }
 

@@ -1,10 +1,9 @@
+import { supportsGameVisualizations, supportsPointsToVisualization } from './vizSupport';
 import {
   gameTree,
   gameFish,
   momentumChart,
   ptsMatch,
-  supportsGameVisualizations,
-  supportsPointsToVisualization,
 } from '@tennisvisuals/scoring-visualizations';
 import { charts, env, setOrientation, getEpisodes, getParticipantNames } from '../state/env';
 import { groupGames } from '../engine/groupGames';

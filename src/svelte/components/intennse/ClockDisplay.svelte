@@ -57,9 +57,9 @@
       <span class="clock-label">{label}</span>
     {/if}
     <div class="clock-edit">
-      <button class="clock-edit-btn" onclick={() => step('up')}>+</button>
-      <span class="clock-time">{editDisplay}</span>
       <button class="clock-edit-btn" onclick={() => step('down')}>−</button>
+      <span class="clock-time">{editDisplay}</span>
+      <button class="clock-edit-btn" onclick={() => step('up')}>+</button>
     </div>
     <div class="clock-edit-actions">
       <button class="clock-edit-confirm" onclick={confirmEdit}>✓</button>

@@ -204,7 +204,7 @@ export function updateStats(element?: Element) {
   const matchActive = set_filter === undefined ? ' s_set_active' : '';
   let statselectors = `<div class='updateStats s_set${matchActive}'>Match</div>`;
 
-  const rawStats = computeMatchStatsFromMatchUp(env.engine.getState(), set_filter);
+  const rawStats = (computeMatchStatsFromMatchUp as any)(env.engine.getState(), set_filter);
   const stats = convertStatsToLegacyFormat(rawStats);
 
   if (!stats?.length || !Array.isArray(stats)) {
