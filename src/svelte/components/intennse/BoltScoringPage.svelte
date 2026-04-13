@@ -60,6 +60,7 @@
   import {
     onBoltStart, onRallyStart, onPointComplete, onTimeoutStart, onTimeoutEnd,
     BOLT_DURATION_MS, SERVE_CLOCK_DURATION_MS, BOLT_TICK_MS, SERVE_TICK_MS,
+    setBoltDuration,
     type ClockCommand,
   } from '../../../intennse/clockOrchestration';
   import { getCurrentBoltScore, getAggregateScore } from '../../../intennse/scoreComputation';
@@ -397,6 +398,16 @@
       // Fallback: tieMatchUp not in team store (e.g. direct nav, page refresh before team load)
       console.warn('[bolt mount] no tieMatchUp in team store for', matchUpId);
       initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
+    }
+
+    // Configure bolt duration from tieFormat, URL param (?boltMinutes=3), or default
+    const tieFormatBoltMinutes = (teamState.teamMatchUp as any)?.tieFormat?.boltDurationMinutes;
+    const urlBoltMinutes = new URLSearchParams(globalThis.location?.search || '').get('boltMinutes');
+    if (urlBoltMinutes) {
+      const ms = Number.parseFloat(urlBoltMinutes) * 60 * 1000;
+      if (ms > 0) { setBoltDuration(ms); BREAK_DURATION_MS = Math.min(BREAK_DURATION_MS, ms); }
+    } else if (tieFormatBoltMinutes) {
+      setBoltDuration(tieFormatBoltMinutes * 60 * 1000);
     }
 
     createClock({

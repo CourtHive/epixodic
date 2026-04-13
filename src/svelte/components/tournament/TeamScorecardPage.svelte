@@ -7,6 +7,7 @@
     getTeamMatchUpState,
     setActiveTieMatchUp,
     restoreTeamMatchUp,
+    recalculateTeamScore,
   } from '../../stores/teamMatchUp.svelte';
   import { onMount } from 'svelte';
   import type { HydratedMatchUp } from '../../types';
@@ -24,6 +25,8 @@
         loadError = 'Team matchUp not found. Navigate from the event page to load.';
       }
     }
+    // Ensure aggregate score is fresh on every mount
+    recalculateTeamScore();
     loaded = true;
   });
 
@@ -74,12 +77,9 @@
 </script>
 
 <div class="team-scorecard-page">
-  <TopNav />
+  <TopNav backAction={navigateBack} />
 
   <div class="scorecard-content">
-    <button class="back-button" onclick={navigateBack}>
-      &larr; Back to matchUps
-    </button>
 
     {#if !loaded}
       <LoadingSpinner />
@@ -107,17 +107,5 @@
   .scorecard-content {
     flex: 1;
     padding: 0.5rem;
-  }
-  .back-button {
-    background: none;
-    border: none;
-    color: var(--chc-text-primary, #333);
-    font-size: 0.9rem;
-    cursor: pointer;
-    padding: 0.5rem 0;
-    margin-bottom: 0.5rem;
-  }
-  .back-button:hover {
-    text-decoration: underline;
   }
 </style>
