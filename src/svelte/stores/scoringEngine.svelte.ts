@@ -175,9 +175,9 @@ export function setLineUp(sideNumber: 1 | 2, lineUp: any[]) {
   bump();
 }
 
-export function setServer(side: 0 | 1) {
+export function setServer(side: 0 | 1, options?: { recordEntry?: boolean }) {
   if (!engine) return;
-  engine.setServer(side);
+  engine.setServer(side, options);
   bump();
 }
 

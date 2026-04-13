@@ -576,9 +576,11 @@
       ...buildPointAttribution(winner),
     } as any);
 
-    // Apply INTENNSE serving rules: winner serves, serve side from aggregate
+    // Apply INTENNSE serving rules: winner serves, serve side from aggregate.
+    // recordEntry: false — this is derived from the point, not a user action;
+    // without this, undo pops the setServer instead of the point.
     const serving = getServingState(winner, previousServer, currentAggregateScore);
-    setServer(serving.server);
+    setServer(serving.server, { recordEntry: false });
     serveSide = serving.serveSide;
     rotateServerIndices(winner, previousServer);
 
@@ -707,7 +709,7 @@
       ...buildPointAttribution(receiver),
     });
     const serving = getServingState(receiver, previousServer, currentAggregateScore);
-    setServer(serving.server);
+    setServer(serving.server, { recordEntry: false });
     serveSide = serving.serveSide;
     rotateServerIndices(receiver, previousServer);
     serveClockExpired = false;

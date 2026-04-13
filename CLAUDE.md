@@ -24,6 +24,9 @@ pnpm check-types          # TypeScript type-check only (tsc --noEmit)
 pnpm lint                 # ESLint with auto-fix + cache
 pnpm format               # Prettier on src/
 pnpm test                 # Vitest (TZ=UTC, watch mode)
+pnpm test:e2e             # Playwright E2E tests (requires dev server on :5175)
+pnpm test:e2e:ui          # Playwright with interactive UI
+pnpm test:e2e:headed      # Playwright headed mode (visible browser)
 pnpm preview              # Preview built app
 pnpm commit               # Interactive conventional commit (cz-git)
 ```
@@ -82,6 +85,33 @@ Svelte 5 with `@sveltejs/vite-plugin-svelte` and `vitePreprocess`. TypeScript wi
 - ESLint with sonarjs plugin
 - `strictNullChecks` is OFF, `noImplicitAny` is OFF
 - Target: ES2020
+
+## E2E Testing (Playwright)
+
+37 E2E tests covering the INTENNSE scoring interface. Planning: `Mentat/planning/EPIXODIC_PLAYWRIGHT_E2E.md`.
+
+```
+e2e/
+├── playwright.config.ts        # Mobile-first (390x844), port 5175, single worker
+├── helpers/
+│   ├── selectors.ts            # 80+ stable CSS selectors for INTENNSE components
+│   ├── app-bridge.ts           # Dev API bridge (state access, reset, navigation)
+│   ├── intennse-seed.ts        # UI-driven demo seeding helper
+│   └── clock-helpers.ts        # Clock fast-forward via dev API
+├── pages/
+│   ├── ArchivePage.ts          # POM for archive + config modal
+│   ├── ScorecardPage.ts        # POM for team scorecard
+│   └── BoltScoringPage.ts      # POM for bolt scoring (two-step interaction)
+└── journeys/                   # 7 spec files, 37 tests
+```
+
+**Dev API** (`globalThis.dev`): Extended for E2E with `createDemo`, `getScoringState`, `getEngineState`, `setBoltDuration`, `getClockSnapshot`, `setClockRemaining`, `pauseClock`, `resumeClock`, `undo`, `redo`, `clearLocalStorage`.
+
+**Key patterns:**
+- Scoring is two-step: tap action button → tap side panel. Ace/Fault auto-attribute to server.
+- Touch semantics: pressing Touch on side N = "side N touched the ball" → opponent gets 1 point
+- Clock fast-forward: `dev.pauseClock('boltTimer')` → `dev.setClockRemaining('boltTimer', 50)` → `dev.resumeClock('boltTimer')`
+- Vitest exclusion: `vite.config.ts` has `test: { exclude: ['e2e/**'] }`
 
 ## Ecosystem Coding Standards
 
