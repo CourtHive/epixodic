@@ -175,6 +175,11 @@
   let penaltyModalSide = $state<1 | 2 | null>(null);
   let selectModalSide = $state<1 | 2 | null>(null);
   let showCoinToss = $state(false);
+  // Check if any tieMatchUp in this team matchUp has been scored — if so, serve was already determined
+  const teamHasHistory = $derived.by(() => {
+    const tm = getTeamMatchUpState().teamMatchUp as any;
+    return tm?.tieMatchUps?.some((t: any) => t.engineState?.score?.sets?.length > 0) ?? false;
+  });
   let serverDetermined = $state(false);
   let sideRoster = $state<Record<string, 1 | 2>>({});
   let playerTimePanelOpen = $state(false);
@@ -465,9 +470,9 @@
     }
   });
 
-  // Show coin toss after both sides selected, before first bolt only
+  // Show coin toss after both sides selected, before first bolt only (once per Arc)
   $effect(() => {
-    if (selectionComplete && !boltStarted && !serverDetermined && !showCoinToss && currentBoltNumber === 1) {
+    if (selectionComplete && !boltStarted && !serverDetermined && !showCoinToss && !teamHasHistory) {
       showCoinToss = true;
     }
   });
