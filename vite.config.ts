@@ -13,7 +13,7 @@ export default ({ mode }) => {
     plugins: [svelte()],
     base: BASE_URL,
     test: {
-      exclude: ['e2e/**', 'node_modules/**'],
+      exclude: ['e2e/**', '**/node_modules/**', 'score-relay/**'],
     },
     resolve: {
       tsconfigPaths: true,
