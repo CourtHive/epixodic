@@ -4,6 +4,7 @@
   import Toast from '../shared/Toast.svelte';
   import MyMatchUps from './MyMatchUps.svelte';
   import TournamentList from './TournamentList.svelte';
+  import IntennseConfigModal from './IntennseConfigModal.svelte';
   import { createIntennseDemoMatchUp } from '../../../fixtures/intennseDemo';
   import { setArchiveContext } from '../../stores/navigation.svelte';
   import { refreshLocalMatchUps } from '../../stores/localMatchUps.svelte';
@@ -14,12 +15,18 @@
   import type { NavAction } from '../../types';
 
   let activeTab = $state<'my' | 'tournaments'>('my');
+  let showIntennseConfig = $state(false);
 
-  function newIntennseDemo() {
-    const matchUp = createIntennseDemoMatchUp();
+  function createIntennseDemo(config: { team1Name: string; team2Name: string; boltMinutes: number; assignParticipants: boolean }) {
+    showIntennseConfig = false;
+    const matchUp = createIntennseDemoMatchUp({
+      team1Name: config.team1Name,
+      team2Name: config.team2Name,
+      boltDurationMinutes: config.boltMinutes,
+      assignParticipants: config.assignParticipants,
+    });
     setTeamMatchUp(matchUp as any);
 
-    // Add to local archive so it appears in "My MatchUps"
     const archiveKey = `team-${matchUp.matchUpId}`;
     const archive: string[] = JSON.parse(browserStorage.get('match_archive') || '[]');
     if (!archive.includes(archiveKey)) {
@@ -34,7 +41,7 @@
 
   const bottomActions: NavAction[] = [
     { label: '+ New Match', action: () => newMatch() },
-    { label: '+ INTENNSE Demo', action: () => newIntennseDemo() },
+    { label: '+ INTENNSE Demo', action: () => { showIntennseConfig = true; } },
   ];
 
   onMount(() => {
@@ -73,6 +80,13 @@
 
   <BottomNav actions={bottomActions} />
   <Toast />
+
+  {#if showIntennseConfig}
+    <IntennseConfigModal
+      onConfirm={createIntennseDemo}
+      onClose={() => { showIntennseConfig = false; }}
+    />
+  {/if}
 </div>
 
 <style>
