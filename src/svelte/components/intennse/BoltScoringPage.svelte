@@ -3,6 +3,7 @@
   import VerticalBolt from './VerticalBolt.svelte';
   import SubstitutionModal from './SubstitutionModal.svelte';
   import PlayerSelectModal from './PlayerSelectModal.svelte';
+  import CoinTossModal from './CoinTossModal.svelte';
   import PenaltyModal from './PenaltyModal.svelte';
   import PenaltyBoxDetailModal from './PenaltyBoxDetailModal.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
@@ -173,6 +174,8 @@
   let penaltySubPlayer = $state<{ participantId: string; participantName: string } | null>(null);
   let penaltyModalSide = $state<1 | 2 | null>(null);
   let selectModalSide = $state<1 | 2 | null>(null);
+  let showCoinToss = $state(false);
+  let serverDetermined = $state(false);
   let sideRoster = $state<Record<string, 1 | 2>>({});
   let playerTimePanelOpen = $state(false);
   let timeWarning = $state<{ playerName: string; remainingMs: number } | null>(null);
@@ -333,6 +336,7 @@
         const sets = tieMatchUp.engineState?.score?.sets ?? [];
         if (sets.length > 0) {
           boltStarted = true;
+          serverDetermined = true;
           const lastSet = sets[sets.length - 1];
           if (lastSet.winningSide !== undefined) {
             boltExpired = true;
@@ -452,10 +456,19 @@
       }
     }
 
-    // If the bolt hasn't started yet and either side is missing players,
-    // surface the picker for whichever side needs attention first.
-    if (!boltStarted && !selectionComplete) {
+  });
+
+  // Auto-open player selection when a side is missing players before bolt starts
+  $effect(() => {
+    if (!boltStarted && !selectionComplete && !selectModalSide) {
       selectModalSide = side1SelectionComplete ? 2 : 1;
+    }
+  });
+
+  // Show coin toss after both sides selected, before first bolt only
+  $effect(() => {
+    if (selectionComplete && !boltStarted && !serverDetermined && !showCoinToss && currentBoltNumber === 1) {
+      showCoinToss = true;
     }
   });
 
@@ -1181,6 +1194,21 @@
       requiredCount={playersPerSide as 1 | 2}
       onConfirm={executeSelect}
       onClose={() => (selectModalSide = null)}
+    />
+  {/if}
+  {#if showCoinToss}
+    <CoinTossModal
+      side1Name={side1Name}
+      side2Name={side2Name}
+      onResult={(servingSide) => {
+        showCoinToss = false;
+        serverDetermined = true;
+        setServer(servingSide);
+      }}
+      onClose={() => {
+        showCoinToss = false;
+        serverDetermined = true;
+      }}
     />
   {/if}
   {#if showBackConfirm}
