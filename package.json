@@ -73,5 +73,12 @@
     "navigo": "^8.11.1",
     "svelte": "^5.53.6",
     "tods-competition-factory": "^2.4.6-beta.43"
+  },
+  "pnpm": {
+    "overrides": {
+      "tods-competition-factory": "link:../factory",
+      "courthive-components": "link:../courthive-components",
+      "@tennisvisuals/scoring-visualizations": "link:../scoringVisualizations"
+    }
   }
 }
