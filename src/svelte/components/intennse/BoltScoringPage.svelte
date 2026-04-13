@@ -66,6 +66,7 @@
   } from '../../../intennse/clockOrchestration';
   import { getCurrentBoltScore, getAggregateScore } from '../../../intennse/scoreComputation';
   import { getServingState, updateSideServerIndices, type ServeSide } from '../../../intennse/servingRules';
+  import { getScoringPrefs } from '../../stores/scoringPrefs.svelte';
 
   let { matchUpId = '', boltLabel = '', side1Name: propSide1Name = '', side2Name: propSide2Name = '' }: {
     matchUpId: string;
@@ -99,7 +100,9 @@
   let timeoutsUsed = $state<{ 1: number; 2: number }>({ 1: 0, 2: 0 });
   const maxTimeoutsPerSide = (INTENNSE_STANDARD as any).timeoutRules?.maxPerSide ?? 5;
   let serveSide = $state<ServeSide>('DEUCE');
-  let isLandscape = $state(window.innerWidth > window.innerHeight);
+  const isMobile = matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 768;
+  let isLandscape = $state(!isMobile && window.innerWidth > window.innerHeight);
+  const scoringPrefs = getScoringPrefs();
 
   // Active player IDs per side. Singles → length 1, doubles → length 2.
   // For doubles, side[N]ServerIndex points at the partner currently cued up
@@ -251,7 +254,9 @@
   // ── Lifecycle ──
 
   function handleResize() {
-    isLandscape = window.innerWidth > window.innerHeight;
+    if (!isMobile) {
+      isLandscape = window.innerWidth > window.innerHeight;
+    }
   }
 
   onMount(async () => {
@@ -1057,18 +1062,27 @@
 
   // ── Layout props ──
 
+  // Visual side swap: when swapped, left shows data-side2 and right shows data-side1
+  const swapped = $derived(scoringPrefs.sidesSwapped);
+  const flipSide = (side: Side): Side => swapped ? (1 - side) as Side : side;
+  const flipSideNum = (side: 1 | 2): (1 | 2) => swapped ? (3 - side) as 1 | 2 : side;
+
   const layoutProps = $derived({
-    side1Name,
-    side2Name,
+    side1Name: swapped ? side2Name : side1Name,
+    side2Name: swapped ? side1Name : side2Name,
     boltLabel: boltLabel || `BOLT ${currentBoltNumber}`,
-    boltScore: currentBoltScore,
-    aggregateScore: currentAggregateScore,
-    server: scoring.server,
+    boltScore: swapped
+      ? { side1: currentBoltScore.side2, side2: currentBoltScore.side1 }
+      : currentBoltScore,
+    aggregateScore: swapped
+      ? { side1: currentAggregateScore.side2, side2: currentAggregateScore.side1 }
+      : currentAggregateScore,
+    server: swapped ? (1 - scoring.server) : scoring.server,
     serveSide,
     canUndo: scoring.canUndo,
     canRedo: scoring.canRedo,
-    side1Players,
-    side2Players,
+    side1Players: swapped ? side2Players : side1Players,
+    side2Players: swapped ? side1Players : side2Players,
     rallyInProgress,
     officialPause,
     boltStarted,
@@ -1077,25 +1091,27 @@
     matchComplete,
     currentBoltNumber,
     onNextBolt: handleNextBolt,
-    onWinner: (side: Side) => handleAction('winner', side),
-    onTouch: (side: Side) => handleAction('touch', side),
-    onForcedError: (side: Side) => handleAction('forcedError', side),
-    onUnforcedError: (side: Side) => handleAction('unforcedError', side),
-    onAce: (side: Side) => handleAction('ace', side),
-    onFault: (side: Side) => handleAction('fault', side),
+    onWinner: (side: Side) => handleAction('winner', flipSide(side)),
+    onTouch: (side: Side) => handleAction('touch', flipSide(side)),
+    onForcedError: (side: Side) => handleAction('forcedError', flipSide(side)),
+    onUnforcedError: (side: Side) => handleAction('unforcedError', flipSide(side)),
+    onAce: (side: Side) => handleAction('ace', flipSide(side)),
+    onFault: (side: Side) => handleAction('fault', flipSide(side)),
     onReceiverRallyStart: handleRallyStart,
     onUndo: () => undo(),
     onRedo: () => redo(),
     onPointStart: handlePointStart,
-    onTimeout: handleTimeout,
+    onTimeout: (side: 1 | 2) => handleTimeout(flipSideNum(side)),
     onCancelTimeout: handleCancelTimeout,
-    onSubstitute: handleSubstitute,
-    onPenalty: handlePenalty,
-    onSelectPlayers: handleOpenSelect,
+    onSubstitute: (side: 1 | 2) => handleSubstitute(flipSideNum(side)),
+    onPenalty: (side: 1 | 2) => handlePenalty(flipSideNum(side)),
+    onSelectPlayers: (side: 1 | 2) => handleOpenSelect(flipSideNum(side)),
     selectionRequired: !selectionComplete,
     playersPerSide,
     timeoutTeamName,
-    timeoutsRemaining: { 1: maxTimeoutsPerSide - timeoutsUsed[1], 2: maxTimeoutsPerSide - timeoutsUsed[2] },
+    timeoutsRemaining: swapped
+      ? { 1: maxTimeoutsPerSide - timeoutsUsed[2], 2: maxTimeoutsPerSide - timeoutsUsed[1] }
+      : { 1: maxTimeoutsPerSide - timeoutsUsed[1], 2: maxTimeoutsPerSide - timeoutsUsed[2] },
     onDismissTimeout: handleDismissTimeout,
     playerTimePanelOpen,
     onTogglePlayerTimePanel: () => { playerTimePanelOpen = !playerTimePanelOpen; },
@@ -1104,9 +1120,10 @@
     breakPaused,
     onPauseBreak: pauseBreak,
     onStartNextBolt: handleNextBolt,
-    onAwardBreakPoints: awardBreakPoints,
+    onAwardBreakPoints: (side: 1 | 2, points: number) => awardBreakPoints(flipSideNum(side), points),
     onBack: handleBack,
     onPenaltyBoxTap: () => { penaltyBoxModalOpen = true; },
+    showForcedError: scoringPrefs.showForcedError ?? isLandscape,
   });
 </script>
 

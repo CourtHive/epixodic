@@ -9,8 +9,9 @@
     restoreTeamMatchUp,
     recalculateTeamScore,
   } from '../../stores/teamMatchUp.svelte';
+  import { toggleSidesSwapped, getScoringPrefs } from '../../stores/scoringPrefs.svelte';
   import { onMount } from 'svelte';
-  import type { HydratedMatchUp } from '../../types';
+  import type { HydratedMatchUp, NavAction } from '../../types';
 
   let { matchUpId }: { matchUpId: string } = $props();
 
@@ -65,6 +66,11 @@
     }
   }
 
+  const scoringPrefs = getScoringPrefs();
+  const navActions = $derived<NavAction[]>([
+    { label: scoringPrefs.sidesSwapped ? '⇄ Swapped' : '⇄ Sides', action: toggleSidesSwapped },
+  ]);
+
   function navigateBack() {
     const router = (window as any).appRouter;
     const matchUp = teamState.teamMatchUp;
@@ -77,7 +83,7 @@
 </script>
 
 <div class="team-scorecard-page">
-  <TopNav backAction={navigateBack} />
+  <TopNav backAction={navigateBack} actions={navActions} />
 
   <div class="scorecard-content">
 

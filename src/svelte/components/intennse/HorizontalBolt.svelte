@@ -55,6 +55,7 @@
     onStartNextBolt,
     onBack,
     onPenaltyBoxTap,
+    showForcedError = true,
   }: {
     side1Name: string;
     side2Name: string;
@@ -103,6 +104,7 @@
     onStartNextBolt?: () => void;
     onBack: () => void;
     onPenaltyBoxTap?: () => void;
+    showForcedError?: boolean;
   } = $props();
 </script>
 
@@ -129,7 +131,7 @@
       {rallyInProgress}
       disabled={!boltStarted || boltComplete}
       onRallyStart={onReceiverRallyStart}
-      {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
+      {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault} {showForcedError}
     />
   </div>
 
@@ -186,7 +188,7 @@
       {rallyInProgress}
       disabled={!boltStarted || boltComplete}
       onRallyStart={onReceiverRallyStart}
-      {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
+      {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault} {showForcedError}
     />
   </div>
 

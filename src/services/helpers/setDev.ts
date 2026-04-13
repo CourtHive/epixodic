@@ -22,6 +22,7 @@ import {
 import {
   setBoltDuration,
 } from '../../intennse/clockOrchestration';
+import { getScoringPrefs, setShowForcedError, toggleSidesSwapped, setSidesSwapped } from '../../svelte/stores/scoringPrefs.svelte';
 
 export function setDev() {
   window['dev'] = {
@@ -133,6 +134,14 @@ export function setDev() {
       await navigator.clipboard.writeText(json);
       console.log(`[dev] point history copied to clipboard (${json.length} chars)`);
     },
+    /** Get current scoring UI preferences */
+    get scoringPrefs() { return getScoringPrefs(); },
+    /** Toggle forced error button visibility (true=show, false=hide, null=layout default) */
+    setShowForcedError,
+    /** Toggle visual side swap (left↔right) to match court orientation */
+    toggleSidesSwapped,
+    /** Set sides swapped explicitly */
+    setSidesSwapped,
     /** Clear all localStorage (full state reset) */
     clearLocalStorage: () => localStorage.clear(),
 
@@ -163,6 +172,12 @@ export function setDev() {
         ['Export / Clipboard', [
           ['await dev.copyTeamMatchUp()',  'Copy the full teamMatchUp JSON to clipboard'],
           ['await dev.copyPointHistory()', 'Copy engine state + point history (with matchUp IDs) to clipboard'],
+        ]],
+        ['Scoring Preferences', [
+          ['dev.scoringPrefs',          'Current scoring UI preferences (getter)'],
+          ['dev.setShowForcedError(v)', 'Toggle Forced button: true=show, false=hide, null=layout default (portrait: hidden, landscape: shown)'],
+          ['dev.toggleSidesSwapped()',  'Toggle visual side swap (left↔right) to match court orientation'],
+          ['dev.setSidesSwapped(bool)', 'Set sides swapped explicitly'],
         ]],
         ['E2E / Testing', [
           ['dev.createDemo(config)',  'Create an INTENNSE demo matchUp ({ team1Name, team2Name, boltMinutes, assignParticipants })'],

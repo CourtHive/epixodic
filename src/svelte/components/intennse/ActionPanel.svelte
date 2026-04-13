@@ -11,11 +11,13 @@
     onAce,
     onFault,
     onRallyStart,
+    showForcedError = true,
   }: {
     side: 0 | 1;
     isServing?: boolean;
     rallyInProgress?: boolean;
     disabled?: boolean;
+    showForcedError?: boolean;
     onWinner: (side: 0 | 1) => void;
     onTouch: (side: 0 | 1) => void;
     onForcedError: (side: 0 | 1) => void;
@@ -37,10 +39,12 @@
     <span class="intennse-btn-value">1</span>
   </button>
 
-  <button class="intennse-btn intennse-btn--forced" onclick={() => onForcedError(side)} {disabled}>
-    <span class="intennse-btn-label">Forced</span>
-    <span class="intennse-btn-value">1</span>
-  </button>
+  {#if showForcedError}
+    <button class="intennse-btn intennse-btn--forced" onclick={() => onForcedError(side)} {disabled}>
+      <span class="intennse-btn-label">Forced</span>
+      <span class="intennse-btn-value">1</span>
+    </button>
+  {/if}
 
   <button class="intennse-btn intennse-btn--unforced" onclick={() => onUnforcedError(side)} {disabled}>
     <span class="intennse-btn-label">Error</span>
@@ -56,7 +60,10 @@
       <span class="intennse-btn-label">Fault</span>
     </button>
   {:else}
-    <div class="intennse-btn-placeholder"></div>
+    <div class="intennse-btn intennse-btn-placeholder" aria-hidden="true">
+      <span class="intennse-btn-label">Ace</span>
+      <span class="intennse-btn-value">2</span>
+    </div>
     <button
       class="intennse-btn intennse-btn--rally"
       onclick={() => onRallyStart?.()}

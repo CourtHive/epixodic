@@ -2,6 +2,7 @@
   import PenaltyBoxIndicator from './PenaltyBoxIndicator.svelte';
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
+  import ActionPanel from './ActionPanel.svelte';
   import { getClockSnapshot } from '../../../clock';
   import type { PlayerSlot } from './PlayerPanel.svelte';
 
@@ -52,6 +53,8 @@
     onAwardBreakPoints,
     onBack,
     onPenaltyBoxTap,
+    showForcedError = false,
+    onReceiverRallyStart,
   }: {
     side1Name: string;
     side2Name: string;
@@ -99,6 +102,8 @@
     onAwardBreakPoints?: (side: 1 | 2, points: number) => void;
     onBack: () => void;
     onPenaltyBoxTap?: () => void;
+    showForcedError?: boolean;
+    onReceiverRallyStart?: () => void;
   } = $props();
 
   /** Compact player label per side: last names joined for doubles, full name for singles. */
@@ -112,46 +117,6 @@
 
   const timeoutSnapshot = $derived(getClockSnapshot('timeoutTimer'));
   const timeoutActive = $derived(timeoutSnapshot?.state === 'running');
-
-  // Side selection: each action button picks a side via the score panel tap targets
-  let pendingAction = $state<string | null>(null);
-
-  function selectSide(side: 0 | 1) {
-    if (!pendingAction) return;
-    const action = pendingAction;
-    pendingAction = null;
-
-    switch (action) {
-      case 'winner': onWinner(side); break;
-      case 'touch': onTouch(side); break;
-      case 'forcedError': onForcedError(side); break;
-      case 'unforcedError': onUnforcedError(side); break;
-      case 'ace': onAce(side); break;
-      case 'fault': onFault(side); break;
-    }
-  }
-
-  function actionButton(action: string) {
-    // Ace and fault are always attributed to the server — no side selection needed
-    if (action === 'ace') { onAce(server as 0 | 1); return; }
-    if (action === 'fault') { onFault(server as 0 | 1); return; }
-    pendingAction = pendingAction === action ? null : action;
-  }
-
-  const actionLabels: Record<string, { label: string; value?: string; cls: string; color: string }> = {
-    winner: { label: 'Winner', value: '2', cls: 'intennse-btn--winner', color: 'var(--intennse-winner)' },
-    touch: { label: 'Touch', value: '1', cls: 'intennse-btn--touch', color: 'var(--intennse-touch)' },
-    ace: { label: 'Ace', value: '2', cls: 'intennse-btn--ace', color: 'var(--intennse-winner)' },
-    forcedError: { label: 'Forced', value: '1', cls: 'intennse-btn--forced', color: 'var(--intennse-error)' },
-    unforcedError: { label: 'Error', value: '1', cls: 'intennse-btn--unforced', color: '#c62828' },
-    fault: { label: 'Fault', cls: 'intennse-btn--fault', color: 'var(--intennse-fault)' },
-  };
-
-  const actions = $derived(
-    pendingAction
-      ? Object.keys(actionLabels)
-      : ['winner', 'touch', 'forcedError', 'unforcedError', 'ace', 'fault'],
-  );
 </script>
 
 {#if timeoutActive}
@@ -197,33 +162,27 @@
     {/if}
   </div>
 
-  <!-- Score: tap left/right to select side when action is pending -->
-  <div class="iv-score" class:iv-score--selecting={!!pendingAction}>
-    <button
+  <!-- Score display -->
+  <div class="iv-score">
+    <div
       class="iv-score-side"
-      class:iv-score-side--selectable={!!pendingAction}
       class:iv-score-side--needs-select={!boltStarted && side1Players.length === 0}
-      onclick={() => selectSide(0)}
-      disabled={!pendingAction}
     >
       <span class="iv-team-name">{side1Name}</span>
       <span class="iv-score-value">{boltScore.side1}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 0}>{side1Label}</span>
-    </button>
+    </div>
 
     <div class="iv-score-divider">—</div>
 
-    <button
+    <div
       class="iv-score-side"
-      class:iv-score-side--selectable={!!pendingAction}
       class:iv-score-side--needs-select={!boltStarted && side2Players.length === 0}
-      onclick={() => selectSide(1)}
-      disabled={!pendingAction}
     >
       <span class="iv-team-name">{side2Name}</span>
       <span class="iv-score-value">{boltScore.side2}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 1}>{side2Label}</span>
-    </button>
+    </div>
   </div>
 
   {#if !boltStarted && (side1Players.length === 0 || side2Players.length === 0)}
@@ -247,16 +206,11 @@
         <span class="intennse-arc-compact-divider">–</span>
         <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
       </div>
-      {#if pendingAction}
-        <div class="iv-arc-overlay" style:color={actionLabels[pendingAction]?.color}>
-          Tap a side for {actionLabels[pendingAction]?.label}
-        </div>
-      {/if}
     </div>
     <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />
   </div>
 
-  <!-- Actions: single column -->
+  <!-- Actions: split two-column layout, one per side -->
   <div class="iv-actions" class:iv-actions--break={breakActive}>
     {#if breakActive}
       <div class="iv-break-overlay">
@@ -272,20 +226,26 @@
         </div>
       </div>
     {:else}
-      {#each actions as action (action)}
-        {@const info = actionLabels[action]}
-        <button
-          class="intennse-btn {info.cls}"
-          class:intennse-btn--selected={pendingAction === action}
-          onclick={() => actionButton(action)}
+      <div class="iv-actions-split">
+        <ActionPanel
+          side={0}
+          isServing={server === 0}
+          {rallyInProgress}
+          {showForcedError}
           disabled={!boltStarted || boltComplete}
-        >
-          <span class="intennse-btn-label">{info.label}</span>
-          {#if info.value}
-            <span class="intennse-btn-value">{info.value}</span>
-          {/if}
-        </button>
-      {/each}
+          onRallyStart={onReceiverRallyStart}
+          {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
+        />
+        <ActionPanel
+          side={1}
+          isServing={server === 1}
+          {rallyInProgress}
+          {showForcedError}
+          disabled={!boltStarted || boltComplete}
+          onRallyStart={onReceiverRallyStart}
+          {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
+        />
+      </div>
     {/if}
   </div>
 
@@ -377,31 +337,15 @@
     border-radius: 8px;
   }
 
-  .iv-score--selecting {
-    background: var(--intennse-accent);
-  }
-
   .iv-score-side {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.1rem;
-    background: none;
     border: 2px solid transparent;
     border-radius: 8px;
     padding: 0.3rem 1rem;
     color: var(--intennse-text);
-    cursor: default;
-    transition: border-color 0.15s;
-  }
-
-  .iv-score-side--selectable {
-    cursor: pointer;
-    border-color: var(--intennse-text-muted);
-  }
-
-  .iv-score-side--selectable:active {
-    background: var(--intennse-accent);
   }
 
   .iv-team-name {
@@ -434,22 +378,6 @@
   .iv-score-divider {
     font-size: 1.2rem;
     color: var(--intennse-text-muted);
-  }
-
-  .iv-arc-wrapper {
-    position: relative;
-  }
-
-  .iv-arc-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    font-weight: 600;
-    background: var(--intennse-bg, #1a1a2e);
-    white-space: nowrap;
   }
 
   .iv-arc-row {
@@ -528,7 +456,21 @@
     overflow-y: auto;
   }
 
-  .iv-actions :global(.intennse-btn) {
+  .iv-actions-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .iv-actions-split :global(.intennse-action-panel) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .iv-actions-split :global(.intennse-btn) {
     flex: 1;
   }
 
@@ -549,11 +491,6 @@
     min-width: 28px;
     min-height: 28px;
     padding: 0.2rem;
-  }
-
-  :global(.intennse-btn--selected) {
-    outline: 2px solid var(--intennse-text);
-    outline-offset: 1px;
   }
 
   .iv-footer {
