@@ -10,6 +10,7 @@ import { createClock, destroyClock, getClockSnapshot } from '../../clock';
 interface BoxEntry {
   participantId: string;
   participantName: string;
+  jerseyNumber?: string;
   sideNumber: 1 | 2;
   clockId: string;
 }
@@ -36,6 +37,7 @@ export function sendToBox(
   sideNumber: 1 | 2,
   durationMs = 120_000,
   onRelease?: (participantId: string) => void,
+  jerseyNumber?: string,
 ) {
   // Already in box
   if (entries.some((e) => e.participantId === participantId)) return;
@@ -55,7 +57,7 @@ export function sendToBox(
     },
   });
 
-  entries = [...entries, { participantId, participantName, sideNumber, clockId }];
+  entries = [...entries, { participantId, participantName, jerseyNumber, sideNumber, clockId }];
   bump();
 }
 
@@ -73,6 +75,7 @@ export function isInBox(participantId: string): boolean {
 export function getBoxedPlayers(sideNumber?: 1 | 2): {
   participantId: string;
   participantName: string;
+  jerseyNumber?: string;
   sideNumber: 1 | 2;
   remainingMs: number;
 }[] {
@@ -83,6 +86,7 @@ export function getBoxedPlayers(sideNumber?: 1 | 2): {
       return {
         participantId: e.participantId,
         participantName: e.participantName,
+        jerseyNumber: e.jerseyNumber,
         sideNumber: e.sideNumber,
         remainingMs: snapshot?.remainingMs ?? 0,
       };

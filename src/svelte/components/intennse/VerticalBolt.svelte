@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PenaltyBoxIndicator from './PenaltyBoxIndicator.svelte';
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
   import { getClockSnapshot } from '../../../clock';
@@ -45,6 +46,7 @@
     onTogglePlayerTimePanel,
     sideRoster = {},
     onBack,
+    onPenaltyBoxTap,
   }: {
     side1Name: string;
     side2Name: string;
@@ -86,6 +88,7 @@
     onTogglePlayerTimePanel?: () => void;
     sideRoster?: Record<string, 1 | 2>;
     onBack: () => void;
+    onPenaltyBoxTap?: () => void;
   } = $props();
 
   /** Compact player label per side: last names joined for doubles, full name for singles. */
@@ -208,14 +211,18 @@
     </div>
   {/if}
 
-  <!-- Compact ARC score below bolt score -->
-  <div class="intennse-arc-compact">
-    <div class="intennse-arc-compact-label">ARC</div>
-    <div class="intennse-arc-compact-score">
-      <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
-      <span class="intennse-arc-compact-divider">–</span>
-      <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
+  <!-- Compact ARC score with penalty indicators flush left/right -->
+  <div class="iv-arc-row">
+    <PenaltyBoxIndicator sideNumber={1} onTap={onPenaltyBoxTap} />
+    <div class="intennse-arc-compact">
+      <div class="intennse-arc-compact-label">ARC</div>
+      <div class="intennse-arc-compact-score">
+        <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
+        <span class="intennse-arc-compact-divider">–</span>
+        <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
+      </div>
     </div>
+    <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />
   </div>
 
   {#if pendingAction}
@@ -392,6 +399,27 @@
     font-size: 0.7rem;
     color: var(--intennse-text-muted);
     padding: 0.2rem;
+  }
+
+  .iv-arc-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: stretch;
+    gap: 0.4rem;
+    padding: 0 0.3rem 0.4rem;
+  }
+
+  .iv-arc-row > :first-child {
+    justify-self: start;
+  }
+
+  .iv-arc-row > :last-child {
+    justify-self: end;
+  }
+
+  .iv-arc-row :global(.pbi) {
+    height: 100%;
+    border-radius: 0;
   }
 
   .iv-actions {

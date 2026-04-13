@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PenaltyBoxIndicator from './PenaltyBoxIndicator.svelte';
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
   import ScoreDisplay from './ScoreDisplay.svelte';
@@ -49,6 +50,7 @@
     onTogglePlayerTimePanel,
     sideRoster = {},
     onBack,
+    onPenaltyBoxTap,
   }: {
     side1Name: string;
     side2Name: string;
@@ -92,6 +94,7 @@
     onTogglePlayerTimePanel?: () => void;
     sideRoster?: Record<string, 1 | 2>;
     onBack: () => void;
+    onPenaltyBoxTap?: () => void;
   } = $props();
 </script>
 
@@ -130,13 +133,17 @@
       side2Score={boltScore.side2}
       {server}
     />
-    <div class="intennse-arc-compact intennse-arc-compact--large">
-      <div class="intennse-arc-compact-label">ARC</div>
-      <div class="intennse-arc-compact-score">
-        <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
-        <span class="intennse-arc-compact-divider">–</span>
-        <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
+    <div class="intennse-h-arc-row">
+      <PenaltyBoxIndicator sideNumber={1} onTap={onPenaltyBoxTap} />
+      <div class="intennse-arc-compact intennse-arc-compact--large">
+        <div class="intennse-arc-compact-label">ARC</div>
+        <div class="intennse-arc-compact-score">
+          <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
+          <span class="intennse-arc-compact-divider">–</span>
+          <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
+        </div>
       </div>
+      <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />
     </div>
     {#if playerTimePanelOpen}
       <div class="intennse-h-center-info">

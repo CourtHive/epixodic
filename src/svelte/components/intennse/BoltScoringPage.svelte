@@ -4,7 +4,7 @@
   import SubstitutionModal from './SubstitutionModal.svelte';
   import PlayerSelectModal from './PlayerSelectModal.svelte';
   import PenaltyModal from './PenaltyModal.svelte';
-  import PenaltyBoxDisplay from './PenaltyBoxDisplay.svelte';
+  import PenaltyBoxDetailModal from './PenaltyBoxDetailModal.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
   import {
     getScoringState,
@@ -49,6 +49,7 @@
     setActiveTieMatchUp,
   } from '../../stores/teamMatchUp.svelte';
   import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/boltHistoryApi';
+  import { getLoginState } from '../../../services/auth/loginState';
   import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
 
@@ -280,8 +281,8 @@
     // If the server's stored document is newer than the local cached
     // tieMatchUp (cross-device handoff or stale-device-returns), apply
     // it to the store now so the engine init below sees the right state.
-    // Skip server hydration for local-only matchUps (no tournamentId = demo/offline)
-    if (teamState.teamMatchUp?.tournamentId) {
+    // Skip server hydration when not authenticated or for local-only matchUps
+    if (getLoginState() && teamState.teamMatchUp?.tournamentId) {
       const localTie = getTieMatchUp(matchUpId) as any;
       const localUpdatedAt = localTie?.updatedAt;
       try {
@@ -773,7 +774,8 @@
     if (isOnCourt) stopTracking(participantId);
     const boxProfile = getPenaltyBoxProfile();
     const durationMs = (boxProfile?.durationSeconds ?? 120) * 1000;
-    sendToBox(participantId, participantName, side, durationMs);
+    const jerseyNumber = playerTime.players[participantId]?.jerseyNumber;
+    sendToBox(participantId, participantName, side, durationMs, undefined, jerseyNumber);
 
     // Award penalty as a single event (one point record with scoreValue = points)
     const receiver = (side === 1 ? 1 : 0) as 0 | 1;
@@ -797,6 +799,7 @@
   }
 
   let showBackConfirm = $state(false);
+  let penaltyBoxModalOpen = $state(false);
 
   function handleBack() {
     if (boltStarted && !boltComplete) {
@@ -1016,6 +1019,7 @@
     onTogglePlayerTimePanel: () => { playerTimePanelOpen = !playerTimePanelOpen; },
     sideRoster,
     onBack: handleBack,
+    onPenaltyBoxTap: () => { penaltyBoxModalOpen = true; },
   });
 </script>
 
@@ -1030,15 +1034,9 @@
     </div>
   {/if}
 
-  <div class="intennse-penalty-bar">
-    <div class="intennse-penalty-bar-side intennse-penalty-bar-side--left">
-      <PenaltyBoxDisplay sideNumber={1} />
-    </div>
-    <div class="intennse-penalty-bar-spacer"></div>
-    <div class="intennse-penalty-bar-side intennse-penalty-bar-side--right">
-      <PenaltyBoxDisplay sideNumber={2} />
-    </div>
-  </div>
+  {#if penaltyBoxModalOpen}
+    <PenaltyBoxDetailModal onClose={() => (penaltyBoxModalOpen = false)} />
+  {/if}
 
   {#if isLandscape}
     <HorizontalBolt {...layoutProps} />
@@ -1201,29 +1199,6 @@
     display: flex;
     flex-direction: column;
     position: relative;
-  }
-  .intennse-penalty-bar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 0.5rem;
-    min-height: 0;
-  }
-  .intennse-penalty-bar-side {
-    display: flex;
-  }
-  .intennse-penalty-bar-side--left {
-    justify-content: flex-end;
-  }
-  .intennse-penalty-bar-side--right {
-    justify-content: flex-start;
-  }
-  .intennse-penalty-bar-spacer {
-    min-width: 200px;
-    flex-shrink: 0;
-  }
-  .intennse-penalty-bar:not(:has(.penalty-box-display)) {
-    display: none;
   }
   .intennse-warnings {
     position: absolute;
