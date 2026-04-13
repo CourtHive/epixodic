@@ -1,19 +1,26 @@
 import { io, Socket } from 'socket.io-client';
 
-function getRelayUrl(): string {
-  if (import.meta.env.VITE_RELAY_URL) return import.meta.env.VITE_RELAY_URL;
-
-  // Local dev: relay runs on port 8384
-  const hostname = globalThis.location?.hostname;
-  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:8384';
+/**
+ * Determine the relay server origin and Socket.IO path.
+ *
+ * Local dev: relay runs on a separate port (8384), default `/socket.io/` path.
+ * Deployed: same origin, nginx proxies `/relay/` to the relay server,
+ *   so Socket.IO path must be `/relay/socket.io/` for the proxy to route it.
+ */
+function getRelayConfig(): { origin: string; path: string } {
+  if (import.meta.env.VITE_RELAY_URL) {
+    return { origin: import.meta.env.VITE_RELAY_URL, path: '/socket.io/' };
   }
 
-  // Deployed: nginx proxies /relay/ to the score relay
-  return `${globalThis.location.origin}/relay`;
+  const hostname = globalThis.location?.hostname;
+  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
+    return { origin: 'http://localhost:8384', path: '/socket.io/' };
+  }
+
+  return { origin: globalThis.location.origin, path: '/relay/socket.io/' };
 }
 
-const RELAY_URL = getRelayUrl();
+const relayConfig = getRelayConfig();
 
 let trackerSocket: Socket | null = null;
 let listenerSocket: Socket | null = null;
@@ -73,7 +80,8 @@ function attachStatusHandlers(socket: Socket, label: string) {
 export function connectTracker(): Socket {
   if (trackerSocket?.connected) return trackerSocket;
 
-  trackerSocket = io(`${RELAY_URL}/tracker`, {
+  trackerSocket = io(`${relayConfig.origin}/tracker`, {
+    path: relayConfig.path,
     transports: ['websocket'],
     autoConnect: true,
   });
@@ -133,7 +141,8 @@ export function sendIntennseUpdate(snapshot: any): void {
 export function connectListener(): Socket {
   if (listenerSocket?.connected) return listenerSocket;
 
-  listenerSocket = io(`${RELAY_URL}/live`, {
+  listenerSocket = io(`${relayConfig.origin}/live`, {
+    path: relayConfig.path,
     transports: ['websocket'],
     autoConnect: true,
   });
