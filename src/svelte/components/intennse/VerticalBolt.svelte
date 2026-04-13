@@ -128,13 +128,13 @@
     pendingAction = pendingAction === action ? null : action;
   }
 
-  const actionLabels: Record<string, { label: string; value?: string; cls: string }> = {
-    winner: { label: 'Winner', value: '2', cls: 'intennse-btn--winner' },
-    touch: { label: 'Touch', value: '1', cls: 'intennse-btn--touch' },
-    ace: { label: 'Ace', value: '2', cls: 'intennse-btn--ace' },
-    forcedError: { label: 'Forced', value: '1', cls: 'intennse-btn--forced' },
-    unforcedError: { label: 'Error', value: '1', cls: 'intennse-btn--unforced' },
-    fault: { label: 'Fault', cls: 'intennse-btn--fault' },
+  const actionLabels: Record<string, { label: string; value?: string; cls: string; color: string }> = {
+    winner: { label: 'Winner', value: '2', cls: 'intennse-btn--winner', color: 'var(--intennse-winner)' },
+    touch: { label: 'Touch', value: '1', cls: 'intennse-btn--touch', color: 'var(--intennse-touch)' },
+    ace: { label: 'Ace', value: '2', cls: 'intennse-btn--ace', color: 'var(--intennse-winner)' },
+    forcedError: { label: 'Forced', value: '1', cls: 'intennse-btn--forced', color: 'var(--intennse-error)' },
+    unforcedError: { label: 'Error', value: '1', cls: 'intennse-btn--unforced', color: '#c62828' },
+    fault: { label: 'Fault', cls: 'intennse-btn--fault', color: 'var(--intennse-fault)' },
   };
 
   const actions = $derived(
@@ -214,22 +214,21 @@
   <!-- Compact ARC score with penalty indicators flush left/right -->
   <div class="iv-arc-row">
     <PenaltyBoxIndicator sideNumber={1} onTap={onPenaltyBoxTap} />
-    <div class="intennse-arc-compact">
+    <div class="intennse-arc-compact iv-arc-wrapper">
       <div class="intennse-arc-compact-label">ARC</div>
       <div class="intennse-arc-compact-score">
         <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
         <span class="intennse-arc-compact-divider">–</span>
         <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
       </div>
+      {#if pendingAction}
+        <div class="iv-arc-overlay" style:color={actionLabels[pendingAction]?.color}>
+          Tap a side for {actionLabels[pendingAction]?.label}
+        </div>
+      {/if}
     </div>
     <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />
   </div>
-
-  {#if pendingAction}
-    <div class="iv-select-prompt">
-      Tap a side for <strong>{actionLabels[pendingAction]?.label}</strong>
-    </div>
-  {/if}
 
   <!-- Actions: single column -->
   <div class="iv-actions">
@@ -339,12 +338,12 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 0.5rem;
+    margin: 0.2rem;
+    border-radius: 8px;
   }
 
   .iv-score--selecting {
     background: var(--intennse-accent);
-    border-radius: 8px;
-    margin: 0.2rem;
   }
 
   .iv-score-side {
@@ -394,11 +393,20 @@
     color: var(--intennse-text-muted);
   }
 
-  .iv-select-prompt {
-    text-align: center;
-    font-size: 0.7rem;
-    color: var(--intennse-text-muted);
-    padding: 0.2rem;
+  .iv-arc-wrapper {
+    position: relative;
+  }
+
+  .iv-arc-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 600;
+    background: var(--intennse-bg, #1a1a2e);
+    white-space: nowrap;
   }
 
   .iv-arc-row {
@@ -462,6 +470,7 @@
 
   .iv-footer :global(.intennse-ctrl-btn) {
     min-height: 2.2rem;
+    font-size: 1.1rem;
   }
 
   .iv-score-side--needs-select .iv-player-name {

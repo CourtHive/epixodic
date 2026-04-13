@@ -444,7 +444,12 @@
     }
   });
 
+  // Persist clock state on hard refresh or tab close
+  const handleBeforeUnload = () => pauseAndPersistOnExit();
+  globalThis.addEventListener('beforeunload', handleBeforeUnload);
+
   onDestroy(() => {
+    globalThis.removeEventListener('beforeunload', handleBeforeUnload);
     pauseAndPersistOnExit();
     window.removeEventListener('resize', handleResize);
     window.removeEventListener('orientationchange', handleResize);

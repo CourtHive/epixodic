@@ -76,9 +76,9 @@
     </div>
   {/if}
 
-  {#if isServingTeam}
-    <div class="intennse-serve-indicator">{serveSide === 'AD' ? 'AD' : 'DEUCE'}</div>
-  {/if}
+  <div class="intennse-serve-indicator" style:visibility={isServingTeam ? 'visible' : 'hidden'}>
+    {serveSide === 'AD' ? 'AD' : 'DEUCE'}
+  </div>
 </div>
 
 <style>
