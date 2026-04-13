@@ -1,6 +1,19 @@
 import { io, Socket } from 'socket.io-client';
 
-const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'http://localhost:8384';
+function getRelayUrl(): string {
+  if (import.meta.env.VITE_RELAY_URL) return import.meta.env.VITE_RELAY_URL;
+
+  // Local dev: relay runs on port 8384
+  const hostname = globalThis.location?.hostname;
+  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:8384';
+  }
+
+  // Deployed: nginx proxies /relay/ to the score relay
+  return `${globalThis.location.origin}/relay`;
+}
+
+const RELAY_URL = getRelayUrl();
 
 let trackerSocket: Socket | null = null;
 let listenerSocket: Socket | null = null;
