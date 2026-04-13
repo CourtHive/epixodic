@@ -119,6 +119,9 @@
   }
 
   function actionButton(action: string) {
+    // Ace and fault are always attributed to the server — no side selection needed
+    if (action === 'ace') { onAce(server as 0 | 1); return; }
+    if (action === 'fault') { onFault(server as 0 | 1); return; }
     pendingAction = pendingAction === action ? null : action;
   }
 
@@ -134,7 +137,7 @@
   const actions = $derived(
     pendingAction
       ? Object.keys(actionLabels)
-      : ['winner', 'touch', 'ace', 'forcedError', 'unforcedError', 'fault'],
+      : ['winner', 'touch', 'forcedError', 'unforcedError', 'ace', 'fault'],
   );
 </script>
 
@@ -171,13 +174,12 @@
   <div class="iv-score" class:iv-score--selecting={!!pendingAction}>
     <button
       class="iv-score-side"
-      class:iv-score-side--serving={server === 0}
       class:iv-score-side--selectable={!!pendingAction}
       class:iv-score-side--needs-select={!boltStarted && side1Players.length === 0}
       onclick={() => selectSide(0)}
       disabled={!pendingAction}
     >
-      <span class="iv-player-name">{side1Label}</span>
+      <span class="iv-player-name" class:iv-player-name--serving={server === 0}>{side1Label}</span>
       <span class="iv-score-value">{boltScore.side1}</span>
     </button>
 
@@ -185,14 +187,13 @@
 
     <button
       class="iv-score-side"
-      class:iv-score-side--serving={server === 1}
       class:iv-score-side--selectable={!!pendingAction}
       class:iv-score-side--needs-select={!boltStarted && side2Players.length === 0}
       onclick={() => selectSide(1)}
       disabled={!pendingAction}
     >
+      <span class="iv-player-name" class:iv-player-name--serving={server === 1}>{side2Label}</span>
       <span class="iv-score-value">{boltScore.side2}</span>
-      <span class="iv-player-name">{side2Label}</span>
     </button>
   </div>
 
@@ -241,9 +242,39 @@
     {/each}
   </div>
 
-  <!-- Play button -->
-  <div class="iv-controls">
+  {#if playerTimePanelOpen}
+    <PlayerTimeInfoPanel {sideRoster} />
+  {/if}
+
+  <!-- Footer: TIME row + 3-column grid (side 1 | controls | side 2) -->
+  <div class="iv-footer">
+    <button
+      class="intennse-footer-btn intennse-footer-btn--info iv-footer-time"
+      class:intennse-footer-btn--active={playerTimePanelOpen}
+      onclick={onTogglePlayerTimePanel}
+    >
+      <span class="footer-label-full">Player Time</span><span class="footer-label-short">TIME</span>
+    </button>
+
+    <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)}>
+      <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 1
+    </button>
     <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
+    <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)}>
+      <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
+    </button>
+
+    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0}>
+      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
+    </button>
+    <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
+    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
+      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
+    </button>
+
+    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
+      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
+    </button>
     {#if boltComplete && !matchComplete && onNextBolt}
       <button class="intennse-ctrl-btn intennse-ctrl-btn--point-start" onclick={onNextBolt}>
         ▶ BOLT {currentBoltNumber + 1}
@@ -259,40 +290,6 @@
         {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
       </button>
     {/if}
-    <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
-  </div>
-
-  <!-- Player Time toggle + panel -->
-  <div class="iv-info-toggle">
-    <button
-      class="intennse-footer-btn intennse-footer-btn--info"
-      class:intennse-footer-btn--active={playerTimePanelOpen}
-      onclick={onTogglePlayerTimePanel}
-    >
-      <span class="footer-label-full">Player Time</span><span class="footer-label-short">TIME</span>
-    </button>
-  </div>
-  {#if playerTimePanelOpen}
-    <PlayerTimeInfoPanel {sideRoster} />
-  {/if}
-
-  <!-- Footer: Sub / Timeout / Penalty -->
-  <div class="iv-footer">
-    <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)}>
-      <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 1
-    </button>
-    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0}>
-      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
-    </button>
-    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
-      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
-    </button>
-    <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)}>
-      <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
-    </button>
-    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
-      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
-    </button>
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>
       <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 2
     </button>
@@ -366,14 +363,16 @@
     background: var(--intennse-accent);
   }
 
-  .iv-score-side--serving .iv-score-value {
-    color: var(--intennse-serving);
-  }
-
   .iv-player-name {
     font-size: 0.6rem;
     color: var(--intennse-text-muted);
     text-transform: uppercase;
+    transition: color 0.15s;
+  }
+
+  .iv-player-name--serving {
+    color: var(--intennse-serving, #00d4aa);
+    font-weight: 700;
   }
 
   .iv-score-value {
@@ -408,26 +407,11 @@
     flex: 1;
   }
 
-  .iv-controls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    padding: 0.3rem;
-    border-top: 1px solid var(--intennse-accent);
-  }
-
   .intennse-ctrl-btn--back-v {
     font-size: 0.7rem;
     min-width: 28px;
     min-height: 28px;
     padding: 0.2rem;
-  }
-
-  .iv-info-toggle {
-    padding: 0.3rem 0.5rem;
-    display: flex;
-    justify-content: center;
   }
 
   :global(.intennse-btn--selected) {
@@ -442,6 +426,14 @@
     padding: 0.4rem;
     border-top: 1px solid var(--intennse-accent);
     background: var(--intennse-surface);
+  }
+
+  .iv-footer-time {
+    grid-column: 1 / -1;
+  }
+
+  .iv-footer :global(.intennse-ctrl-btn) {
+    min-height: 2.2rem;
   }
 
   .iv-score-side--needs-select .iv-player-name {
