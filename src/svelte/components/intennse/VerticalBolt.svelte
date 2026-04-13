@@ -45,6 +45,11 @@
     playerTimePanelOpen = false,
     onTogglePlayerTimePanel,
     sideRoster = {},
+    breakActive = false,
+    breakPaused = false,
+    onPauseBreak,
+    onStartNextBolt,
+    onAwardBreakPoints,
     onBack,
     onPenaltyBoxTap,
   }: {
@@ -87,6 +92,11 @@
     playerTimePanelOpen?: boolean;
     onTogglePlayerTimePanel?: () => void;
     sideRoster?: Record<string, 1 | 2>;
+    breakActive?: boolean;
+    breakPaused?: boolean;
+    onPauseBreak?: () => void;
+    onStartNextBolt?: () => void;
+    onAwardBreakPoints?: (side: 1 | 2, points: number) => void;
     onBack: () => void;
     onPenaltyBoxTap?: () => void;
   } = $props();
@@ -168,9 +178,23 @@
   <!-- Top: Clocks + Bolt label -->
   <div class="iv-header">
     <button class="intennse-ctrl-btn intennse-ctrl-btn--back-v" onclick={onBack}>←</button>
-    <ClockDisplay clockId="boltTimer" label="BOLT" size="compact" urgentAt={60000} criticalAt={30000} />
-    <span class="iv-bolt-label">{boltLabel}</span>
-    <ClockDisplay clockId="serveClock" label="SERVE" size="compact" urgentAt={5000} criticalAt={3000} />
+    {#if breakActive}
+      <ClockDisplay clockId="breakTimer" label="BREAK" size="compact" urgentAt={30000} criticalAt={10000} />
+      <span class="iv-bolt-label iv-bolt-label--break">
+        {breakPaused ? 'PAUSED' : 'Next bolt starting...'}
+      </span>
+      {#if breakPaused}
+        <button class="intennse-ctrl-btn intennse-ctrl-btn--break-start" onclick={onStartNextBolt}>
+          ▶ BOLT {currentBoltNumber + 1}
+        </button>
+      {:else}
+        <button class="intennse-ctrl-btn" onclick={onPauseBreak}>⏸</button>
+      {/if}
+    {:else}
+      <ClockDisplay clockId="boltTimer" label="BOLT" size="compact" urgentAt={60000} criticalAt={30000} />
+      <span class="iv-bolt-label">{boltLabel}</span>
+      <ClockDisplay clockId="serveClock" label="SERVE" size="compact" urgentAt={5000} criticalAt={3000} />
+    {/if}
   </div>
 
   <!-- Score: tap left/right to select side when action is pending -->
@@ -182,8 +206,9 @@
       onclick={() => selectSide(0)}
       disabled={!pendingAction}
     >
-      <span class="iv-player-name" class:iv-player-name--serving={server === 0}>{side1Label}</span>
+      <span class="iv-team-name">{side1Name}</span>
       <span class="iv-score-value">{boltScore.side1}</span>
+      <span class="iv-player-name" class:iv-player-name--serving={server === 0}>{side1Label}</span>
     </button>
 
     <div class="iv-score-divider">—</div>
@@ -195,8 +220,9 @@
       onclick={() => selectSide(1)}
       disabled={!pendingAction}
     >
-      <span class="iv-player-name" class:iv-player-name--serving={server === 1}>{side2Label}</span>
+      <span class="iv-team-name">{side2Name}</span>
       <span class="iv-score-value">{boltScore.side2}</span>
+      <span class="iv-player-name" class:iv-player-name--serving={server === 1}>{side2Label}</span>
     </button>
   </div>
 
@@ -231,21 +257,36 @@
   </div>
 
   <!-- Actions: single column -->
-  <div class="iv-actions">
-    {#each actions as action (action)}
-      {@const info = actionLabels[action]}
-      <button
-        class="intennse-btn {info.cls}"
-        class:intennse-btn--selected={pendingAction === action}
-        onclick={() => actionButton(action)}
-        disabled={!boltStarted || boltComplete}
-      >
-        <span class="intennse-btn-label">{info.label}</span>
-        {#if info.value}
-          <span class="intennse-btn-value">{info.value}</span>
-        {/if}
-      </button>
-    {/each}
+  <div class="iv-actions" class:iv-actions--break={breakActive}>
+    {#if breakActive}
+      <div class="iv-break-overlay">
+        <div class="iv-break-overlay-label">BREAK</div>
+        <div class="iv-break-overlay-sub">Point adjustment</div>
+        <div class="iv-break-adjust">
+          <button class="iv-break-adjust-btn" onclick={() => onAwardBreakPoints?.(1, 1)}>
+            +1 {side1Name || 'Side 1'}
+          </button>
+          <button class="iv-break-adjust-btn" onclick={() => onAwardBreakPoints?.(2, 1)}>
+            +1 {side2Name || 'Side 2'}
+          </button>
+        </div>
+      </div>
+    {:else}
+      {#each actions as action (action)}
+        {@const info = actionLabels[action]}
+        <button
+          class="intennse-btn {info.cls}"
+          class:intennse-btn--selected={pendingAction === action}
+          onclick={() => actionButton(action)}
+          disabled={!boltStarted || boltComplete}
+        >
+          <span class="intennse-btn-label">{info.label}</span>
+          {#if info.value}
+            <span class="intennse-btn-value">{info.value}</span>
+          {/if}
+        </button>
+      {/each}
+    {/if}
   </div>
 
   {#if playerTimePanelOpen}
@@ -281,21 +322,15 @@
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
       <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
     </button>
-    {#if boltComplete && !matchComplete && onNextBolt}
-      <button class="intennse-ctrl-btn intennse-ctrl-btn--point-start" onclick={onNextBolt}>
-        ▶ BOLT {currentBoltNumber + 1}
-      </button>
-    {:else}
-      <button
-        class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
-        class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
-        class:intennse-ctrl-btn--paused={officialPause}
-        onclick={onPointStart}
-        disabled={boltComplete}
-      >
-        {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
-      </button>
-    {/if}
+    <button
+      class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
+      class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
+      class:intennse-ctrl-btn--paused={officialPause}
+      onclick={onPointStart}
+      disabled={boltComplete || breakActive}
+    >
+      {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
+    </button>
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>
       <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 2
     </button>
@@ -369,6 +404,14 @@
     background: var(--intennse-accent);
   }
 
+  .iv-team-name {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--intennse-text);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
   .iv-player-name {
     font-size: 0.6rem;
     color: var(--intennse-text-muted);
@@ -430,6 +473,52 @@
     border-radius: 0;
   }
 
+  .iv-actions--break {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .iv-break-overlay {
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+
+  .iv-break-overlay-label {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--intennse-urgent, #ff9800);
+    letter-spacing: 0.2em;
+  }
+
+  .iv-break-overlay-sub {
+    font-size: 0.7rem;
+    color: var(--intennse-text-muted);
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .iv-break-adjust {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .iv-break-adjust-btn {
+    flex: 1;
+    padding: 0.6rem 0.5rem;
+    border: 1px solid var(--intennse-accent, #0f3460);
+    border-radius: 8px;
+    background: var(--intennse-surface, #16213e);
+    color: var(--intennse-text, #e0e0e0);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .iv-break-adjust-btn:active { opacity: 0.7; }
+
   .iv-actions {
     flex: 1;
     display: flex;
@@ -441,6 +530,18 @@
 
   .iv-actions :global(.intennse-btn) {
     flex: 1;
+  }
+
+  .iv-bolt-label--break {
+    color: var(--intennse-urgent, #ff9800);
+    font-weight: 700;
+  }
+
+  .intennse-ctrl-btn--break-start {
+    background: var(--intennse-winner, #00d4aa);
+    color: #000;
+    font-size: 0.6rem;
+    font-weight: 700;
   }
 
   .intennse-ctrl-btn--back-v {

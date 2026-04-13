@@ -502,6 +502,14 @@
   border-color: var(--intennse-text-muted);
 }
 
+.intennse-break-label {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--intennse-urgent, #ff9800);
+  text-align: center;
+}
+
 /* ── Timeout Overlay ──────────────────────────────────────── */
 .intennse-timeout-overlay {
   position: fixed;

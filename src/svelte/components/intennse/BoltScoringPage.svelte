@@ -80,11 +80,15 @@
   const scoring = getScoringState();
   const playerTime = getPlayerTimeState();
 
+  let BREAK_DURATION_MS = 2 * 60 * 1000; // 2 minutes between bolts, configurable
+
   let rallyInProgress = $state(false);
   let officialPause = $state(false);
   let boltStarted = $state(false);
   let boltExpired = $state(false);
   let boltComplete = $state(false);
+  let breakActive = $state(false);
+  let breakPaused = $state(false);
   let serveClockExpired = $state(false);
   let serveClockWasRunning = false;
   let arcBaseScore = $state({ side1: 0, side2: 0 });
@@ -456,6 +460,7 @@
     destroyClock('boltTimer');
     destroyClock('serveClock');
     destroyClock('timeoutTimer');
+    destroyClock('breakTimer');
   });
 
   // ── Event handlers (thin wiring to business logic) ──
@@ -466,13 +471,43 @@
       boltComplete = true;
       endSegment({ reason: 'bolt_expired' });
       broadcastState();
+      if (!matchComplete) startBreakClock();
       return;
     }
     executeClockCommands(onPointComplete());
     broadcastState();
   }
 
+  function startBreakClock() {
+    breakActive = true;
+    breakPaused = false;
+    destroyClock('breakTimer');
+    createClock({
+      id: 'breakTimer',
+      durationMs: BREAK_DURATION_MS,
+      direction: 'down',
+      autoStart: true,
+      tickIntervalMs: 1000,
+      onExpire: handleBreakExpired,
+    });
+  }
+
+  function handleBreakExpired() {
+    breakActive = false;
+    breakPaused = false;
+    destroyClock('breakTimer');
+    if (!matchComplete) handleNextBolt();
+  }
+
+  function pauseBreak() {
+    breakPaused = true;
+    pauseClock('breakTimer');
+  }
+
   function handleNextBolt() {
+    breakActive = false;
+    breakPaused = false;
+    destroyClock('breakTimer');
     boltExpired = false;
     boltComplete = false;
     boltStarted = false;
@@ -803,6 +838,17 @@
     }
   }
 
+  function awardBreakPoints(side: 1 | 2, points: number) {
+    const receiver = (side === 1 ? 0 : 1) as 0 | 1;
+    addPoint(receiver, {
+      result: 'PointAdjustment',
+      scoreValue: points,
+      adjustmentEvent: true,
+      ...buildPointAttribution(receiver),
+    });
+    broadcastState();
+  }
+
   let showBackConfirm = $state(false);
   let penaltyBoxModalOpen = $state(false);
 
@@ -1023,6 +1069,11 @@
     playerTimePanelOpen,
     onTogglePlayerTimePanel: () => { playerTimePanelOpen = !playerTimePanelOpen; },
     sideRoster,
+    breakActive,
+    breakPaused,
+    onPauseBreak: pauseBreak,
+    onStartNextBolt: handleNextBolt,
+    onAwardBreakPoints: awardBreakPoints,
     onBack: handleBack,
     onPenaltyBoxTap: () => { penaltyBoxModalOpen = true; },
   });

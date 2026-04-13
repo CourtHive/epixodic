@@ -8,7 +8,11 @@
 
 // ── Clock configuration ─────────────────────────────────────
 
-export const BOLT_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+let BOLT_DURATION_MS = 10 * 60 * 1000; // 10 minutes, configurable
+
+export function setBoltDuration(ms: number) { BOLT_DURATION_MS = ms; }
+export { BOLT_DURATION_MS };
+
 export const SERVE_CLOCK_DURATION_MS = 14 * 1000; // 14 seconds
 export const TIMEOUT_DURATION_MS = 60 * 1000; // 60 seconds
 

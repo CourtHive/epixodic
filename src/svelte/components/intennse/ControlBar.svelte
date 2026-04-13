@@ -19,6 +19,10 @@
     boltComplete = false,
     matchComplete = false,
     currentBoltNumber = 1,
+    breakActive = false,
+    breakPaused = false,
+    onPauseBreak,
+    onStartNextBolt,
     onNextBolt,
   }: {
     canUndo?: boolean;
@@ -37,6 +41,10 @@
     boltComplete?: boolean;
     matchComplete?: boolean;
     currentBoltNumber?: number;
+    breakActive?: boolean;
+    breakPaused?: boolean;
+    onPauseBreak?: () => void;
+    onStartNextBolt?: () => void;
     onNextBolt?: () => void;
   } = $props();
 
@@ -75,15 +83,22 @@
     <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
   </div>
 
-  <!-- Start/Pause/Resume/Next Bolt — full width -->
-  {#if boltComplete && !matchComplete && onNextBolt}
+  <!-- Start/Pause/Resume — full width -->
+  {#if breakActive && breakPaused}
     <button
       class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
-      onclick={onNextBolt}
+      onclick={onStartNextBolt}
       title="Start next bolt"
     >
-      ▶ NEXT BOLT ({currentBoltNumber + 1})
+      ▶ START BOLT {currentBoltNumber + 1}
     </button>
+  {:else if breakActive}
+    <div class="intennse-controls-row">
+      <span class="intennse-break-label">Next bolt starting...</span>
+      <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onPauseBreak} title="Pause break">
+        ⏸ PAUSE
+      </button>
+    </div>
   {:else}
     <button
       class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"

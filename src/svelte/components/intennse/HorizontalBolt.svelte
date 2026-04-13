@@ -49,6 +49,10 @@
     playerTimePanelOpen = false,
     onTogglePlayerTimePanel,
     sideRoster = {},
+    breakActive = false,
+    breakPaused = false,
+    onPauseBreak,
+    onStartNextBolt,
     onBack,
     onPenaltyBoxTap,
   }: {
@@ -93,6 +97,10 @@
     playerTimePanelOpen?: boolean;
     onTogglePlayerTimePanel?: () => void;
     sideRoster?: Record<string, 1 | 2>;
+    breakActive?: boolean;
+    breakPaused?: boolean;
+    onPauseBreak?: () => void;
+    onStartNextBolt?: () => void;
     onBack: () => void;
     onPenaltyBoxTap?: () => void;
   } = $props();
@@ -127,7 +135,11 @@
 
   <!-- Center column -->
   <div class="intennse-h-center">
-    <ClockDisplay clockId="boltTimer" label="BOLT" size="xlarge" urgentAt={60000} criticalAt={30000} />
+    {#if breakActive}
+      <ClockDisplay clockId="breakTimer" label="BREAK" size="xlarge" urgentAt={30000} criticalAt={10000} />
+    {:else}
+      <ClockDisplay clockId="boltTimer" label="BOLT" size="xlarge" urgentAt={60000} criticalAt={30000} />
+    {/if}
     <ScoreDisplay
       side1Score={boltScore.side1}
       side2Score={boltScore.side2}
@@ -151,8 +163,9 @@
       </div>
     {/if}
     <ControlBar
-      serveClock={true}
+      serveClock={!breakActive}
       {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
+      {breakActive} {breakPaused} {onPauseBreak} {onStartNextBolt}
       {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
     />
   </div>
