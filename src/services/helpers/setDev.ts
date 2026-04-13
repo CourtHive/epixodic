@@ -105,7 +105,92 @@ export function setDev() {
     redo: scoringRedo,
     /** Get raw engine state (bypasses Svelte $derived caching) */
     getEngineState,
+    /** Copy the full teamMatchUp JSON to clipboard */
+    copyTeamMatchUp: async () => {
+      const matchUp = getTeamMatchUpState().teamMatchUp;
+      if (!matchUp) {
+        console.warn('[dev] no teamMatchUp loaded');
+        return;
+      }
+      const json = JSON.stringify(matchUp, null, 2);
+      await navigator.clipboard.writeText(json);
+      console.log(`[dev] teamMatchUp ${matchUp.matchUpId} copied to clipboard (${json.length} chars)`);
+    },
+    /** Copy point history for the active tieMatchUp to clipboard */
+    copyPointHistory: async () => {
+      const { teamMatchUp, activeTieMatchUpId } = getTeamMatchUpState();
+      const engineState = getEngineState();
+      if (!engineState) {
+        console.warn('[dev] no scoring engine state');
+        return;
+      }
+      const payload = {
+        teamMatchUpId: teamMatchUp?.matchUpId,
+        tieMatchUpId: activeTieMatchUpId,
+        engineState,
+      };
+      const json = JSON.stringify(payload, null, 2);
+      await navigator.clipboard.writeText(json);
+      console.log(`[dev] point history copied to clipboard (${json.length} chars)`);
+    },
     /** Clear all localStorage (full state reset) */
     clearLocalStorage: () => localStorage.clear(),
+
+    /** Print a summary of all dev object capabilities */
+    help: () => {
+      const sections = [
+        ['State Inspection', [
+          ['dev.teamMatchUp',        'The team matchUp currently loaded in the store (getter)'],
+          ['dev.activeTieMatchUpId',  'ID of the active tieMatchUp (getter)'],
+          ['dev.activeTieMatchUp',    'The active tieMatchUp object (getter)'],
+          ['dev.getTieMatchUp(id)',   'Look up any tieMatchUp by ID from the current team matchUp'],
+          ['dev.getScoringState()',   'Snapshot of scoring engine state (score, sets, boltScores, canUndo, etc.)'],
+          ['dev.getEngineState()',    'Raw engine state including history.points (bypasses Svelte caching)'],
+          ['dev.getPlayerTimeState()', 'Player time tracking state (maxCourtTimeMs, version)'],
+          ['dev.getScoreVersion()',   'Score version counter from the team matchUp store'],
+          ['dev.getClockSnapshot(id)', 'Snapshot of a clock by ID'],
+        ]],
+        ['Scoring Controls', [
+          ['dev.undo()',              'Undo the last scoring action'],
+          ['dev.redo()',              'Redo the last undone scoring action'],
+        ]],
+        ['Clock Controls', [
+          ['dev.pauseClock(id)',      'Pause a clock by ID'],
+          ['dev.resumeClock(id)',     'Resume a paused clock by ID'],
+          ['dev.setClockRemaining(id, ms)', 'Set remaining time on a paused clock (milliseconds)'],
+          ['dev.setBoltDuration(ms)', 'Set bolt duration in milliseconds (for fast tests)'],
+        ]],
+        ['Export / Clipboard', [
+          ['await dev.copyTeamMatchUp()',  'Copy the full teamMatchUp JSON to clipboard'],
+          ['await dev.copyPointHistory()', 'Copy engine state + point history (with matchUp IDs) to clipboard'],
+        ]],
+        ['E2E / Testing', [
+          ['dev.createDemo(config)',  'Create an INTENNSE demo matchUp ({ team1Name, team2Name, boltMinutes, assignParticipants })'],
+          ['dev.setTeamMatchUp(obj)', 'Load a team matchUp directly into the store'],
+          ['dev.resetTeamMatchUps()', 'Clear all persisted team matchUps from storage'],
+          ['dev.clearLocalStorage()', 'Clear all localStorage (full state reset)'],
+        ]],
+        ['App / Auth', [
+          ['dev.version',            'App version string'],
+          ['dev.app',                'App state object'],
+          ['dev.env',                'Environment / runtime config'],
+          ['dev.router',             'Navigo router instance'],
+          ['dev.engineLog',          'Engine event logging hooks (set boolean or { onPoint, onUndo, onRedo } handler)'],
+          ['dev.submitCredentials(creds)', 'Submit auth credentials'],
+          ['dev.logOut()',            'Log out the current user'],
+        ]],
+      ];
+
+      const maxCmd = Math.max(...sections.flatMap(([, items]) => (items as string[][]).map(([cmd]) => cmd.length)));
+
+      console.log('\n%c  dev — epixodic developer tools  ', 'background:#1e293b;color:#38bdf8;font-weight:bold;padding:4px 8px;border-radius:4px');
+      for (const [heading, items] of sections) {
+        console.log(`\n%c${heading}`, 'color:#94a3b8;font-weight:bold;text-transform:uppercase;font-size:11px');
+        for (const [cmd, desc] of items as string[][]) {
+          console.log(`  %c${cmd.padEnd(maxCmd + 2)}%c${desc}`, 'color:#38bdf8', 'color:#e2e8f0');
+        }
+      }
+      console.log('');
+    },
   };
 }

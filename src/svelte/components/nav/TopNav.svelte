@@ -65,5 +65,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex: 1;
+    justify-content: flex-end;
   }
 </style>
