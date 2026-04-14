@@ -14,6 +14,7 @@ const TIE_PARENT_PREFIX = 'tie-parent-';
 let teamMatchUp = $state<HydratedMatchUp | null>(null);
 let activeTieMatchUpId = $state<string | null>(null);
 let scoreVersion = $state(0);
+let startingGender = $state<'MALE' | 'FEMALE' | null>(null);
 
 export function getTeamMatchUpState() {
   return {
@@ -26,13 +27,28 @@ export function getTeamMatchUpState() {
     get scoreVersion() {
       return scoreVersion;
     },
+    get startingGender() {
+      return startingGender;
+    },
   };
 }
 
 export function setTeamMatchUp(matchUp: HydratedMatchUp) {
   teamMatchUp = matchUp;
   activeTieMatchUpId = null;
+  startingGender = (matchUp as any).startingGender ?? null;
   persistTeamMatchUp(matchUp);
+}
+
+/**
+ * Set the starting gender for the bolt sequence. First-click-wins:
+ * only sets if currently null. Persists on the team matchUp object.
+ */
+export function setStartingGender(gender: 'MALE' | 'FEMALE') {
+  if (startingGender !== null || !teamMatchUp) return;
+  startingGender = gender;
+  (teamMatchUp as any).startingGender = gender;
+  persistTeamMatchUp(teamMatchUp);
 }
 
 function persistTeamMatchUp(matchUp: HydratedMatchUp) {
@@ -101,6 +117,85 @@ export function setTieMatchUpActiveParticipant(
 
 export function clearActiveTieMatchUp() {
   activeTieMatchUpId = null;
+}
+
+/**
+ * Build the ordered bolt sequence of tieMatchUp IDs based on startingGender.
+ * MALE first: MS→WS→MD→WD→XD. FEMALE first: WS→MS→WD→MD→XD. XD always last.
+ * Within each collection, tieMatchUps are sorted by collectionPosition.
+ */
+export function getBoltSequence(): string[] {
+  if (!teamMatchUp?.tieMatchUps) return [];
+  const defs = (teamMatchUp as any).tieFormat?.collectionDefinitions ?? [];
+  if (!defs.length) {
+    // No tieFormat — fall back to tieMatchUps array order
+    return teamMatchUp.tieMatchUps.map((tm) => tm.matchUpId).filter(Boolean) as string[];
+  }
+
+  // Classify collections by gender
+  const malesingles: any[] = [];
+  const femalesingles: any[] = [];
+  const maledoubles: any[] = [];
+  const femaledoubles: any[] = [];
+  const mixed: any[] = [];
+
+  for (const def of defs) {
+    const gender = def.gender ?? '';
+    const matchUpType = def.matchUpType ?? '';
+    if (gender === 'MIXED') mixed.push(def);
+    else if (gender === 'MALE' && matchUpType === 'SINGLES') malesingles.push(def);
+    else if (gender === 'FEMALE' && matchUpType === 'SINGLES') femalesingles.push(def);
+    else if (gender === 'MALE' && matchUpType === 'DOUBLES') maledoubles.push(def);
+    else if (gender === 'FEMALE' && matchUpType === 'DOUBLES') femaledoubles.push(def);
+    else mixed.push(def); // fallback
+  }
+
+  // Order based on starting gender
+  const orderedDefs =
+    startingGender === 'FEMALE'
+      ? [...femalesingles, ...malesingles, ...femaledoubles, ...maledoubles, ...mixed]
+      : [...malesingles, ...femalesingles, ...maledoubles, ...femaledoubles, ...mixed];
+
+  // Sort within each group by collectionOrder (already grouped, so this is stable)
+  // Then resolve tieMatchUps for each collection
+  const result: string[] = [];
+  for (const def of orderedDefs) {
+    const matches = teamMatchUp.tieMatchUps
+      .filter((tm) => (tm as any).collectionId === def.collectionId)
+      .sort((a, b) => ((a as any).collectionPosition ?? 0) - ((b as any).collectionPosition ?? 0));
+    for (const tm of matches) {
+      if (tm.matchUpId) result.push(tm.matchUpId);
+    }
+  }
+  return result;
+}
+
+/**
+ * Find the next tieMatchUp ID in the bolt sequence after the given one.
+ * Returns null if current is the last or not found.
+ */
+export function getNextTieMatchUpId(currentId: string): string | null {
+  const sequence = getBoltSequence();
+  const idx = sequence.indexOf(currentId);
+  if (idx === -1 || idx === sequence.length - 1) return null;
+  return sequence[idx + 1];
+}
+
+/**
+ * Count total completed bolts (sets) across all tieMatchUps,
+ * optionally excluding one tieMatchUp by ID.
+ */
+export function getCompletedBoltCount(excludeMatchUpId?: string): number {
+  if (!teamMatchUp?.tieMatchUps) return 0;
+  let count = 0;
+  for (const tm of teamMatchUp.tieMatchUps) {
+    if (excludeMatchUpId && tm.matchUpId === excludeMatchUpId) continue;
+    const sets = (tm as any).engineState?.score?.sets ?? tm.score?.sets ?? [];
+    for (const set of sets) {
+      if (set.winningSide !== undefined || set.segmentComplete) count++;
+    }
+  }
+  return count;
 }
 
 export function updateTieMatchUpResult(
@@ -307,6 +402,7 @@ export function restoreTeamMatchUp(matchUpId: string): boolean {
     try {
       teamMatchUp = JSON.parse(stored);
       activeTieMatchUpId = null;
+      startingGender = (teamMatchUp as any)?.startingGender ?? null;
       return true;
     } catch {
       return false;
@@ -322,6 +418,7 @@ export function clearTeamMatchUp() {
   teamMatchUp = null;
   activeTieMatchUpId = null;
   scoreVersion = 0;
+  startingGender = null;
 }
 
 /**

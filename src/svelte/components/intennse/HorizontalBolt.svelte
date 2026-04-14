@@ -51,6 +51,7 @@
     sideRoster = {},
     breakActive = false,
     breakPaused = false,
+    isLastBoltBreak = false,
     onPauseBreak,
     onStartNextBolt,
     onBack,
@@ -100,6 +101,7 @@
     sideRoster?: Record<string, 1 | 2>;
     breakActive?: boolean;
     breakPaused?: boolean;
+    isLastBoltBreak?: boolean;
     onPauseBreak?: () => void;
     onStartNextBolt?: () => void;
     onBack: () => void;
@@ -167,7 +169,7 @@
     <ControlBar
       serveClock={!breakActive}
       {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
-      {breakActive} {breakPaused} {onPauseBreak} {onStartNextBolt}
+      {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
       {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
     />
   </div>

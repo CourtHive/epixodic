@@ -48,6 +48,8 @@
     setTeamMatchUp,
     setTieMatchUpActiveParticipant,
     setActiveTieMatchUp,
+    getNextTieMatchUpId,
+    getCompletedBoltCount,
   } from '../../stores/teamMatchUp.svelte';
   import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/boltHistoryApi';
   import { getLoginState } from '../../../services/auth/loginState';
@@ -222,10 +224,14 @@
   const currentBoltNumber = $derived.by(() => {
     void scoring.version;
     const sets = getEngineState()?.score?.sets ?? [];
-    // No bolts started yet → next bolt is bolt 1
-    if (sets.length === 0) return 1;
-    // Last bolt complete → showing the just-finished bolt's number; NEXT BOLT button will display N+1
-    return sets.length;
+    return sets.length + 1;
+  });
+
+  const globalBoltNumber = $derived.by(() => {
+    void scoring.version;
+    const priorBolts = getCompletedBoltCount(matchUpId);
+    const localSets = getEngineState()?.score?.sets ?? [];
+    return priorBolts + localSets.length + 1;
   });
 
   // ── Clock command executor ──
@@ -505,7 +511,10 @@
       boltComplete = true;
       endSegment({ reason: 'bolt_expired' });
       broadcastState();
-      if (!matchComplete) startBreakClock();
+      // Start break between bolts (same tieMatchUp) or between tieMatchUps (auto-advance)
+      if (!matchComplete || getNextTieMatchUpId(matchUpId)) {
+        startBreakClock();
+      }
       return;
     }
     executeClockCommands(onPointComplete());
@@ -530,7 +539,19 @@
     breakActive = false;
     breakPaused = false;
     destroyClock('breakTimer');
-    if (!matchComplete) handleNextBolt();
+    if (matchComplete) {
+      // This tieMatchUp is done — auto-advance to next in bolt sequence
+      const nextId = getNextTieMatchUpId(matchUpId);
+      if (nextId) {
+        pauseAndPersistOnExit();
+        setActiveTieMatchUp(nextId);
+        const router = (globalThis as any).appRouter;
+        router?.navigate(`/bolt/${nextId}`);
+      }
+      // No nextId = all tieMatchUps complete, stay on page
+    } else {
+      handleNextBolt();
+    }
   }
 
   function pauseBreak() {
@@ -1070,7 +1091,7 @@
   const layoutProps = $derived({
     side1Name: swapped ? side2Name : side1Name,
     side2Name: swapped ? side1Name : side2Name,
-    boltLabel: boltLabel || `BOLT ${currentBoltNumber}`,
+    boltLabel: boltLabel || `BOLT ${globalBoltNumber}`,
     boltScore: swapped
       ? { side1: currentBoltScore.side2, side2: currentBoltScore.side1 }
       : currentBoltScore,
@@ -1089,7 +1110,7 @@
     boltComplete,
     boltExpired,
     matchComplete,
-    currentBoltNumber,
+    currentBoltNumber: globalBoltNumber,
     onNextBolt: handleNextBolt,
     onWinner: (side: Side) => handleAction('winner', flipSide(side)),
     onTouch: (side: Side) => handleAction('touch', flipSide(side)),
@@ -1118,8 +1139,15 @@
     sideRoster,
     breakActive,
     breakPaused,
+    isLastBoltBreak: matchComplete && breakActive,
     onPauseBreak: pauseBreak,
-    onStartNextBolt: handleNextBolt,
+    onStartNextBolt: () => {
+      if (matchComplete) {
+        handleBreakExpired();
+      } else {
+        handleNextBolt();
+      }
+    },
     onAwardBreakPoints: (side: 1 | 2, points: number) => awardBreakPoints(flipSideNum(side), points),
     onBack: handleBack,
     onPenaltyBoxTap: () => { penaltyBoxModalOpen = true; },

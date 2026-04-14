@@ -48,6 +48,7 @@
     sideRoster = {},
     breakActive = false,
     breakPaused = false,
+    isLastBoltBreak = false,
     onPauseBreak,
     onStartNextBolt,
     onAwardBreakPoints,
@@ -97,6 +98,7 @@
     sideRoster?: Record<string, 1 | 2>;
     breakActive?: boolean;
     breakPaused?: boolean;
+    isLastBoltBreak?: boolean;
     onPauseBreak?: () => void;
     onStartNextBolt?: () => void;
     onAwardBreakPoints?: (side: 1 | 2, points: number) => void;
@@ -146,11 +148,11 @@
     {#if breakActive}
       <ClockDisplay clockId="breakTimer" label="BREAK" size="compact" urgentAt={30000} criticalAt={10000} />
       <span class="iv-bolt-label iv-bolt-label--break">
-        {breakPaused ? 'PAUSED' : 'Next bolt starting...'}
+        {breakPaused ? 'PAUSED' : isLastBoltBreak ? 'Next match starting...' : 'Next bolt starting...'}
       </span>
       {#if breakPaused}
         <button class="intennse-ctrl-btn intennse-ctrl-btn--break-start" onclick={onStartNextBolt}>
-          ▶ BOLT {currentBoltNumber + 1}
+          ▶ BOLT {currentBoltNumber}
         </button>
       {:else}
         <button class="intennse-ctrl-btn" onclick={onPauseBreak}>⏸</button>

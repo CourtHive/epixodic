@@ -8,6 +8,7 @@
     setActiveTieMatchUp,
     restoreTeamMatchUp,
     recalculateTeamScore,
+    setStartingGender,
   } from '../../stores/teamMatchUp.svelte';
   import { toggleSidesSwapped, getScoringPrefs } from '../../stores/scoringPrefs.svelte';
   import { onMount } from 'svelte';
@@ -49,6 +50,14 @@
   function handleTieMatchUpClick(tieMatchUp: HydratedMatchUp) {
     const parentMatchUp = teamState.teamMatchUp;
     setActiveTieMatchUp(tieMatchUp.matchUpId);
+
+    // Set starting gender on first click (no-op if already set)
+    const collectionDef = (parentMatchUp as any)?.tieFormat?.collectionDefinitions?.find(
+      (cd: any) => cd.collectionId === (tieMatchUp as any).collectionId,
+    );
+    if (collectionDef?.gender === 'MALE' || collectionDef?.gender === 'FEMALE') {
+      setStartingGender(collectionDef.gender);
+    }
 
     console.log('[scorecard→bolt]', {
       matchUpId: tieMatchUp.matchUpId,
@@ -95,6 +104,7 @@
       <TeamScorecard
         matchUp={teamState.teamMatchUp}
         scoreVersion={teamState.scoreVersion}
+        swapSides={scoringPrefs.sidesSwapped}
         onTieMatchUpClick={handleTieMatchUpClick}
       />
     {:else}

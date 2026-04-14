@@ -21,6 +21,7 @@
     currentBoltNumber = 1,
     breakActive = false,
     breakPaused = false,
+    isLastBoltBreak = false,
     onPauseBreak,
     onStartNextBolt,
     onNextBolt,
@@ -43,6 +44,7 @@
     currentBoltNumber?: number;
     breakActive?: boolean;
     breakPaused?: boolean;
+    isLastBoltBreak?: boolean;
     onPauseBreak?: () => void;
     onStartNextBolt?: () => void;
     onNextBolt?: () => void;
@@ -90,11 +92,11 @@
       onclick={onStartNextBolt}
       title="Start next bolt"
     >
-      ▶ START BOLT {currentBoltNumber + 1}
+      ▶ START BOLT {currentBoltNumber}
     </button>
   {:else if breakActive}
     <div class="intennse-controls-row">
-      <span class="intennse-break-label">Next bolt starting...</span>
+      <span class="intennse-break-label">{isLastBoltBreak ? 'Next match starting...' : 'Next bolt starting...'}</span>
       <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onPauseBreak} title="Pause break">
         ⏸ PAUSE
       </button>
