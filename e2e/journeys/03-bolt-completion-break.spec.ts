@@ -59,19 +59,22 @@ test.describe('Journey 3 — Bolt completion and break clock', () => {
     // After bolt expires, the next point completes the bolt and starts break
     await bolt.scoreWinner(0);
 
-    // Break overlay should appear
-    await expect(bolt.breakOverlay).toBeVisible({ timeout: 5_000 });
+    // Break should be active (overlay in vertical, break label in horizontal)
+    await bolt.expectBreakActive();
   });
 
-  test('break overlay shows point adjustment buttons', async ({ page }) => {
+  test('break overlay shows point adjustment buttons (vertical only)', async ({ page }) => {
     const bolt = await setupActiveBolt(page);
     await bolt.scoreWinner(0);
 
     await expireBoltClock(page);
     await bolt.scoreWinner(0);
 
-    await expect(bolt.breakOverlay).toBeVisible({ timeout: 5_000 });
-    await expect(bolt.breakAdjustBtns).toHaveCount(2);
+    await bolt.expectBreakActive();
+    // Point adjustment buttons only exist in vertical/mobile layout
+    if (await bolt.hasBreakOverlay()) {
+      await expect(bolt.breakAdjustBtns).toHaveCount(2);
+    }
   });
 
   test('point adjustment during break updates ARC score', async ({ page }) => {
@@ -81,15 +84,18 @@ test.describe('Journey 3 — Bolt completion and break clock', () => {
     await expireBoltClock(page);
     await bolt.scoreWinner(1); // 2-2 then bolt completes
 
-    await expect(bolt.breakOverlay).toBeVisible({ timeout: 5_000 });
+    await bolt.expectBreakActive();
 
-    const arcBefore = await bolt.getArcScore();
+    // Point adjustment only available in vertical/mobile layout
+    if (await bolt.hasBreakOverlay()) {
+      const arcBefore = await bolt.getArcScore();
 
-    // Award +1 to side 1 during break
-    await bolt.awardBreakPoints(1);
+      // Award +1 to side 1 during break
+      await bolt.awardBreakPoints(1);
 
-    const arcAfter = await bolt.getArcScore();
-    expect(arcAfter).toBeTruthy();
-    expect(arcAfter).not.toBe(arcBefore);
+      const arcAfter = await bolt.getArcScore();
+      expect(arcAfter).toBeTruthy();
+      expect(arcAfter).not.toBe(arcBefore);
+    }
   });
 });

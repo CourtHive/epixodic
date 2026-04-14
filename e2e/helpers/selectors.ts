@@ -28,23 +28,23 @@ export const S = {
   BTN_FORCED: '.intennse-btn--forced',
   BTN_UNFORCED: '.intennse-btn--unforced',
 
-  // Bolt scoring — score side tap targets (for side selection after action button)
+  // Bolt scoring — score side tap targets
   SCORE_SIDE: '.iv-score-side',
   SCORE_SIDE_0: '.iv-score-side >> nth=0',
   SCORE_SIDE_1: '.iv-score-side >> nth=1',
-  SCORE_VALUE: '.iv-score-value',
+  SCORE_VALUE: '.iv-score-value, .intennse-score-value',
 
   // Bolt scoring — controls
   BTN_UNDO: 'button:has-text("↩")',
   BTN_REDO: 'button:has-text("↪")',
   BTN_PLAY: '.intennse-ctrl-btn--point-start',
   BTN_BREAK_START: '.intennse-ctrl-btn--break-start',
-  BTN_BACK: '.intennse-ctrl-btn--back-v',
+  BTN_BACK: '.intennse-ctrl-btn--back-v, .intennse-h-back',
 
-  // Score display
-  BOLT_SCORE_SIDE1: '.iv-score-value >> nth=0',
-  BOLT_SCORE_SIDE2: '.iv-score-value >> nth=1',
-  SCORE_DISPLAY: '.iv-score',
+  // Score display (vertical uses .iv-score-value, horizontal uses .intennse-score-value)
+  BOLT_SCORE_SIDE1: ':is(.iv-score-value, .intennse-score-value) >> nth=0',
+  BOLT_SCORE_SIDE2: ':is(.iv-score-value, .intennse-score-value) >> nth=1',
+  SCORE_DISPLAY: '.iv-score, .intennse-score-display',
   ARC_SCORE: '.intennse-arc-compact-score',
 
   // Aggregate bar
@@ -94,12 +94,12 @@ export const S = {
   VERTICAL_LAYOUT: '.intennse-vertical',
   HORIZONTAL_LAYOUT: '.intennse-horizontal',
 
-  // Break overlay (inside actions column during break)
+  // Break overlay (vertical layout only — actions column during break)
   BREAK_OVERLAY: '.iv-break-overlay',
   BREAK_OVERLAY_LABEL: '.iv-break-overlay-label',
   BREAK_ADJUST_BTN: '.iv-break-adjust-btn',
 
-  // Bolt/break labels
-  BREAK_LABEL: '.iv-bolt-label--break',
-  BOLT_LABEL: '.iv-bolt-label',
+  // Bolt/break labels (vertical uses .iv-bolt-label--break, horizontal uses .intennse-break-label)
+  BREAK_LABEL: '.iv-bolt-label--break, .intennse-break-label',
+  BOLT_LABEL: '.iv-bolt-label, .intennse-bolt-label',
 } as const;

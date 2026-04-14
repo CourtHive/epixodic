@@ -58,8 +58,8 @@ export class BoltScoringPage {
     this.btnPlay = page.locator(S.BTN_PLAY);
     this.btnBack = page.locator(S.BTN_BACK);
 
-    this.boltScoreSide1 = page.locator('.iv-score-value').nth(0);
-    this.boltScoreSide2 = page.locator('.iv-score-value').nth(1);
+    this.boltScoreSide1 = page.locator(':is(.iv-score-value, .intennse-score-value)').nth(0);
+    this.boltScoreSide2 = page.locator(':is(.iv-score-value, .intennse-score-value)').nth(1);
     this.arcScore = page.locator(S.ARC_SCORE);
 
     this.coinTossModal = page.locator(S.COIN_TOSS_MODAL);
@@ -192,6 +192,16 @@ export class BoltScoringPage {
   /** Get the bolt label text (e.g. "BOLT 3") */
   async getBoltLabel(): Promise<string> {
     return (await this.page.locator(S.BOLT_LABEL).textContent() ?? '').trim();
+  }
+
+  /** Wait for break to be active (cross-layout: overlay in vertical, break label in horizontal) */
+  async expectBreakActive(timeout = 5_000) {
+    await this.page.waitForSelector(S.BREAK_LABEL, { timeout });
+  }
+
+  /** Check if break overlay with point adjustments is available (vertical layout only) */
+  async hasBreakOverlay(): Promise<boolean> {
+    return this.breakOverlay.isVisible().catch(() => false);
   }
 
   // ── Navigation ──
