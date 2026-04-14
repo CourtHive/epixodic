@@ -53,6 +53,16 @@
   justify-content: center;
 }
 
+.intennse-h-time-row {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.intennse-h-time-row .intennse-footer-btn {
+  flex: 1;
+}
+
 .intennse-footer-btn {
   flex: 1;
   display: flex;

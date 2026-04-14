@@ -47,8 +47,9 @@
     timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
     playerTimePanelOpen = false,
-    onTogglePlayerTimePanel,
     sideRoster = {},
+    playerTimeSide = null,
+    onTogglePlayerTimeSide,
     breakActive = false,
     breakPaused = false,
     isLastBoltBreak = false,
@@ -97,8 +98,9 @@
     timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
     playerTimePanelOpen?: boolean;
-    onTogglePlayerTimePanel?: () => void;
     sideRoster?: Record<string, 1 | 2>;
+    playerTimeSide?: 1 | 2 | null;
+    onTogglePlayerTimeSide?: (side: 1 | 2) => void;
     breakActive?: boolean;
     breakPaused?: boolean;
     isLastBoltBreak?: boolean;
@@ -161,9 +163,9 @@
       </div>
       <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />
     </div>
-    {#if playerTimePanelOpen}
+    {#if playerTimePanelOpen && playerTimeSide}
       <div class="intennse-h-center-info">
-        <PlayerTimeInfoPanel {sideRoster} />
+        <PlayerTimeInfoPanel {sideRoster} activeSide={playerTimeSide} />
       </div>
     {/if}
     <ControlBar
@@ -208,13 +210,24 @@
       </button>
     </div>
     <div class="intennse-h-footer-col intennse-h-footer-col--center">
-      <button
-        class="intennse-footer-btn intennse-footer-btn--info"
-        class:intennse-footer-btn--active={playerTimePanelOpen}
-        onclick={onTogglePlayerTimePanel}
-      >
-        <span class="footer-label-full">Player Time</span><span class="footer-label-short">TIME</span>
-      </button>
+      <div class="intennse-h-time-row">
+        <button
+          class="intennse-footer-btn intennse-footer-btn--info"
+          class:intennse-footer-btn--active={playerTimeSide === 1}
+          onclick={() => onTogglePlayerTimeSide?.(1)}
+          title="Player Time Side 1"
+        >
+          <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 1
+        </button>
+        <button
+          class="intennse-footer-btn intennse-footer-btn--info"
+          class:intennse-footer-btn--active={playerTimeSide === 2}
+          onclick={() => onTogglePlayerTimeSide?.(2)}
+          title="Player Time Side 2"
+        >
+          <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 2
+        </button>
+      </div>
     </div>
     <div class="intennse-h-footer-col">
       <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)} disabled={!boltStarted} title="Substitution Side 2">

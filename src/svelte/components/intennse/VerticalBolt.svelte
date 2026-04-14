@@ -44,10 +44,11 @@
     timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
     playerTimePanelOpen = false,
-    onTogglePlayerTimePanel,
     sideRoster = {},
     breakActive = false,
     breakPaused = false,
+    playerTimeSide = null,
+    onTogglePlayerTimeSide,
     isLastBoltBreak = false,
     onPauseBreak,
     onStartNextBolt,
@@ -94,10 +95,13 @@
     timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
     playerTimePanelOpen?: boolean;
-    onTogglePlayerTimePanel?: () => void;
     sideRoster?: Record<string, 1 | 2>;
+    playerTimeSide?: 1 | 2 | null;
+    onTogglePlayerTimeSide?: (side: 1 | 2) => void;
     breakActive?: boolean;
     breakPaused?: boolean;
+    playerTimeSide?: 1 | 2 | null;
+    onTogglePlayerTimeSide?: (side: 1 | 2) => void;
     isLastBoltBreak?: boolean;
     onPauseBreak?: () => void;
     onStartNextBolt?: () => void;
@@ -251,38 +255,38 @@
     {/if}
   </div>
 
-  {#if playerTimePanelOpen}
-    <PlayerTimeInfoPanel {sideRoster} />
+  {#if playerTimePanelOpen && playerTimeSide}
+    <PlayerTimeInfoPanel {sideRoster} activeSide={playerTimeSide} />
   {/if}
 
-  <!-- Footer: TIME row + 3-column grid (side 1 | controls | side 2) -->
+  <!-- Footer: 3-column grid (side 1 | controls | side 2) -->
   <div class="iv-footer">
     <button
-      class="intennse-footer-btn intennse-footer-btn--info iv-footer-time"
-      class:intennse-footer-btn--active={playerTimePanelOpen}
-      onclick={onTogglePlayerTimePanel}
+      class="intennse-footer-btn intennse-footer-btn--info"
+      class:intennse-footer-btn--active={playerTimeSide === 1}
+      onclick={() => onTogglePlayerTimeSide?.(1)}
     >
-      <span class="footer-label-full">Player Time</span><span class="footer-label-short">TIME</span>
+      <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 1
+    </button>
+    <span></span>
+    <button
+      class="intennse-footer-btn intennse-footer-btn--info"
+      class:intennse-footer-btn--active={playerTimeSide === 2}
+      onclick={() => onTogglePlayerTimeSide?.(2)}
+    >
+      <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 2
     </button>
 
     <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)}>
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 1
     </button>
-    <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
+    <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
     <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)}>
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
     </button>
 
     <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0}>
       <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
-    </button>
-    <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
-    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
-      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
-    </button>
-
-    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
-      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
     </button>
     <button
       class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
@@ -293,6 +297,14 @@
     >
       {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
     </button>
+    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
+      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
+    </button>
+
+    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
+      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
+    </button>
+    <span></span>
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>
       <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 2
     </button>
@@ -502,10 +514,6 @@
     padding: 0.4rem;
     border-top: 1px solid var(--intennse-accent);
     background: var(--intennse-surface);
-  }
-
-  .iv-footer-time {
-    grid-column: 1 / -1;
   }
 
   .iv-footer :global(.intennse-ctrl-btn) {

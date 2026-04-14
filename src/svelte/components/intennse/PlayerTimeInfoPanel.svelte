@@ -2,8 +2,9 @@
   import { formatTime } from '../../../clock/formatTime';
   import { getPlayerTimeState, getRemainingMs } from '../../stores/playerTime.svelte';
 
-  let { sideRoster = {} }: {
+  let { sideRoster = {}, activeSide }: {
     sideRoster: Record<string, 1 | 2>;
+    activeSide?: 1 | 2;
   } = $props();
 
   const playerTime = getPlayerTimeState();
@@ -11,6 +12,7 @@
   interface PlayerRow {
     participantId: string;
     participantName: string;
+    jerseyNumber?: string;
     remainingMs: number;
     isOnCourt: boolean;
   }
@@ -32,6 +34,7 @@
       rows.push({
         participantId: id,
         participantName: entry.participantName,
+        jerseyNumber: entry.jerseyNumber,
         remainingMs: getRemainingMs(id),
         isOnCourt: entry.isOnCourt,
       });
@@ -46,28 +49,43 @@
     if (remaining <= 120_000) return 'pti-warning';
     return '';
   }
+
+  const showSide1 = $derived(!activeSide || activeSide === 1);
+  const showSide2 = $derived(!activeSide || activeSide === 2);
 </script>
 
 <div class="pti-panel">
-  <div class="pti-col">
-    {#each side1Players as player (player.participantId)}
-      <div class="pti-row {urgencyClass(player.remainingMs)}">
-        <span class="pti-court-indicator" class:pti-on-court={player.isOnCourt}></span>
-        <span class="pti-name">{player.participantName}</span>
-        <span class="pti-time">{formatTime(player.remainingMs)}</span>
-      </div>
-    {/each}
-  </div>
-  <div class="pti-divider"></div>
-  <div class="pti-col">
-    {#each side2Players as player (player.participantId)}
-      <div class="pti-row {urgencyClass(player.remainingMs)}">
-        <span class="pti-court-indicator" class:pti-on-court={player.isOnCourt}></span>
-        <span class="pti-name">{player.participantName}</span>
-        <span class="pti-time">{formatTime(player.remainingMs)}</span>
-      </div>
-    {/each}
-  </div>
+  {#if showSide1}
+    <div class="pti-col">
+      {#each side1Players as player (player.participantId)}
+        <div class="pti-row {urgencyClass(player.remainingMs)}">
+          <span class="pti-court-indicator" class:pti-on-court={player.isOnCourt}></span>
+          {#if player.jerseyNumber}
+            <span class="pti-jersey">{player.jerseyNumber}</span>
+          {/if}
+          <span class="pti-name">{player.participantName}</span>
+          <span class="pti-time">{formatTime(player.remainingMs)}</span>
+        </div>
+      {/each}
+    </div>
+  {/if}
+  {#if showSide1 && showSide2}
+    <div class="pti-divider"></div>
+  {/if}
+  {#if showSide2}
+    <div class="pti-col">
+      {#each side2Players as player (player.participantId)}
+        <div class="pti-row {urgencyClass(player.remainingMs)}">
+          <span class="pti-court-indicator" class:pti-on-court={player.isOnCourt}></span>
+          {#if player.jerseyNumber}
+            <span class="pti-jersey">{player.jerseyNumber}</span>
+          {/if}
+          <span class="pti-name">{player.participantName}</span>
+          <span class="pti-time">{formatTime(player.remainingMs)}</span>
+        </div>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -113,6 +131,21 @@
   .pti-on-court {
     background: var(--intennse-serving, #00d4aa);
     border-color: var(--intennse-serving, #00d4aa);
+  }
+
+  .pti-jersey {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 3px;
+    background: var(--intennse-serving, #00d4aa);
+    color: var(--intennse-surface, #16213e);
+    font-weight: 800;
+    font-size: 0.65rem;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
   }
 
   .pti-name {

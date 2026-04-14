@@ -188,6 +188,7 @@
   let serverDetermined = $state(false);
   let sideRoster = $state<Record<string, 1 | 2>>({});
   let playerTimePanelOpen = $state(false);
+  let playerTimeSide = $state<1 | 2 | null>(null);
   let timeWarning = $state<{ playerName: string; remainingMs: number } | null>(null);
   let autoTimePenaltyTriggered = $state<Set<string>>(new Set());
 
@@ -1135,7 +1136,16 @@
       : { 1: maxTimeoutsPerSide - timeoutsUsed[1], 2: maxTimeoutsPerSide - timeoutsUsed[2] },
     onDismissTimeout: handleDismissTimeout,
     playerTimePanelOpen,
-    onTogglePlayerTimePanel: () => { playerTimePanelOpen = !playerTimePanelOpen; },
+    playerTimeSide,
+    onTogglePlayerTimeSide: (side: 1 | 2) => {
+      if (playerTimeSide === side) {
+        playerTimePanelOpen = false;
+        playerTimeSide = null;
+      } else {
+        playerTimePanelOpen = true;
+        playerTimeSide = side;
+      }
+    },
     sideRoster,
     breakActive,
     breakPaused,
