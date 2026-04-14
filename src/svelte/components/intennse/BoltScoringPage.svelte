@@ -422,8 +422,14 @@
     }
 
     // Configure bolt duration from tieFormat, URL param (?boltMinutes=3), or default
+    const searchParams = new URLSearchParams(globalThis.location?.search || '');
     const tieFormatBoltMinutes = (teamState.teamMatchUp as any)?.tieFormat?.boltDurationMinutes;
-    const urlBoltMinutes = new URLSearchParams(globalThis.location?.search || '').get('boltMinutes');
+    const urlBoltMinutes = searchParams.get('boltMinutes');
+    const urlBreakSeconds = searchParams.get('breakSeconds');
+    if (urlBreakSeconds) {
+      const ms = Number.parseFloat(urlBreakSeconds) * 1000;
+      if (ms > 0) BREAK_DURATION_MS = ms;
+    }
     if (urlBoltMinutes) {
       const ms = Number.parseFloat(urlBoltMinutes) * 60 * 1000;
       if (ms > 0) { setBoltDuration(ms); BREAK_DURATION_MS = Math.min(BREAK_DURATION_MS, ms); }

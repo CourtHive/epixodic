@@ -207,6 +207,11 @@ export class BoltScoringPage {
     return (await this.arcScore.textContent() ?? '').trim();
   }
 
+  /** Get the bolt label text (e.g. "BOLT 3") */
+  async getBoltLabel(): Promise<string> {
+    return (await this.page.locator(S.BOLT_LABEL).textContent() ?? '').trim();
+  }
+
   // ── Navigation ──
 
   /** Tap the back button */
