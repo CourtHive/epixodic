@@ -116,19 +116,26 @@
 }
 
 .intennse-h-center-info .pti-panel {
-  font-size: 1.5rem;
+  font-size: 24px;
+  gap: 1rem;
+  padding: 0.75rem;
+}
+
+.intennse-h-center-info .pti-row {
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
 }
 
 .intennse-h-center-info .pti-jersey {
-  min-width: 2.4rem;
-  height: 2.4rem;
-  font-size: 1.2rem;
+  min-width: 2rem;
+  height: 2rem;
+  font-size: 1rem;
   border-radius: 5px;
 }
 
 .intennse-h-center-info .pti-court-indicator {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 
 .intennse-h-header {
