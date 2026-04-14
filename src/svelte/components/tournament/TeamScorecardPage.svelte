@@ -11,6 +11,7 @@
     setStartingGender,
   } from '../../stores/teamMatchUp.svelte';
   import { toggleSidesSwapped, getScoringPrefs } from '../../stores/scoringPrefs.svelte';
+  import { getNavigationState, setArchiveContext } from '../../stores/navigation.svelte';
   import { onMount } from 'svelte';
   import type { HydratedMatchUp, NavAction } from '../../types';
 
@@ -20,12 +21,18 @@
   let loaded = $state(false);
   let loadError = $state<string | undefined>(undefined);
 
+  const nav = getNavigationState();
+
   onMount(() => {
     if (!teamState.teamMatchUp) {
       const restored = restoreTeamMatchUp(matchUpId);
       if (!restored) {
         loadError = 'Team matchUp not found. Navigate from the event page to load.';
       }
+    }
+    // Ensure breadcrumbs are populated (lost on page refresh)
+    if (!nav.breadcrumbs.length) {
+      setArchiveContext();
     }
     // Ensure aggregate score is fresh on every mount
     recalculateTeamScore();

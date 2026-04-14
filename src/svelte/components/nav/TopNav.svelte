@@ -11,7 +11,7 @@
 </script>
 
 <nav class="top-nav">
-  <div class="breadcrumbs">
+  <div class="top-nav-left">
     {#if backAction}
       <button class="top-nav-back" onclick={backAction}>←</button>
     {/if}
@@ -27,10 +27,12 @@
       />
     {/each}
   </div>
-  <div class="actions">
+  <div class="top-nav-center">
     {#each actions as action}
       <NavAction label={action.label} icon={action.icon} onclick={action.action} />
     {/each}
+  </div>
+  <div class="top-nav-right">
     <RelayStatus />
   </div>
 </nav>
@@ -46,9 +48,24 @@
     border-bottom: 1px solid var(--ep-page-border);
     flex-shrink: 0;
   }
-  .breadcrumbs {
+  .top-nav-left {
     display: flex;
     align-items: center;
+    flex: 1;
+    min-width: 0;
+  }
+  .top-nav-center {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  .top-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    justify-content: flex-end;
   }
   .top-nav-back {
     background: none;
@@ -61,11 +78,4 @@
     touch-action: manipulation;
   }
   .top-nav-back:active { opacity: 0.7; }
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex: 1;
-    justify-content: flex-end;
-  }
 </style>
