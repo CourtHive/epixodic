@@ -105,26 +105,26 @@ test.describe('Journey 8 — Bolt auto-advance through all tieMatchUps', () => {
         // Score the bolt (start → points → expire → final point)
         await scoreOneBolt(bolt);
 
-        // Break should appear
-        await page.waitForSelector(S.BREAK_LABEL, { timeout: 5_000 });
-        const breakLabel = await page.locator(S.BREAK_LABEL).textContent();
-
         const isLastBoltOfMatch = boltIdx === boltsInThisMatch - 1;
         const isLastTieMatchUp = tmIdx === boltsPerTieMatchUp.length - 1;
-
-        if (isLastBoltOfMatch && !isLastTieMatchUp) {
-          // Inter-tieMatchUp break should say "Next match starting..."
-          expect(breakLabel?.trim()).toBe('Next match starting...');
-        } else if (!isLastBoltOfMatch) {
-          // Intra-tieMatchUp break should say "Next bolt starting..."
-          expect(breakLabel?.trim()).toBe('Next bolt starting...');
-        }
 
         expectedGlobalBolt++;
 
         if (isLastBoltOfMatch && isLastTieMatchUp) {
-          // Final bolt of final tieMatchUp — no more advancing
+          // Final bolt of final tieMatchUp — no break, no advance
           break;
+        }
+
+        // Break should appear after every non-final bolt
+        await page.waitForSelector(S.BREAK_LABEL, { timeout: 5_000 });
+        const breakLabel = await page.locator(S.BREAK_LABEL).textContent();
+
+        if (isLastBoltOfMatch) {
+          // Inter-tieMatchUp break
+          expect(breakLabel?.trim()).toBe('Next match starting...');
+        } else {
+          // Intra-tieMatchUp break
+          expect(breakLabel?.trim()).toBe('Next bolt starting...');
         }
 
         // Fast-forward the break clock — triggers auto-advance
@@ -133,7 +133,6 @@ test.describe('Journey 8 — Bolt auto-advance through all tieMatchUps', () => {
         if (isLastBoltOfMatch) {
           // Auto-advanced to next tieMatchUp — wait for new bolt page to mount
           await bolt.expectVisible();
-          // Small wait for state initialization
           await page.waitForTimeout(300);
         }
       }

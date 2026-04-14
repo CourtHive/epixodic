@@ -60,12 +60,12 @@ export class BoltScoringPage {
   constructor(page: Page) {
     this.page = page;
 
-    this.btnWinner = page.locator(S.BTN_WINNER);
-    this.btnTouch = page.locator(S.BTN_TOUCH);
-    this.btnAce = page.locator(S.BTN_ACE);
-    this.btnFault = page.locator(S.BTN_FAULT);
-    this.btnForced = page.locator(S.BTN_FORCED);
-    this.btnUnforced = page.locator(S.BTN_UNFORCED);
+    this.btnWinner = page.locator(S.BTN_WINNER).first();
+    this.btnTouch = page.locator(S.BTN_TOUCH).first();
+    this.btnAce = page.locator(S.BTN_ACE).first();
+    this.btnFault = page.locator(S.BTN_FAULT).first();
+    this.btnForced = page.locator(S.BTN_FORCED).first();
+    this.btnUnforced = page.locator(S.BTN_UNFORCED).first();
 
     this.scoreSide0 = page.locator('.iv-score-side').nth(0);
     this.scoreSide1 = page.locator('.iv-score-side').nth(1);
