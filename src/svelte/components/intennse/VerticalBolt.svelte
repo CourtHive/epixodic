@@ -280,13 +280,24 @@
     <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)}>
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 1
     </button>
-    <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
+    <div class="iv-footer-undo-redo">
+      <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
+      <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
+    </div>
     <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)}>
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
     </button>
 
     <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0}>
       <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
+    </button>
+    <span></span>
+    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
+      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
+    </button>
+
+    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
+      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
     </button>
     <button
       class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
@@ -297,14 +308,6 @@
     >
       {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
     </button>
-    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
-      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
-    </button>
-
-    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
-      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
-    </button>
-    <span></span>
     <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>
       <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 2
     </button>
@@ -514,6 +517,12 @@
     padding: 0.4rem;
     border-top: 1px solid var(--intennse-accent);
     background: var(--intennse-surface);
+  }
+
+  .iv-footer-undo-redo {
+    display: flex;
+    gap: 0.2rem;
+    justify-content: center;
   }
 
   .iv-footer :global(.intennse-ctrl-btn) {
