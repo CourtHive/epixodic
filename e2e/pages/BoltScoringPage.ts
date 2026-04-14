@@ -12,14 +12,6 @@ import { S } from '../helpers/selectors';
 export class BoltScoringPage {
   readonly page: Page;
 
-  // Outcome buttons
-  readonly btnWinner: Locator;
-  readonly btnTouch: Locator;
-  readonly btnAce: Locator;
-  readonly btnFault: Locator;
-  readonly btnForced: Locator;
-  readonly btnUnforced: Locator;
-
   // Score side tap targets
   readonly scoreSide0: Locator;
   readonly scoreSide1: Locator;
@@ -59,13 +51,6 @@ export class BoltScoringPage {
 
   constructor(page: Page) {
     this.page = page;
-
-    this.btnWinner = page.locator(S.BTN_WINNER).first();
-    this.btnTouch = page.locator(S.BTN_TOUCH).first();
-    this.btnAce = page.locator(S.BTN_ACE).first();
-    this.btnFault = page.locator(S.BTN_FAULT).first();
-    this.btnForced = page.locator(S.BTN_FORCED).first();
-    this.btnUnforced = page.locator(S.BTN_UNFORCED).first();
 
     this.scoreSide0 = page.locator('.iv-score-side').nth(0);
     this.scoreSide1 = page.locator('.iv-score-side').nth(1);
@@ -132,47 +117,44 @@ export class BoltScoringPage {
     await this.btnPlay.click();
   }
 
-  // ── Scoring: two-step (tap action, then tap side) ──
-  // After tapping an action button, the side buttons become enabled
-  // (disabled={!pendingAction}). We wait for the side to be enabled.
+  // ── Scoring: split-side action panels ──
+  // Each side has its own ActionPanel with Winner/Touch/etc buttons.
+  // The panel's side prop determines which side the action is for.
+  // Panel 0 = left (intennse-action-panel--side0), Panel 1 = right (--side1).
 
-  private async tapActionThenSide(actionBtn: Locator, side: 0 | 1) {
-    await actionBtn.click();
-    const sideBtn = side === 0 ? this.scoreSide0 : this.scoreSide1;
-    // Wait for the side button to be enabled (pending action set)
-    await sideBtn.waitFor({ state: 'attached' });
-    await expect(sideBtn).toBeEnabled({ timeout: 2_000 });
-    await sideBtn.click();
+  /** Get the action panel locator for a side */
+  private sidePanel(side: 0 | 1): Locator {
+    return this.page.locator(`.intennse-action-panel--side${side}`);
   }
 
   /** Score a winner for a specific side (0 = left/side1, 1 = right/side2) */
   async scoreWinner(side: 0 | 1) {
-    await this.tapActionThenSide(this.btnWinner, side);
+    await this.sidePanel(side).locator(S.BTN_WINNER).click();
   }
 
   /** Score a touch for a specific side */
   async scoreTouch(side: 0 | 1) {
-    await this.tapActionThenSide(this.btnTouch, side);
+    await this.sidePanel(side).locator(S.BTN_TOUCH).click();
   }
 
   /** Score a forced error for a specific side */
   async scoreForcedError(side: 0 | 1) {
-    await this.tapActionThenSide(this.btnForced, side);
+    await this.sidePanel(side).locator(S.BTN_FORCED).click();
   }
 
   /** Score an unforced error for a specific side */
   async scoreUnforcedError(side: 0 | 1) {
-    await this.tapActionThenSide(this.btnUnforced, side);
+    await this.sidePanel(side).locator(S.BTN_UNFORCED).click();
   }
 
-  /** Score an ace (auto-attributed to server, no side selection) */
+  /** Score an ace (in the serving side's panel) */
   async scoreAce() {
-    await this.btnAce.click();
+    await this.page.locator(S.BTN_ACE).first().click();
   }
 
-  /** Score a fault (auto-attributed to server, no side selection) */
+  /** Score a fault (in the serving side's panel) */
   async scoreFault() {
-    await this.btnFault.click();
+    await this.page.locator(S.BTN_FAULT).first().click();
   }
 
   // ── Controls ──
