@@ -138,6 +138,14 @@
   height: 12px !important;
 }
 
+.intennse-h-center-info .pti-name {
+  font-weight: 400 !important;
+}
+
+.intennse-h-center-info .pti-time {
+  font-weight: 500 !important;
+}
+
 .intennse-h-header {
   grid-column: 1 / -1;
   display: flex;
