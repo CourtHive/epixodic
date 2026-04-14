@@ -38,6 +38,7 @@ export interface ScorebugClockTick {
   boltClockMs: number;
   serveClockMs: number;
   playerClocks?: Record<string, { remainingMs: number; isOnCourt: boolean }>;
+  penaltyBox?: Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }>;
   generatedAt: string;
 }
 

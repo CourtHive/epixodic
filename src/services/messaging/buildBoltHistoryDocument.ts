@@ -1,5 +1,6 @@
 import type { BoltHistoryDocument, TieMatchUpSide } from './boltHistoryDocument';
 import type { HydratedMatchUp } from '../../svelte/types';
+import { getBoxedPlayers } from '../../svelte/stores/penaltyBox.svelte';
 
 /**
  * Map a tieMatchUp + its parent team matchUp into the canonical
@@ -50,9 +51,26 @@ export function buildBoltHistoryDocument(
     boltClockRemainingMs: tieAny.boltClockRemainingMs,
     serveClockRemainingMs: tieAny.serveClockRemainingMs,
     playerTimeSnapshots: tieAny.playerTimeSnapshots,
+    penaltyBoxSnapshots: buildPenaltyBoxSnapshots(),
     createdAt: tieAny.createdAt ?? now,
     updatedAt: now,
     scoredBy: options.scoredBy,
     version: options.version,
   };
+}
+
+function buildPenaltyBoxSnapshots():
+  | Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }>
+  | undefined {
+  const boxed = getBoxedPlayers();
+  if (boxed.length === 0) return undefined;
+  const out: Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }> = {};
+  for (const entry of boxed) {
+    out[entry.participantId] = {
+      remainingMs: entry.remainingMs,
+      sideNumber: entry.sideNumber,
+      participantName: entry.participantName,
+    };
+  }
+  return out;
 }

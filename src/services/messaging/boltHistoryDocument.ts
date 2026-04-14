@@ -32,6 +32,7 @@ export interface BoltHistoryDocument {
   boltClockRemainingMs?: number;
   serveClockRemainingMs?: number;
   playerTimeSnapshots?: Record<string, { elapsedMs: number; isOnCourt: boolean }>;
+  penaltyBoxSnapshots?: Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }>;
   createdAt: string;
   updatedAt: string;
   scoredBy?: string;
