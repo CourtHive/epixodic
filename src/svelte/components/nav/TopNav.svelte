@@ -5,12 +5,21 @@
   import LoginModal from '../shared/LoginModal.svelte';
   import { getNavigationState } from '../../stores/navigation.svelte';
   import { getAuthState, handleLogout } from '../../stores/auth.svelte';
+  import { getAvatarAriaLabel, getAvatarColorClass, getAvatarTitle } from './avatarState';
   import type { BreadcrumbItem, NavAction as NavActionType } from '../../types';
 
   let { actions = [], backAction }: { actions?: NavActionType[]; backAction?: () => void } = $props();
 
   const nav = getNavigationState();
   const auth = getAuthState();
+
+  // Reactive snapshot used by the avatar helpers — rebuilds whenever any
+  // field of auth changes.
+  const avatarAuth = $derived({
+    isAuthenticated: auth.isAuthenticated,
+    hasScoreRole: auth.hasScoreRole,
+    email: auth.email,
+  });
 
   let showLoginModal = $state(false);
 </script>
@@ -40,13 +49,10 @@
   <div class="top-nav-right">
     <RelayStatus />
     <button
-      class="top-nav-avatar"
-      class:top-nav-avatar--out={!auth.isAuthenticated}
-      class:top-nav-avatar--in={auth.isAuthenticated && !auth.hasScoreRole}
-      class:top-nav-avatar--score={auth.isAuthenticated && auth.hasScoreRole}
+      class="top-nav-avatar {getAvatarColorClass(avatarAuth)}"
       onclick={() => (auth.isAuthenticated ? handleLogout() : (showLoginModal = true))}
-      title={auth.isAuthenticated ? `Signed in as ${auth.email ?? 'user'} — click to sign out` : 'Log in'}
-      aria-label={auth.isAuthenticated ? 'Sign out' : 'Log in'}
+      title={getAvatarTitle(avatarAuth)}
+      aria-label={getAvatarAriaLabel(avatarAuth)}
     >
       <!-- fa-solid fa-circle-user path, inlined — epixodic has no FontAwesome dep. -->
       <svg class="top-nav-avatar-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
