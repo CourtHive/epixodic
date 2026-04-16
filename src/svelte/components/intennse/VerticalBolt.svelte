@@ -462,30 +462,47 @@
   .iv-break-adjust-btn:active { opacity: 0.7; }
 
   .iv-actions {
-    flex: 1;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
     padding: 0 0.5rem;
-    overflow-y: auto;
+    /* Do NOT scroll this region — on short phones the outcome buttons must
+     * shrink to fit, not spill into a scroll container. */
+    overflow: hidden;
+    min-height: 0;
   }
 
   .iv-actions-split {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.3rem;
-    flex: 1;
+    flex: 1 1 0;
     min-height: 0;
+    height: 100%;
   }
 
   .iv-actions-split :global(.intennse-action-panel) {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
+    min-height: 0;
+    height: 100%;
   }
 
   .iv-actions-split :global(.intennse-btn) {
-    flex: 1;
+    /* Equal share of the available column height — allow shrinking below
+     * the 44px touch-target minimum on very short viewports rather than
+     * introducing a scrollbar. */
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .iv-actions-split :global(.intennse-btn-label) {
+    /* Keep long labels from forcing button height to grow. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .iv-bolt-label--break {

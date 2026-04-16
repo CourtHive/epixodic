@@ -180,6 +180,22 @@
   border-right: 1px solid var(--intennse-accent);
 }
 
+.ih-submit-btn {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.3rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--intennse-serving, #00d4aa);
+  color: var(--intennse-surface, #16213e);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ih-submit-btn:active { opacity: 0.7; }
+.ih-submit-btn:disabled { opacity: 0.4; cursor: default; }
+
 .intennse-h-arc-row {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -501,6 +517,40 @@
 .intennse-btn-placeholder {
   flex: 1;
   visibility: hidden;
+}
+
+/* On short viewports (phones in portrait without PWA install, or with the
+ * browser URL bar visible) the outcome buttons must still all fit without
+ * scrolling. Tighten padding and scale the font down so each of the 5-6
+ * buttons per column can squeeze into the available flex space. */
+@media (max-height: 780px) {
+  .intennse-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 1.25rem;
+    min-height: 0;
+  }
+  .intennse-btn-value {
+    font-size: 1.4rem;
+    min-width: 1.5rem;
+  }
+  .intennse-btn--rally {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-height: 620px) {
+  .intennse-btn {
+    padding: 0.2rem 0.5rem;
+    font-size: 1rem;
+    border-radius: 6px;
+  }
+  .intennse-btn-value {
+    font-size: 1.1rem;
+    min-width: 1.25rem;
+  }
+  .intennse-btn--rally {
+    font-size: 0.8rem;
+  }
 }
 
 /* ── Control Bar ───────────────────────────────────────────── */

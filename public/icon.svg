@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Epixodic">
+  <!-- Rounded-square background for maskable safe area -->
+  <rect width="512" height="512" rx="96" ry="96" fill="#0f0f23"/>
+
+  <!-- Radial rings echoing the Epixodic logo mark -->
+  <g transform="translate(256 256)">
+    <circle r="220" fill="none" stroke="#1b1464" stroke-width="24"/>
+    <circle r="164" fill="none" stroke="#0a78b7" stroke-width="24"/>
+    <circle r="108" fill="none" stroke="#35b5de" stroke-width="24"/>
+    <circle r="54"  fill="#38f0df"/>
+  </g>
+</svg>

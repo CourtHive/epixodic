@@ -15,3 +15,13 @@ init();
 
 // Start router after init — will restore match from URL or browserStorage
 enhancedRouter.start();
+
+// Register PWA service worker in production (HTTPS or localhost only).
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    const swUrl = new URL('sw.js', document.baseURI).toString();
+    navigator.serviceWorker.register(swUrl).catch((err) => {
+      console.warn('[epixodic] service worker registration failed', err);
+    });
+  });
+}
