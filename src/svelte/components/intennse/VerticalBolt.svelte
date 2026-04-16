@@ -57,6 +57,9 @@
     onPenaltyBoxTap,
     showForcedError = false,
     onReceiverRallyStart,
+    canSubmitScore = false,
+    scoreSubmitting = false,
+    onSubmitScore,
   }: {
     side1Name: string;
     side2Name: string;
@@ -110,6 +113,9 @@
     onPenaltyBoxTap?: () => void;
     showForcedError?: boolean;
     onReceiverRallyStart?: () => void;
+    canSubmitScore?: boolean;
+    scoreSubmitting?: boolean;
+    onSubmitScore?: () => void;
   } = $props();
 
   /** Compact player label per side: last names joined for doubles, full name for singles. */
@@ -230,6 +236,15 @@
             +1 {side2Name || 'Side 2'}
           </button>
         </div>
+        {#if canSubmitScore}
+          <button
+            class="iv-submit-btn"
+            onclick={onSubmitScore}
+            disabled={scoreSubmitting}
+          >
+            {scoreSubmitting ? 'Submitting...' : 'Submit Score'}
+          </button>
+        {/if}
       </div>
     {:else}
       <div class="iv-actions-split">
@@ -257,6 +272,18 @@
 
   {#if playerTimePanelOpen && playerTimeSide}
     <PlayerTimeInfoPanel {sideRoster} activeSide={playerTimeSide} />
+  {/if}
+
+  {#if matchComplete && !breakActive && canSubmitScore}
+    <div class="iv-final-submit">
+      <button
+        class="iv-submit-btn iv-submit-btn--final"
+        onclick={onSubmitScore}
+        disabled={scoreSubmitting}
+      >
+        {scoreSubmitting ? 'Submitting...' : 'Submit Final Score'}
+      </button>
+    </div>
   {/if}
 
   <!-- Footer: 3-column grid (side 1 | controls | side 2) -->
@@ -460,6 +487,25 @@
   }
 
   .iv-break-adjust-btn:active { opacity: 0.7; }
+
+  .iv-submit-btn {
+    width: 100%;
+    padding: 0.6rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--intennse-serving, #00d4aa);
+    color: var(--intennse-surface, #16213e);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+    margin-top: 0.5rem;
+  }
+  .iv-submit-btn:active { opacity: 0.7; }
+  .iv-submit-btn:disabled { opacity: 0.4; cursor: default; }
+  .iv-final-submit {
+    padding: 0.4rem 1rem;
+  }
 
   .iv-actions {
     flex: 1 1 0;

@@ -2,12 +2,17 @@
   import RelayStatus from './RelayStatus.svelte';
   import Breadcrumb from './Breadcrumb.svelte';
   import NavAction from './NavAction.svelte';
+  import LoginModal from '../shared/LoginModal.svelte';
   import { getNavigationState } from '../../stores/navigation.svelte';
+  import { getAuthState, handleLogout } from '../../stores/auth.svelte';
   import type { BreadcrumbItem, NavAction as NavActionType } from '../../types';
 
   let { actions = [], backAction }: { actions?: NavActionType[]; backAction?: () => void } = $props();
 
   const nav = getNavigationState();
+  const auth = getAuthState();
+
+  let showLoginModal = $state(false);
 </script>
 
 <nav class="top-nav">
@@ -34,8 +39,24 @@
   </div>
   <div class="top-nav-right">
     <RelayStatus />
+    {#if auth.isAuthenticated}
+      <button class="top-nav-auth top-nav-auth--in" onclick={handleLogout} title="Sign out">
+        {auth.email?.[0]?.toUpperCase() ?? '?'}
+      </button>
+    {:else}
+      <button class="top-nav-auth top-nav-auth--out" onclick={() => (showLoginModal = true)}>
+        Login
+      </button>
+    {/if}
   </div>
 </nav>
+
+{#if showLoginModal}
+  <LoginModal
+    onClose={() => (showLoginModal = false)}
+    onSuccess={() => (showLoginModal = false)}
+  />
+{/if}
 
 <style>
   .top-nav {
@@ -78,4 +99,28 @@
     touch-action: manipulation;
   }
   .top-nav-back:active { opacity: 0.7; }
+  .top-nav-auth {
+    border: none;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    touch-action: manipulation;
+    line-height: 1;
+  }
+  .top-nav-auth:active { opacity: 0.7; }
+  .top-nav-auth--out {
+    background: var(--ep-accent, #3b82f6);
+    color: #fff;
+  }
+  .top-nav-auth--in {
+    background: #10b981;
+    color: #fff;
+    min-width: 1.6rem;
+    text-align: center;
+    border-radius: 50%;
+    padding: 0.3rem;
+    font-size: 0.7rem;
+  }
 </style>

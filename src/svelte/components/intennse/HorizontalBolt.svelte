@@ -58,6 +58,9 @@
     onBack,
     onPenaltyBoxTap,
     showForcedError = true,
+    canSubmitScore = false,
+    scoreSubmitting = false,
+    onSubmitScore,
   }: {
     side1Name: string;
     side2Name: string;
@@ -109,6 +112,9 @@
     onBack: () => void;
     onPenaltyBoxTap?: () => void;
     showForcedError?: boolean;
+    canSubmitScore?: boolean;
+    scoreSubmitting?: boolean;
+    onSubmitScore?: () => void;
   } = $props();
 </script>
 
@@ -174,6 +180,15 @@
       {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
       {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
     />
+    {#if canSubmitScore && (breakActive || (matchComplete && !breakActive))}
+      <button
+        class="ih-submit-btn"
+        onclick={onSubmitScore}
+        disabled={scoreSubmitting}
+      >
+        {scoreSubmitting ? 'Submitting...' : matchComplete && !breakActive ? 'Submit Final Score' : 'Submit Score'}
+      </button>
+    {/if}
   </div>
 
   <!-- Right side: Side 2 player + actions + penalty box -->

@@ -8,9 +8,10 @@ async function systemLogin(email, password) {
   });
 }
 
-export function submitCredentials({ email, password }) {
-  const response = (res) => {
-    res?.status === 200 && logIn(res);
-  };
-  systemLogin(email, password).then(response, () => {});
+export async function submitCredentials({ email, password }) {
+  const res = await systemLogin(email, password);
+  if (res?.status === 200) {
+    logIn(res);
+  }
+  return res;
 }

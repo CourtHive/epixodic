@@ -53,6 +53,10 @@
   } from '../../stores/teamMatchUp.svelte';
   import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/boltHistoryApi';
   import { getLoginState } from '../../../services/auth/loginState';
+  import { getAuthState } from '../../stores/auth.svelte';
+  import { submitOfficialScore } from '../../../services/messaging/scoreSubmitApi';
+  import { buildScoreOutcome } from '../../../intennse/buildScoreOutcome';
+  import LoginModal from '../shared/LoginModal.svelte';
   import { fixtures } from 'tods-competition-factory';
   import { onMount, onDestroy } from 'svelte';
 
@@ -105,6 +109,49 @@
   const isMobile = matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 768;
   let isLandscape = $state(!isMobile && window.innerWidth > window.innerHeight);
   const scoringPrefs = getScoringPrefs();
+  const auth = getAuthState();
+
+  // Score submission state
+  let scoreSubmitting = $state(false);
+  let lastSubmittedBoltKey = $state('');
+  let showLoginModal = $state(false);
+
+  function getCurrentBoltKey(): string {
+    return `${matchUpId}-${globalBoltNumber}`;
+  }
+
+  async function submitCurrentBoltScore(): Promise<boolean> {
+    const teamState = getTeamMatchUpState();
+    const engineState = getEngineState();
+    const dto = buildScoreOutcome({ matchUpId, engineState, teamMatchUp: teamState.teamMatchUp });
+    if (!dto) return false;
+
+    scoreSubmitting = true;
+    try {
+      const result = await submitOfficialScore(dto);
+      if (result.success) {
+        lastSubmittedBoltKey = getCurrentBoltKey();
+        console.log('[score submit] official score submitted', { matchUpId, boltKey: lastSubmittedBoltKey });
+        return true;
+      } else {
+        console.warn('[score submit] failed:', result.error);
+        return false;
+      }
+    } catch (err) {
+      console.warn('[score submit] error:', err);
+      return false;
+    } finally {
+      scoreSubmitting = false;
+    }
+  }
+
+  function handleManualSubmit() {
+    if (!auth.isAuthenticated) {
+      showLoginModal = true;
+      return;
+    }
+    submitCurrentBoltScore();
+  }
 
   // Active player IDs per side. Singles → length 1, doubles → length 2.
   // For doubles, side[N]ServerIndex points at the partner currently cued up
@@ -543,6 +590,13 @@
   }
 
   function handleBreakExpired() {
+    // Auto-submit for authenticated officials: break IS the review period
+    if (auth.hasScoreRole && getTeamMatchUpState().teamMatchUp?.tournamentId) {
+      if (lastSubmittedBoltKey !== getCurrentBoltKey()) {
+        submitCurrentBoltScore(); // fire-and-forget
+      }
+    }
+
     breakActive = false;
     breakPaused = false;
     destroyClock('breakTimer');
@@ -1015,6 +1069,7 @@
       aggregateScore: currentAggregateScore,
       activePlayers: scoring.activePlayers,
       server: scoring.server,
+      serveSide,
       boltTimerRemainingMs: boltTimer?.remainingMs,
       serveClockRemainingMs: serveClock?.remainingMs,
       matchUpStatus,
@@ -1168,6 +1223,9 @@
     onBack: handleBack,
     onPenaltyBoxTap: () => { penaltyBoxModalOpen = true; },
     showForcedError: scoringPrefs.showForcedError ?? isLandscape,
+    canSubmitScore: !!getTeamMatchUpState().teamMatchUp?.tournamentId,
+    scoreSubmitting,
+    onSubmitScore: handleManualSubmit,
   });
 </script>
 
@@ -1184,6 +1242,13 @@
 
   {#if penaltyBoxModalOpen}
     <PenaltyBoxDetailModal onClose={() => (penaltyBoxModalOpen = false)} />
+  {/if}
+
+  {#if showLoginModal}
+    <LoginModal
+      onClose={() => (showLoginModal = false)}
+      onSuccess={() => { showLoginModal = false; submitCurrentBoltScore(); }}
+    />
   {/if}
 
   {#if isLandscape}

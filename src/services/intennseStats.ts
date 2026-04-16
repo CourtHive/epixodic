@@ -27,6 +27,7 @@ export interface IntennseSnapshot {
   boltTimerRemainingMs?: number;
   serveClockRemainingMs?: number;
   server: number;
+  serveSide?: string;
   matchUpStatus?: string;
 }
 
@@ -121,6 +122,7 @@ export function buildIntennseSnapshot(options: {
   aggregateScore: { side1: number; side2: number };
   activePlayers: { side1: string[]; side2: string[] };
   server: number;
+  serveSide?: string;
   boltTimerRemainingMs?: number;
   serveClockRemainingMs?: number;
   matchUpStatus?: string;
