@@ -372,6 +372,240 @@ describe('Score Relay Integration', () => {
     });
   });
 
+  describe('INTENNSE event relay', () => {
+    it('should acknowledge intennse snapshots from tracker', async () => {
+      const tracker = await connectClient('/tracker');
+
+      const ackPromise = waitForEvent(tracker, 'ack');
+      tracker.emit('intennse', {
+        matchUpId: 'mu-intennse-1',
+        tournamentId: 'tid-1',
+        boltScore: { side1: 14, side2: 9 },
+        aggregateScore: { side1: 14, side2: 9 },
+        server: 0,
+        serveSide: 'DEUCE',
+      });
+
+      const ack = await ackPromise;
+      expect(ack.received).toBe(true);
+      expect(ack.matchUpId).toBe('mu-intennse-1');
+
+      tracker.disconnect();
+    });
+
+    it('should reject intennse without matchUpId', async () => {
+      const tracker = await connectClient('/tracker');
+
+      const errorPromise = waitForEvent(tracker, 'error');
+      tracker.emit('intennse', { boltScore: {} });
+
+      const error = await errorPromise;
+      expect(error.message).toBe('matchUpId required');
+
+      tracker.disconnect();
+    });
+
+    it('should fan out intennse to match-level listeners', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-intennse-2');
+      await new Promise((r) => setTimeout(r, 50));
+
+      const snapshotPromise = waitForEvent(listener, 'intennse');
+      tracker.emit('intennse', {
+        matchUpId: 'mu-intennse-2',
+        boltScore: { side1: 7, side2: 3 },
+        aggregateScore: { side1: 7, side2: 3 },
+        server: 1,
+        serveSide: 'AD',
+        activePlayers: { side1: ['p1'], side2: ['p2'] },
+      });
+
+      const received = await snapshotPromise;
+      expect(received.matchUpId).toBe('mu-intennse-2');
+      expect(received.boltScore.side1).toBe(7);
+      expect(received.serveSide).toBe('AD');
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should fan out intennse to tournament-level listeners', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe:tournament', 'tid-intennse');
+      await new Promise((r) => setTimeout(r, 50));
+
+      const snapshotPromise = waitForEvent(listener, 'intennse');
+      tracker.emit('intennse', {
+        matchUpId: 'mu-intennse-3',
+        tournamentId: 'tid-intennse',
+        boltScore: { side1: 10, side2: 10 },
+        aggregateScore: { side1: 20, side2: 18 },
+        server: 0,
+      });
+
+      const received = await snapshotPromise;
+      expect(received.matchUpId).toBe('mu-intennse-3');
+      expect(received.tournamentId).toBe('tid-intennse');
+      expect(received.aggregateScore.side1).toBe(20);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should fan out intennse to "all" listeners', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe:all');
+      await new Promise((r) => setTimeout(r, 50));
+
+      const snapshotPromise = waitForEvent(listener, 'intennse');
+      tracker.emit('intennse', {
+        matchUpId: 'mu-intennse-4',
+        boltScore: { side1: 5, side2: 2 },
+        aggregateScore: { side1: 5, side2: 2 },
+        server: 0,
+        playerStats: { p1: { pointsWon: 5 } },
+      });
+
+      const received = await snapshotPromise;
+      expect(received.matchUpId).toBe('mu-intennse-4');
+      expect(received.playerStats.p1.pointsWon).toBe(5);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should NOT send intennse to unsubscribed listeners', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-other');
+      await new Promise((r) => setTimeout(r, 50));
+
+      let receivedUnexpected = false;
+      listener.on('intennse', (data: any) => {
+        if (data.matchUpId === 'mu-intennse-5') {
+          receivedUnexpected = true;
+        }
+      });
+
+      tracker.emit('intennse', {
+        matchUpId: 'mu-intennse-5',
+        boltScore: { side1: 1, side2: 0 },
+      });
+
+      await new Promise((r) => setTimeout(r, 200));
+      expect(receivedUnexpected).toBe(false);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+  });
+
+  describe('End-to-end: Epixodic tracker → relay → TMX listener', () => {
+    it('full crowdsourced score flow: tracker emits score, tournament listener receives', async () => {
+      // Simulates the exact flow: Epixodic (tracker) → relay → TMX (listener on /live)
+      const epixodic = await connectClient('/tracker');
+      const tmx = await connectClient('/live');
+
+      // TMX subscribes to a tournament (mirrors TMX connectRelay behavior)
+      tmx.emit('subscribe:tournament', 'tid-e2e');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Epixodic sends a score update (mirrors sendScore in epixodic scoreRelay.ts)
+      const tmxReceived = waitForEvent(tmx, 'score');
+      epixodic.emit('score', {
+        matchUpId: 'mu-e2e-1',
+        tournamentId: 'tid-e2e',
+        score: {
+          sets: [{ side1Score: 14, side2Score: 9 }],
+          scoreStringSide1: '14-9',
+          scoreStringSide2: '9-14',
+        },
+        matchUpStatus: 'IN_PROGRESS',
+      });
+
+      // TMX receives the score — this is what handleRelayScore processes
+      const data = await tmxReceived;
+      expect(data.matchUpId).toBe('mu-e2e-1');
+      expect(data.score.scoreStringSide1).toBe('14-9');
+      expect(data.matchUpStatus).toBe('IN_PROGRESS');
+
+      epixodic.disconnect();
+      tmx.disconnect();
+    });
+
+    it('full INTENNSE snapshot flow: tracker emits intennse, tournament listener receives', async () => {
+      const epixodic = await connectClient('/tracker');
+      const tmx = await connectClient('/live');
+
+      tmx.emit('subscribe:tournament', 'tid-e2e-intennse');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Epixodic sends an INTENNSE snapshot (mirrors sendIntennseUpdate)
+      const tmxReceived = waitForEvent(tmx, 'intennse');
+      epixodic.emit('intennse', {
+        matchUpId: 'mu-e2e-bolt-1',
+        tournamentId: 'tid-e2e-intennse',
+        boltScore: { side1: 7, side2: 3 },
+        aggregateScore: { side1: 21, side2: 18 },
+        activePlayers: { side1: ['p1'], side2: ['p3'] },
+        server: 0,
+        serveSide: 'AD',
+        playerStats: { p1: { pointsWon: 7 }, p3: { pointsWon: 3 } },
+        penaltyBox: [{ participantId: 'p2', participantName: 'Smith', remainingMs: 60000 }],
+        boltTimerRemainingMs: 300000,
+        serveClockRemainingMs: 12000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+
+      const data = await tmxReceived;
+      expect(data.boltScore.side1).toBe(7);
+      expect(data.aggregateScore.side1).toBe(21);
+      expect(data.serveSide).toBe('AD');
+      expect(data.penaltyBox).toHaveLength(1);
+      expect(data.penaltyBox[0].participantName).toBe('Smith');
+
+      epixodic.disconnect();
+      tmx.disconnect();
+    });
+
+    it('completed match score flows through relay', async () => {
+      const epixodic = await connectClient('/tracker');
+      const tmx = await connectClient('/live');
+
+      tmx.emit('subscribe:tournament', 'tid-e2e-complete');
+      await new Promise((r) => setTimeout(r, 50));
+
+      const tmxReceived = waitForEvent(tmx, 'score');
+      epixodic.emit('score', {
+        matchUpId: 'mu-e2e-final',
+        tournamentId: 'tid-e2e-complete',
+        score: {
+          sets: [
+            { side1Score: 14, side2Score: 9 },
+            { side1Score: 12, side2Score: 8 },
+          ],
+        },
+        matchUpStatus: 'COMPLETED',
+        winningSide: 1,
+      });
+
+      const data = await tmxReceived;
+      expect(data.matchUpStatus).toBe('COMPLETED');
+      expect(data.winningSide).toBe(1);
+      expect(data.score.sets).toHaveLength(2);
+
+      epixodic.disconnect();
+      tmx.disconnect();
+    });
+  });
+
   describe('Multi-listener fan-out', () => {
     it('should broadcast to multiple listeners subscribed to same match', async () => {
       const tracker = await connectClient('/tracker');

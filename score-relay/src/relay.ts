@@ -59,6 +59,22 @@ export function createRelay(io: Server, config: RelayConfig): void {
       listeners.to('all').emit('score', data);
     });
 
+    // INTENNSE enriched snapshots: fan out to listeners without storing
+    socket.on('intennse', (data: any) => {
+      if (!data?.matchUpId) {
+        socket.emit('error', { message: 'matchUpId required' });
+        return;
+      }
+
+      socket.emit('ack', { matchUpId: data.matchUpId, received: true });
+
+      listeners.to(data.matchUpId).emit('intennse', data);
+      if (data.tournamentId) {
+        listeners.to(`tournament:${data.tournamentId}`).emit('intennse', data);
+      }
+      listeners.to('all').emit('intennse', data);
+    });
+
     socket.on('history', async (data: MatchHistory) => {
       if (!data?.matchUpId) {
         socket.emit('error', { message: 'matchUpId required' });
