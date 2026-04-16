@@ -51,6 +51,8 @@ import {
   resetPenaltyBox,
   pauseAllPenaltyClocks,
   resumeAllPenaltyClocks,
+  resumePenaltyClocksForBolt,
+  setArcContext,
   getBoxedPlayers,
 } from '../penaltyBox.svelte';
 import { getClockSnapshot, pauseClock, resumeClock } from '../../../clock';
@@ -130,18 +132,31 @@ describe('break-flow integration — penalty clocks pause across the break', () 
     expect(getBoxedPlayers()).toHaveLength(0);
   });
 
-  it('resetPenaltyBox at mount time clears stale entries from a prior tieMatchUp', () => {
-    // Simulate tieMatchUp A state: penalty + paused (between bolts).
-    sendToBox('A1', 'A1', 1);
+  it('setArcContext with the SAME arc preserves penalties across tieMatchUp mounts', () => {
+    // Enter ARC-A, penalise a male in MS, bolt ends → pause.
+    setArcContext('arc-A');
+    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
     pauseAllPenaltyClocks();
     expect(getBoxedPlayers()).toHaveLength(1);
 
-    // BoltScoringPage onMount for tieMatchUp B calls resetPenaltyBox().
-    resetPenaltyBox();
+    // Mount the next tieMatchUp WITHIN the same ARC — setArcContext is
+    // called with the same id, so the box is preserved and MD (MALE)
+    // can resume the ongoing penalty.
+    setArcContext('arc-A');
+    expect(getBoxedPlayers()).toHaveLength(1);
 
-    // B starts clean — no carryover penalty.
+    resumePenaltyClocksForBolt({ gender: 'MALE', matchUpType: 'DOUBLES' });
+    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('running');
+  });
+
+  it('setArcContext with a NEW arc clears the box — different team match', () => {
+    setArcContext('arc-A');
+    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
+    expect(getBoxedPlayers()).toHaveLength(1);
+
+    setArcContext('arc-B');
+
     expect(getBoxedPlayers()).toHaveLength(0);
-    expect(getClockSnapshot('penaltyBox-A1')).toBeUndefined();
   });
 });
 
@@ -218,5 +233,95 @@ describe('timeout-flow integration — penalty clocks pause across the timeout',
 
     expect(pauseClock).toHaveBeenCalledTimes(2);
     expect(resumeClock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('cross-tieMatchUp penalty persistence (ARC-scoped)', () => {
+  // The league commissioner confirmed: a male penalty incurred in the
+  // final second of MS must carry into MD with remaining time intact.
+  // The penalty clock only ticks during bolts for which the player is
+  // eligible (not gender-blocked).
+
+  beforeEach(() => {
+    for (const k of Object.keys(mockStates)) delete mockStates[k];
+    resetPenaltyBox();
+    vi.clearAllMocks();
+  });
+
+  it('canonical scenario: MS penalty → WS bolt (paused) → MD bolt (resumes)', () => {
+    setArcContext('arc-2026-04-16');
+
+    // MS bolt ends with a penalty on the male player.
+    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
+    pauseAllPenaltyClocks(); // end-of-bolt break
+    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('paused');
+
+    // MS completes, TD auto-advances to WS. Same ARC → box preserved.
+    setArcContext('arc-2026-04-16');
+    expect(getBoxedPlayers()).toHaveLength(1);
+
+    // WS starts. Only eligible (FEMALE) players would resume — male
+    // stays paused.
+    resumePenaltyClocksForBolt({ gender: 'FEMALE', matchUpType: 'SINGLES' });
+    expect(resumeClock).not.toHaveBeenCalled();
+    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('paused');
+
+    // WS ends, auto-advance to MD. Same ARC.
+    setArcContext('arc-2026-04-16');
+
+    // MD starts — the male's penalty finally resumes.
+    resumePenaltyClocksForBolt({ gender: 'MALE', matchUpType: 'DOUBLES' });
+    expect(resumeClock).toHaveBeenCalledWith('penaltyBox-male-1');
+    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('running');
+  });
+
+  it('MIXED doubles resumes every pending penalty regardless of gender', () => {
+    setArcContext('arc-X');
+    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
+    sendToBox('female-1', 'Female One', 2, 120_000, undefined, undefined, 'FEMALE');
+    pauseAllPenaltyClocks();
+
+    resumePenaltyClocksForBolt({ gender: 'MIXED', matchUpType: 'DOUBLES' });
+
+    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('running');
+    expect(getClockSnapshot('penaltyBox-female-1')?.state).toBe('running');
+  });
+
+  it('a different ARC wipes the box even when a penalty is mid-serve', () => {
+    setArcContext('arc-A');
+    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
+    pauseAllPenaltyClocks();
+
+    // Team matchup ends, user navigates to a different ARC entirely.
+    setArcContext('arc-B');
+
+    expect(getBoxedPlayers()).toHaveLength(0);
+    // Re-mount in arc-B: resume is a no-op.
+    resumePenaltyClocksForBolt({ gender: 'MALE' });
+    expect(resumeClock).not.toHaveBeenCalled();
+  });
+
+  it('penalty incurred mid-ARC in one gender continues to tick through same-gender bolts', () => {
+    setArcContext('arc-X');
+    sendToBox('female-1', 'Female One', 2, 120_000, undefined, undefined, 'FEMALE');
+
+    // WS bolt ends.
+    pauseAllPenaltyClocks();
+
+    // Next WD bolt — same gender, same ARC.
+    setArcContext('arc-X');
+    resumePenaltyClocksForBolt({ gender: 'FEMALE', matchUpType: 'DOUBLES' });
+
+    expect(getClockSnapshot('penaltyBox-female-1')?.state).toBe('running');
+  });
+
+  it('unknown player gender resumes on any bolt (legacy roster compatibility)', () => {
+    setArcContext('arc-legacy');
+    // Roster predates the gender-aware sendToBox signature.
+    sendToBox('legacy-1', 'Legacy', 1);
+    pauseAllPenaltyClocks();
+
+    resumePenaltyClocksForBolt({ gender: 'MALE' });
+    expect(getClockSnapshot('penaltyBox-legacy-1')?.state).toBe('running');
   });
 });

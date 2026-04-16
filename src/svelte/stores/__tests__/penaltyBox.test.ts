@@ -35,6 +35,9 @@ import {
   getBoxedPlayers,
   pauseAllPenaltyClocks,
   resumeAllPenaltyClocks,
+  resumePenaltyClocksForBolt,
+  isEligibleForBolt,
+  setArcContext,
   getPenaltyBoxState,
 } from '../penaltyBox.svelte';
 
@@ -252,6 +255,182 @@ describe('penaltyBox store', () => {
       expect(getPenaltyBoxState().version).toBeGreaterThan(0);
       resetPenaltyBox();
       expect(getPenaltyBoxState().version).toBe(0);
+    });
+
+    it('clears the arc context', () => {
+      setArcContext('arc-A');
+      expect(getPenaltyBoxState().arcId).toBe('arc-A');
+      resetPenaltyBox();
+      expect(getPenaltyBoxState().arcId).toBeUndefined();
+    });
+  });
+
+  describe('sendToBox (gender-aware)', () => {
+    it('stores the penalised player\'s gender on the entry', () => {
+      sendToBox('p1', 'Alice', 1, 120_000, undefined, '7', 'FEMALE');
+      const snapshot = getBoxedPlayers(1)[0];
+      expect(snapshot.gender).toBe('FEMALE');
+    });
+
+    it('leaves gender undefined when not supplied (legacy callers)', () => {
+      sendToBox('p1', 'Alice', 1);
+      const snapshot = getBoxedPlayers(1)[0];
+      expect(snapshot.gender).toBeUndefined();
+    });
+  });
+
+  describe('isEligibleForBolt', () => {
+    it('MIXED bolt accepts every player', () => {
+      expect(isEligibleForBolt('MALE', { gender: 'MIXED' })).toBe(true);
+      expect(isEligibleForBolt('FEMALE', { gender: 'MIXED' })).toBe(true);
+      expect(isEligibleForBolt(undefined, { gender: 'MIXED' })).toBe(true);
+    });
+
+    it('matching gender is eligible', () => {
+      expect(isEligibleForBolt('MALE', { gender: 'MALE' })).toBe(true);
+      expect(isEligibleForBolt('FEMALE', { gender: 'FEMALE' })).toBe(true);
+    });
+
+    it('mismatched gender is ineligible', () => {
+      expect(isEligibleForBolt('MALE', { gender: 'FEMALE' })).toBe(false);
+      expect(isEligibleForBolt('FEMALE', { gender: 'MALE' })).toBe(false);
+    });
+
+    it('unknown gender on either side defaults to eligible', () => {
+      // Backwards compatibility for legacy matchUps without gender metadata.
+      expect(isEligibleForBolt(undefined, { gender: 'MALE' })).toBe(true);
+      expect(isEligibleForBolt('MALE', { gender: undefined })).toBe(true);
+      expect(isEligibleForBolt('MALE', undefined)).toBe(true);
+    });
+  });
+
+  describe('resumePenaltyClocksForBolt', () => {
+    beforeEach(() => {
+      sendToBox('male1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
+      sendToBox('male2', 'Male Two', 1, 120_000, undefined, undefined, 'MALE');
+      sendToBox('female1', 'Female One', 2, 120_000, undefined, undefined, 'FEMALE');
+    });
+
+    it('resumes only players whose gender matches an MS/MD bolt', () => {
+      stubSnapshots({
+        'penaltyBox-male1': { state: 'paused' },
+        'penaltyBox-male2': { state: 'paused' },
+        'penaltyBox-female1': { state: 'paused' },
+      });
+
+      resumePenaltyClocksForBolt({ gender: 'MALE', matchUpType: 'SINGLES' });
+
+      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-male1');
+      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-male2');
+      expect(resumeClock).not.toHaveBeenCalledWith('penaltyBox-female1');
+      expect(resumeClock).toHaveBeenCalledTimes(2);
+    });
+
+    it('resumes only the female during WS/WD bolts', () => {
+      stubSnapshots({
+        'penaltyBox-male1': { state: 'paused' },
+        'penaltyBox-male2': { state: 'paused' },
+        'penaltyBox-female1': { state: 'paused' },
+      });
+
+      resumePenaltyClocksForBolt({ gender: 'FEMALE', matchUpType: 'DOUBLES' });
+
+      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-female1');
+      expect(resumeClock).toHaveBeenCalledTimes(1);
+    });
+
+    it('resumes every paused clock on a MIXED bolt', () => {
+      stubSnapshots({
+        'penaltyBox-male1': { state: 'paused' },
+        'penaltyBox-male2': { state: 'paused' },
+        'penaltyBox-female1': { state: 'paused' },
+      });
+
+      resumePenaltyClocksForBolt({ gender: 'MIXED', matchUpType: 'DOUBLES' });
+
+      expect(resumeClock).toHaveBeenCalledTimes(3);
+    });
+
+    it('skips clocks that are not paused', () => {
+      stubSnapshots({
+        'penaltyBox-male1': { state: 'running' },
+        'penaltyBox-male2': { state: 'expired' },
+        'penaltyBox-female1': { state: 'paused' },
+      });
+
+      resumePenaltyClocksForBolt({ gender: 'MIXED' });
+
+      expect(resumeClock).toHaveBeenCalledTimes(1);
+      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-female1');
+    });
+
+    it('is safe when bolt context is undefined (treats as "any player eligible")', () => {
+      stubSnapshots({
+        'penaltyBox-male1': { state: 'paused' },
+        'penaltyBox-female1': { state: 'paused' },
+      });
+
+      resumePenaltyClocksForBolt(undefined);
+
+      expect(resumeClock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('setArcContext', () => {
+    it('records the current arc id', () => {
+      setArcContext('arc-A');
+      expect(getPenaltyBoxState().arcId).toBe('arc-A');
+    });
+
+    it('is a no-op when called with the same arc id — penalties persist', () => {
+      sendToBox('p1', 'Alice', 1, 120_000, undefined, undefined, 'FEMALE');
+      setArcContext('arc-A');
+      expect(getBoxedPlayers()).toHaveLength(1);
+
+      // Same ARC, different tieMatchUp mounts — penalty carries over.
+      setArcContext('arc-A');
+      expect(getBoxedPlayers()).toHaveLength(1);
+      expect(destroyClock).not.toHaveBeenCalled();
+    });
+
+    it('clears every penalty when a different arc is entered', () => {
+      sendToBox('p1', 'Alice', 1, 120_000, undefined, undefined, 'FEMALE');
+      sendToBox('p2', 'Bob', 2, 120_000, undefined, undefined, 'MALE');
+      setArcContext('arc-A');
+      expect(getBoxedPlayers()).toHaveLength(2);
+
+      setArcContext('arc-B');
+
+      expect(getBoxedPlayers()).toHaveLength(0);
+      expect(destroyClock).toHaveBeenCalledWith('penaltyBox-p1');
+      expect(destroyClock).toHaveBeenCalledWith('penaltyBox-p2');
+      expect(getPenaltyBoxState().arcId).toBe('arc-B');
+    });
+
+    it('initial call from undefined → defined adopts the arc and preserves entries', () => {
+      // First mount of the ARC: arcId starts undefined. Any entries that
+      // exist at this point (e.g. created by a test before the component
+      // mounted, or by future persistence-hydration work) should survive
+      // the adoption — we have no prior ARC to "leave from".
+      sendToBox('p1', 'Alice', 1);
+      expect(getBoxedPlayers()).toHaveLength(1);
+
+      setArcContext('arc-first');
+
+      expect(getBoxedPlayers()).toHaveLength(1);
+      expect(getPenaltyBoxState().arcId).toBe('arc-first');
+      expect(destroyClock).not.toHaveBeenCalled();
+    });
+
+    it('tearing down the arc (X → undefined) clears the box', () => {
+      setArcContext('arc-A');
+      sendToBox('p1', 'Alice', 1);
+
+      setArcContext(undefined);
+
+      expect(getBoxedPlayers()).toHaveLength(0);
+      expect(getPenaltyBoxState().arcId).toBeUndefined();
+      expect(destroyClock).toHaveBeenCalledWith('penaltyBox-p1');
     });
   });
 });

@@ -39,8 +39,10 @@
     sendToBox,
     isInBox,
     pauseAllPenaltyClocks,
-    resumeAllPenaltyClocks,
-    resetPenaltyBox,
+    resumePenaltyClocksForBolt,
+    setArcContext,
+    type BoltContext,
+    type BoltGender,
   } from '../../stores/penaltyBox.svelte';
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
@@ -125,6 +127,26 @@
 
   function getCurrentBoltKey(): string {
     return `${matchUpId}-${globalBoltNumber}`;
+  }
+
+  /**
+   * Resolve the current bolt's (matchUpType, gender) tuple — used by the
+   * penalty box to decide whether a penalised player is eligible for this
+   * bolt. Gender is read from the tieFormat collection definition when
+   * available, with a fallback to whatever the tieMatchUp itself carries.
+   */
+  function getCurrentBoltContext(): BoltContext {
+    const tieMatchUp = getTieMatchUp(matchUpId) as any;
+    const parentMatchUp = getTeamMatchUpState().teamMatchUp as any;
+    const defs = parentMatchUp?.tieFormat?.collectionDefinitions ?? [];
+    const collectionId = tieMatchUp?.collectionId;
+    const def = defs.find((d: any) => d.collectionId === collectionId);
+    const rawGender = (def?.gender ?? tieMatchUp?.gender ?? '').toUpperCase();
+    const gender =
+      rawGender === 'MALE' || rawGender === 'FEMALE' || rawGender === 'MIXED'
+        ? (rawGender as BoltGender)
+        : undefined;
+    return { matchUpType: tieMatchUp?.matchUpType, gender };
   }
 
   async function submitCurrentBoltScore(): Promise<boolean> {
@@ -324,15 +346,19 @@
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
-    // Per-format (per-tieMatchUp) time and penalty state. The stores are
-    // module-scoped, so without this reset the previous tieMatchUp's
-    // accumulated court-time + penalty entries would bleed into a newly
-    // mounted bolt — producing "< 2:00 remaining" warnings on players who
-    // have never been subbed in *here*. If there's a persisted snapshot for
-    // this matchUpId, `restorePlayerTimeSnapshots` below will re-hydrate it
-    // after `initTeamRosters` has re-created the player entries.
+    // Per-tieMatchUp `playerTime` state is reset: the court-time budget
+    // is per-tieMatchUp (§2.8 line 250-253), and a stale `isOnCourt`
+    // flag from a prior tieMatchUp would otherwise produce "< 2:00
+    // remaining" warnings on players who have never been subbed in here.
+    // If there's a persisted snapshot for this matchUpId,
+    // `restorePlayerTimeSnapshots` below rehydrates `elapsedMs` after
+    // `initTeamRosters` has re-created the player entries.
+    //
+    // Penalty box is NOT reset here — it's scoped to the ARC (parent
+    // team matchUp) so a box entry created in MS continues serving into
+    // MD/XD. `setArcContext(...)` below clears the box only when a new
+    // ARC is entered.
     resetPlayerTimes();
-    resetPenaltyBox();
 
     // Ensure the team matchUp is loaded into the store (handles page refresh)
     let teamState = getTeamMatchUpState();
@@ -365,6 +391,11 @@
     }
 
     setActiveTieMatchUp(matchUpId);
+
+    // Rescope the penalty box to this ARC. If we're still inside the same
+    // team matchUp the box is preserved (penalties carry from MS → MD →
+    // etc.); if the ARC has changed, every pending penalty is cleared.
+    setArcContext(teamState.teamMatchUp?.matchUpId);
 
     // Hydrate from server BEFORE reading the tieMatchUp into the engine.
     // If the server's stored document is newer than the local cached
@@ -645,8 +676,11 @@
     breakActive = false;
     breakPaused = false;
     destroyClock('breakTimer');
-    // Resume penalty-box timers that were paused when the break began.
-    resumeAllPenaltyClocks();
+    // Resume penalty-box timers that were paused when the break began —
+    // but only for players whose gender matches the incoming bolt. A
+    // penalised male stays paused through WS/WD; his clock resumes only
+    // on the next MS/MD/XD bolt.
+    resumePenaltyClocksForBolt(getCurrentBoltContext());
     boltExpired = false;
     boltComplete = false;
     boltStarted = false;
@@ -748,6 +782,10 @@
       boltStarted = true;
       executeClockCommands(onBoltStart());
       resumeAllOnCourtClocks();
+      // Resume penalty clocks for players eligible for this bolt. Covers
+      // the case where a new tieMatchUp was mounted with penalties
+      // carried over from a prior bolt in the ARC.
+      resumePenaltyClocksForBolt(getCurrentBoltContext());
       return;
     }
     if (officialPause) {
@@ -755,12 +793,18 @@
       officialPause = false;
       resumeClock('boltTimer');
       if (!rallyInProgress) resumeClock('serveClock');
+      // Any penalty clocks paused by the officialPause should also resume —
+      // but gender-gated, so an ineligible player's clock stays paused.
+      resumePenaltyClocksForBolt(getCurrentBoltContext());
       return;
     }
     // Pause everything
     officialPause = true;
     pauseClock('boltTimer');
     pauseClock('serveClock');
+    // Penalty clock only ticks when the bolt clock ticks, so pause it here
+    // too. Resumed (gender-gated) when the official toggles back to play.
+    pauseAllPenaltyClocks();
   }
 
   function handleRallyStart() {
@@ -787,7 +831,9 @@
       timeoutsUsed[timeoutSide]++;
     }
     executeClockCommands(onTimeoutEnd(serveClockWasRunning));
-    resumeAllPenaltyClocks();
+    // Only resume penalty clocks whose player is eligible for the bolt we
+    // are returning to; an ineligible player's clock stays paused.
+    resumePenaltyClocksForBolt(getCurrentBoltContext());
     timeoutTeamName = '';
     timeoutSide = null;
   }
@@ -797,7 +843,7 @@
     const timeoutSnapshot = getClockSnapshot('timeoutTimer');
     const elapsedMs = timeoutSnapshot?.elapsedMs ?? 0;
     executeClockCommands(onTimeoutEnd(serveClockWasRunning));
-    resumeAllPenaltyClocks();
+    resumePenaltyClocksForBolt(getCurrentBoltContext());
     // Bolt clock resumed by onTimeoutEnd; no timeout counted
     timeoutTeamName = '';
     timeoutSide = null;
@@ -961,8 +1007,17 @@
     if (isOnCourt) stopTracking(participantId);
     const boxProfile = getPenaltyBoxProfile();
     const durationMs = (boxProfile?.durationSeconds ?? 120) * 1000;
-    const jerseyNumber = playerTime.players[participantId]?.jerseyNumber;
-    sendToBox(participantId, participantName, side, durationMs, undefined, jerseyNumber);
+    const player = playerTime.players[participantId];
+    const jerseyNumber = player?.jerseyNumber;
+    // Normalise gender → BoltGender for cross-tieMatchUp eligibility gating.
+    const rawGender = (player?.gender ?? '').toUpperCase();
+    const gender: BoltGender | undefined =
+      rawGender === 'MALE' || rawGender === 'M'
+        ? 'MALE'
+        : rawGender === 'FEMALE' || rawGender === 'F'
+          ? 'FEMALE'
+          : undefined;
+    sendToBox(participantId, participantName, side, durationMs, undefined, jerseyNumber, gender);
 
     // Award penalty as a single event (one point record with scoreValue = points)
     const receiver = (side === 1 ? 1 : 0) as 0 | 1;
@@ -1025,6 +1080,10 @@
       pauseAllOnCourtClocks();
       officialPause = true;
     }
+    // Penalty box is ARC-scoped and must not keep ticking after this
+    // tieMatchUp unmounts. Always pause — the next mount within the ARC
+    // resumes only the eligible clocks via resumePenaltyClocksForBolt().
+    pauseAllPenaltyClocks();
     const boltSnap = getClockSnapshot('boltTimer');
     const serveSnap = getClockSnapshot('serveClock');
     persistTieMatchUpState(matchUpId, {
