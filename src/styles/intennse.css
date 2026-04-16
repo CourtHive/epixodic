@@ -115,6 +115,20 @@
   padding: 0.5rem 0;
 }
 
+/* Score-stream viewer slot in the Horizontal layout's central column.
+ * Fills the empty space between the ARC score and the ControlBar, with
+ * the stream itself scrolling internally so the outer flex row never
+ * grows beyond what's available. */
+.intennse-h-center-history {
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0.4rem 0;
+  display: flex;
+  overflow: hidden;
+}
+.intennse-h-center-history > * { flex: 1; min-height: 0; }
+
 .intennse-h-center-info .pti-panel {
   font-size: 24px !important;
   gap: 1rem !important;

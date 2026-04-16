@@ -3,6 +3,7 @@
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
   import ClockDisplay from './ClockDisplay.svelte';
   import ActionPanel from './ActionPanel.svelte';
+  import PointHistoryStream from './PointHistoryStream.svelte';
   import { isTimeoutButtonDisabled } from './boltControls';
   import { getClockSnapshot } from '../../../clock';
   import type { PlayerSlot } from './PlayerPanel.svelte';
@@ -61,6 +62,7 @@
     canSubmitScore = false,
     scoreSubmitting = false,
     onSubmitScore,
+    historyPoints = [],
   }: {
     side1Name: string;
     side2Name: string;
@@ -117,7 +119,12 @@
     canSubmitScore?: boolean;
     scoreSubmitting?: boolean;
     onSubmitScore?: () => void;
+    /** Reactive `engine.history.points` for the current tieMatchUp. */
+    historyPoints?: any[];
   } = $props();
+
+  /** Portrait history-stream drawer toggle — hidden by default. */
+  let showPointHistory = $state(false);
 
   /** Compact player label per side: last names joined for doubles, full name for singles. */
   function compactSideLabel(players: PlayerSlot[]): string {
@@ -179,9 +186,29 @@
     {:else}
       <ClockDisplay clockId="boltTimer" label="BOLT" size="compact" urgentAt={60000} criticalAt={30000} />
       <span class="iv-bolt-label">{boltLabel}</span>
+      <button
+        class="intennse-ctrl-btn iv-history-toggle"
+        class:iv-history-toggle--active={showPointHistory}
+        onclick={() => (showPointHistory = !showPointHistory)}
+        title={showPointHistory ? 'Hide point history' : 'Show point history'}
+        aria-label="Toggle point history"
+        aria-pressed={showPointHistory}
+      >
+        ≡
+      </button>
       <ClockDisplay clockId="serveClock" label="SERVE" size="compact" urgentAt={5000} criticalAt={3000} />
     {/if}
   </div>
+
+  {#if showPointHistory && !breakActive}
+    <div class="iv-history-drawer">
+      <PointHistoryStream
+        points={historyPoints}
+        {side1Name}
+        {side2Name}
+      />
+    </div>
+  {/if}
 
   <!-- Score display -->
   <div class="iv-score">
@@ -578,6 +605,33 @@
     min-height: 28px;
     padding: 0.2rem;
   }
+
+  .iv-history-toggle {
+    font-size: 0.85rem;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0.2rem;
+    line-height: 1;
+  }
+  .iv-history-toggle--active {
+    background: var(--intennse-accent, #0f3460);
+    border-color: var(--intennse-serving, #00d4aa);
+    color: var(--intennse-serving, #00d4aa);
+  }
+
+  /* Point-history drawer — slides under the header and above iv-score.
+   * Constrained in height so the score/action-panel flex layout still
+   * has room; the internal list scrolls. */
+  .iv-history-drawer {
+    flex: 0 0 auto;
+    max-height: 35vh;
+    min-height: 0;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--intennse-accent);
+    display: flex;
+    overflow: hidden;
+  }
+  .iv-history-drawer > * { flex: 1; min-height: 0; }
 
   .iv-footer {
     display: grid;

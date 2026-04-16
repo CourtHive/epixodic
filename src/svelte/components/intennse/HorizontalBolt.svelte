@@ -6,6 +6,7 @@
   import ActionPanel from './ActionPanel.svelte';
   import PlayerPanel, { type PlayerSlot } from './PlayerPanel.svelte';
   import ControlBar from './ControlBar.svelte';
+  import PointHistoryStream from './PointHistoryStream.svelte';
   import { isTimeoutButtonDisabled } from './boltControls';
 
   let {
@@ -62,6 +63,7 @@
     canSubmitScore = false,
     scoreSubmitting = false,
     onSubmitScore,
+    historyPoints = [],
   }: {
     side1Name: string;
     side2Name: string;
@@ -116,6 +118,8 @@
     canSubmitScore?: boolean;
     scoreSubmitting?: boolean;
     onSubmitScore?: () => void;
+    /** Reactive `engine.history.points` for the current tieMatchUp. */
+    historyPoints?: any[];
   } = $props();
 </script>
 
@@ -173,6 +177,15 @@
     {#if playerTimePanelOpen && playerTimeSide}
       <div class="intennse-h-center-info">
         <PlayerTimeInfoPanel {sideRoster} activeSide={playerTimeSide} />
+      </div>
+    {:else if historyPoints.length > 0}
+      <div class="intennse-h-center-history">
+        <PointHistoryStream
+          points={historyPoints}
+          {side1Name}
+          {side2Name}
+          maxRows={12}
+        />
       </div>
     {/if}
     <ControlBar

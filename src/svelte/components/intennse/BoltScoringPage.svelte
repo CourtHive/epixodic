@@ -341,6 +341,13 @@
     return priorBolts + localSets.length + 1;
   });
 
+  /** Reactive stream of history.points for the current tieMatchUp,
+   *  fed into the PointHistoryStream viewer in both layouts. */
+  const historyPoints = $derived.by<any[]>(() => {
+    void scoring.version;
+    return getEngineState()?.history?.points ?? [];
+  });
+
   // ── Clock command executor ──
 
   function executeClockCommands(commands: ClockCommand[]) {
@@ -1379,6 +1386,7 @@
     canSubmitScore: !!getTeamMatchUpState().teamMatchUp?.tournamentId,
     scoreSubmitting,
     onSubmitScore: handleManualSubmit,
+    historyPoints,
   });
 </script>
 
