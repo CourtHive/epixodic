@@ -112,9 +112,17 @@ export function getPlayerTimeSnapshots(): Record<string, { elapsedMs: number; is
   return result;
 }
 
-/** Restore player elapsed times from a previous snapshot. Clocks are left paused. */
+/** Restore player elapsed times from a previous snapshot. Clocks are left paused.
+ *
+ * NOTE: `isOnCourt` is deliberately **not** restored from the snapshot. The
+ * authoritative source of who is active is the tieMatchUp's side participant
+ * IDs (applied via `setOnCourt` in `initTeamRosters`). Restoring `isOnCourt`
+ * from the snapshot would re-introduce any historical corruption (e.g. a
+ * prior cross-tieMatchUp state bleed that left >2 players flagged as on
+ * court) into a freshly mounted bolt. Time accounting still flows through.
+ */
 export function restorePlayerTimeSnapshots(
-  snapshots: Record<string, { elapsedMs: number; isOnCourt: boolean }>,
+  snapshots: Record<string, { elapsedMs: number; isOnCourt?: boolean }>,
 ) {
   for (const [id, snap] of Object.entries(snapshots)) {
     const entry = players[id];
@@ -125,7 +133,6 @@ export function restorePlayerTimeSnapshots(
     entry.clock.pause();
     // For count-up clocks: remaining = maxSafe - elapsed
     entry.clock.setRemainingMs(Number.MAX_SAFE_INTEGER - snap.elapsedMs);
-    entry.isOnCourt = snap.isOnCourt;
   }
   bump();
 }
