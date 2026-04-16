@@ -312,11 +312,11 @@
       <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
     </button>
 
-    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={timeoutsRemaining[1] <= 0}>
+    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={breakActive || timeoutsRemaining[1] <= 0}>
       <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
     </button>
     <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
-    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={timeoutsRemaining[2] <= 0}>
+    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={breakActive || timeoutsRemaining[2] <= 0}>
       <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
     </button>
 

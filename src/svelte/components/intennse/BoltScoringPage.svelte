@@ -33,8 +33,15 @@
     checkTimeLimit,
     getBenchPlayers,
     stopTracking,
+    resetPlayerTimes,
   } from '../../stores/playerTime.svelte';
-  import { sendToBox, isInBox } from '../../stores/penaltyBox.svelte';
+  import {
+    sendToBox,
+    isInBox,
+    pauseAllPenaltyClocks,
+    resumeAllPenaltyClocks,
+    resetPenaltyBox,
+  } from '../../stores/penaltyBox.svelte';
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
   import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock, setClockRemaining } from '../../../clock';
@@ -317,6 +324,16 @@
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
+    // Per-format (per-tieMatchUp) time and penalty state. The stores are
+    // module-scoped, so without this reset the previous tieMatchUp's
+    // accumulated court-time + penalty entries would bleed into a newly
+    // mounted bolt — producing "< 2:00 remaining" warnings on players who
+    // have never been subbed in *here*. If there's a persisted snapshot for
+    // this matchUpId, `restorePlayerTimeSnapshots` below will re-hydrate it
+    // after `initTeamRosters` has re-created the player entries.
+    resetPlayerTimes();
+    resetPenaltyBox();
+
     // Ensure the team matchUp is loaded into the store (handles page refresh)
     let teamState = getTeamMatchUpState();
     if (!teamState.teamMatchUp) {
@@ -579,6 +596,10 @@
     breakActive = true;
     breakPaused = false;
     destroyClock('breakTimer');
+    // Freeze penalty-box timers for the duration of the between-bolts break
+    // — a penalised player's remaining time must not tick down while play
+    // is halted. Resumed at the start of the next bolt.
+    pauseAllPenaltyClocks();
     createClock({
       id: 'breakTimer',
       durationMs: BREAK_DURATION_MS,
@@ -624,6 +645,8 @@
     breakActive = false;
     breakPaused = false;
     destroyClock('breakTimer');
+    // Resume penalty-box timers that were paused when the break began.
+    resumeAllPenaltyClocks();
     boltExpired = false;
     boltComplete = false;
     boltStarted = false;

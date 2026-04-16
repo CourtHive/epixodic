@@ -1,4 +1,10 @@
-import { createClock, destroyClock, getClockSnapshot } from '../../clock';
+import {
+  createClock,
+  destroyClock,
+  getClockSnapshot,
+  pauseClock,
+  resumeClock,
+} from '../../clock';
 
 /**
  * Manages penalty box state. When a player is penalized they are removed
@@ -91,6 +97,32 @@ export function getBoxedPlayers(sideNumber?: 1 | 2): {
         remainingMs: snapshot?.remainingMs ?? 0,
       };
     });
+}
+
+/**
+ * Pause every active penalty-box clock. Used when a bolt ends and the
+ * between-bolts break begins — a penalised player's remaining time must not
+ * tick down while play is halted. Safe to call when there are no entries.
+ */
+export function pauseAllPenaltyClocks() {
+  for (const e of entries) {
+    const snap = getClockSnapshot(e.clockId);
+    if (snap?.state === 'running') pauseClock(e.clockId);
+  }
+  bump();
+}
+
+/**
+ * Resume every paused penalty-box clock. Paired with `pauseAllPenaltyClocks`
+ * and called when the next bolt actually begins. Entries whose clocks were
+ * never paused (or have already expired) are left untouched.
+ */
+export function resumeAllPenaltyClocks() {
+  for (const e of entries) {
+    const snap = getClockSnapshot(e.clockId);
+    if (snap?.state === 'paused') resumeClock(e.clockId);
+  }
+  bump();
 }
 
 export function resetPenaltyBox() {

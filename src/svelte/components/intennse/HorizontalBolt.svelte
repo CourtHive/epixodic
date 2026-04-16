@@ -217,7 +217,7 @@
       <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)} disabled={!boltStarted} title="Substitution Side 1">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
       </button>
-      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={!boltStarted || timeoutsRemaining[1] <= 0} title="Timeout Side 1">
+      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={!boltStarted || breakActive || timeoutsRemaining[1] <= 0} title="Timeout Side 1">
         <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
       </button>
       <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)} disabled={!boltStarted} title="Penalty Side 1">
@@ -248,7 +248,7 @@
       <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)} disabled={!boltStarted} title="Substitution Side 2">
         <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
       </button>
-      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={!boltStarted || timeoutsRemaining[2] <= 0} title="Timeout Side 2">
+      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={!boltStarted || breakActive || timeoutsRemaining[2] <= 0} title="Timeout Side 2">
         <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
       </button>
       <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)} disabled={!boltStarted} title="Penalty Side 2">
