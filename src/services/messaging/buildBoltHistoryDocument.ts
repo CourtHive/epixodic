@@ -1,6 +1,5 @@
 import type { BoltHistoryDocument, TieMatchUpSide } from './boltHistoryDocument';
 import type { HydratedMatchUp } from '../../svelte/types';
-import { getBoxedPlayers } from '../../svelte/stores/penaltyBox.svelte';
 
 /**
  * Map a tieMatchUp + its parent team matchUp into the canonical
@@ -9,6 +8,12 @@ import { getBoxedPlayers } from '../../svelte/stores/penaltyBox.svelte';
  * The version field is the LAST KNOWN version (managed by the caller via
  * boltHistoryApi.getKnownVersion); on first push it will be 0 and the
  * server will assign 1.
+ *
+ * Penalty box state is NOT surfaced as a separate field: penalties are
+ * scored points and live in `engineState.history.points` alongside every
+ * other point, with `penaltyDurationMs` / `penaltyServedMs` /
+ * `penaltyReleasedAt` decorations tracking lifecycle. The `penaltyBox`
+ * store on the receiving side projects from history on hydration.
  */
 export function buildBoltHistoryDocument(
   tieMatchUp: HydratedMatchUp,
@@ -51,26 +56,9 @@ export function buildBoltHistoryDocument(
     boltClockRemainingMs: tieAny.boltClockRemainingMs,
     serveClockRemainingMs: tieAny.serveClockRemainingMs,
     playerTimeSnapshots: tieAny.playerTimeSnapshots,
-    penaltyBoxSnapshots: buildPenaltyBoxSnapshots(),
     createdAt: tieAny.createdAt ?? now,
     updatedAt: now,
     scoredBy: options.scoredBy,
     version: options.version,
   };
-}
-
-function buildPenaltyBoxSnapshots():
-  | Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }>
-  | undefined {
-  const boxed = getBoxedPlayers();
-  if (boxed.length === 0) return undefined;
-  const out: Record<string, { remainingMs: number; sideNumber: 1 | 2; participantName?: string }> = {};
-  for (const entry of boxed) {
-    out[entry.participantId] = {
-      remainingMs: entry.remainingMs,
-      sideNumber: entry.sideNumber,
-      participantName: entry.participantName,
-    };
-  }
-  return out;
 }

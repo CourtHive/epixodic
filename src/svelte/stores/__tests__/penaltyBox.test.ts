@@ -5,18 +5,36 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
  * control flow without pulling in the Clock class (which schedules real
  * requestAnimationFrame callbacks). Each spy is inspected per-test.
  */
+const mockStates: Record<
+  string,
+  { state: 'running' | 'paused' | 'expired' | 'idle'; remainingMs?: number }
+> = {};
+
 vi.mock('../../../clock', () => {
   return {
-    createClock: vi.fn((config: { id: string }) => ({
-      id: config.id,
-      getState: () => 'running',
-      getRemainingMs: () => 0,
-      getElapsedMs: () => 0,
-    })),
-    destroyClock: vi.fn(),
-    getClockSnapshot: vi.fn(),
-    pauseClock: vi.fn(),
-    resumeClock: vi.fn(),
+    createClock: vi.fn((config: { id: string; durationMs: number; autoStart?: boolean }) => {
+      mockStates[config.id] = {
+        state: config.autoStart ? 'running' : 'idle',
+        remainingMs: config.durationMs,
+      };
+      return { id: config.id };
+    }),
+    destroyClock: vi.fn((id: string) => {
+      delete mockStates[id];
+    }),
+    getClockSnapshot: vi.fn((id: string) => {
+      const s = mockStates[id];
+      return s ? { remainingMs: s.remainingMs ?? 0, elapsedMs: 0, state: s.state } : undefined;
+    }),
+    pauseClock: vi.fn((id: string) => {
+      if (mockStates[id]?.state === 'running') mockStates[id].state = 'paused';
+    }),
+    resumeClock: vi.fn((id: string) => {
+      if (mockStates[id]?.state === 'paused') mockStates[id].state = 'running';
+    }),
+    setClockRemaining: vi.fn((id: string, ms: number) => {
+      if (mockStates[id]) mockStates[id].remainingMs = ms;
+    }),
   };
 });
 
@@ -26,6 +44,7 @@ import {
   getClockSnapshot,
   pauseClock,
   resumeClock,
+  setClockRemaining,
 } from '../../../clock';
 import {
   sendToBox,
@@ -37,247 +56,124 @@ import {
   resumeAllPenaltyClocks,
   resumePenaltyClocksForBolt,
   isEligibleForBolt,
-  setArcContext,
+  hydrateFromTeamMatchUp,
+  setPersistCallback,
   getPenaltyBoxState,
 } from '../penaltyBox.svelte';
 
-type MockSnapshotMap = Record<
-  string,
-  { state: 'running' | 'paused' | 'expired' | 'idle'; remainingMs?: number; elapsedMs?: number }
->;
-
-function stubSnapshots(map: MockSnapshotMap) {
-  (getClockSnapshot as any).mockImplementation((id: string) =>
-    map[id] ? { remainingMs: 0, elapsedMs: 0, ...map[id] } : undefined,
-  );
+function scriptSnapshot(id: string, state: 'running' | 'paused' | 'expired' | 'idle', remainingMs = 0) {
+  mockStates[id] = { state, remainingMs };
 }
+
+const baseSendOpts = (sourceTieMatchUpId = 'tie-A', sourcePointIndex = 0) => ({
+  sourceTieMatchUpId,
+  sourcePointIndex,
+});
 
 describe('penaltyBox store', () => {
   beforeEach(() => {
+    for (const k of Object.keys(mockStates)) delete mockStates[k];
     resetPenaltyBox();
     vi.clearAllMocks();
   });
 
+  // ── sendToBox / releaseFromBox / isInBox / getBoxedPlayers ──
+
   describe('sendToBox', () => {
-    it('creates a countdown clock and adds an entry', () => {
-      sendToBox('p1', 'Alice', 1);
+    it('creates a countdown clock and records an entry', () => {
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
       expect(createClock).toHaveBeenCalledTimes(1);
       const cfg = (createClock as any).mock.calls[0][0];
       expect(cfg.id).toBe('penaltyBox-p1');
       expect(cfg.direction).toBe('down');
-      expect(cfg.autoStart).toBe(true);
       expect(cfg.durationMs).toBe(120_000);
+      expect(cfg.autoStart).toBe(false);
       expect(isInBox('p1')).toBe(true);
     });
 
     it('honours custom durationMs', () => {
-      sendToBox('p1', 'Alice', 1, 60_000);
+      sendToBox('p1', 'Alice', 1, { ...baseSendOpts(), durationMs: 60_000 });
       const cfg = (createClock as any).mock.calls[0][0];
       expect(cfg.durationMs).toBe(60_000);
     });
 
+    it('autoStart propagates to the clock when the caller opts in', () => {
+      sendToBox('p1', 'Alice', 1, { ...baseSendOpts(), autoStart: true });
+      const cfg = (createClock as any).mock.calls[0][0];
+      expect(cfg.autoStart).toBe(true);
+    });
+
+    it('stores gender + source location on the entry', () => {
+      sendToBox('p1', 'Alice', 1, {
+        ...baseSendOpts('tie-MS', 3),
+        gender: 'MALE',
+      });
+      const entry = getPenaltyBoxState().entries[0];
+      expect(entry.gender).toBe('MALE');
+      expect(entry.sourceTieMatchUpId).toBe('tie-MS');
+      expect(entry.sourcePointIndex).toBe(3);
+      expect(entry.durationMs).toBe(120_000);
+      expect(entry.servedMs).toBe(0);
+    });
+
     it('is idempotent for the same participant', () => {
-      sendToBox('p1', 'Alice', 1);
-      sendToBox('p1', 'Alice', 1);
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
       expect(createClock).toHaveBeenCalledTimes(1);
     });
 
-    it('bumps the store version on success', () => {
+    it('bumps the store version', () => {
       const before = getPenaltyBoxState().version;
-      sendToBox('p1', 'Alice', 1);
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
       expect(getPenaltyBoxState().version).toBeGreaterThan(before);
-    });
-
-    it('invokes onRelease when the clock expires', () => {
-      const onRelease = vi.fn();
-      sendToBox('p1', 'Alice', 1, 1000, onRelease);
-      const cfg = (createClock as any).mock.calls[0][0];
-      // Simulate the clock firing onExpire
-      cfg.onExpire?.();
-      expect(onRelease).toHaveBeenCalledWith('p1');
-      expect(isInBox('p1')).toBe(false);
     });
   });
 
   describe('releaseFromBox', () => {
     it('destroys the clock and removes the entry', () => {
-      sendToBox('p1', 'Alice', 1);
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
       releaseFromBox('p1');
       expect(destroyClock).toHaveBeenCalledWith('penaltyBox-p1');
       expect(isInBox('p1')).toBe(false);
     });
 
-    it('is safe to call for an unknown participant', () => {
-      expect(() => releaseFromBox('does-not-exist')).not.toThrow();
+    it('is a safe no-op for an unknown participant', () => {
+      expect(() => releaseFromBox('ghost')).not.toThrow();
     });
   });
 
   describe('getBoxedPlayers', () => {
     beforeEach(() => {
-      sendToBox('p1', 'Alice', 1, 120_000, undefined, '7');
-      sendToBox('p2', 'Bob', 2, 120_000, undefined, '12');
-      stubSnapshots({
-        'penaltyBox-p1': { state: 'running', remainingMs: 90_000 },
-        'penaltyBox-p2': { state: 'running', remainingMs: 60_000 },
-      });
+      sendToBox('p1', 'Alice', 1, { ...baseSendOpts(), jerseyNumber: '7', gender: 'FEMALE' });
+      sendToBox('p2', 'Bob', 2, { ...baseSendOpts('tie-A', 1), jerseyNumber: '12', gender: 'MALE' });
+      scriptSnapshot('penaltyBox-p1', 'running', 90_000);
+      scriptSnapshot('penaltyBox-p2', 'running', 60_000);
     });
 
-    it('returns all boxed players when no side is given', () => {
+    it('returns all boxed players when no side filter is given', () => {
       const all = getBoxedPlayers();
-      expect(all).toHaveLength(2);
       expect(all.map((p) => p.participantId).sort()).toEqual(['p1', 'p2']);
     });
 
-    it('filters by side', () => {
+    it('filters by side and projects remainingMs from the clock snapshot', () => {
       const side1 = getBoxedPlayers(1);
       expect(side1).toHaveLength(1);
       expect(side1[0].participantId).toBe('p1');
       expect(side1[0].jerseyNumber).toBe('7');
+      expect(side1[0].gender).toBe('FEMALE');
       expect(side1[0].remainingMs).toBe(90_000);
     });
 
-    it('falls back to remainingMs=0 when snapshot is missing', () => {
-      stubSnapshots({});
+    it('falls back to durationMs − servedMs when the clock snapshot is missing', () => {
+      // Destroy the clock snapshot, leave the entry alone.
+      delete mockStates['penaltyBox-p1'];
       const p1 = getBoxedPlayers(1)[0];
-      expect(p1.remainingMs).toBe(0);
+      // servedMs hasn't accumulated yet → remaining = durationMs.
+      expect(p1.remainingMs).toBe(120_000);
     });
   });
 
-  describe('isInBox', () => {
-    it('is true while penalised, false after release', () => {
-      sendToBox('p1', 'Alice', 1);
-      expect(isInBox('p1')).toBe(true);
-      releaseFromBox('p1');
-      expect(isInBox('p1')).toBe(false);
-    });
-  });
-
-  describe('pauseAllPenaltyClocks', () => {
-    it('pauses every running penalty clock', () => {
-      sendToBox('p1', 'Alice', 1);
-      sendToBox('p2', 'Bob', 2);
-      stubSnapshots({
-        'penaltyBox-p1': { state: 'running' },
-        'penaltyBox-p2': { state: 'running' },
-      });
-
-      pauseAllPenaltyClocks();
-
-      expect(pauseClock).toHaveBeenCalledWith('penaltyBox-p1');
-      expect(pauseClock).toHaveBeenCalledWith('penaltyBox-p2');
-      expect(pauseClock).toHaveBeenCalledTimes(2);
-    });
-
-    it('skips clocks that are already paused or expired', () => {
-      sendToBox('p1', 'Alice', 1);
-      sendToBox('p2', 'Bob', 2);
-      sendToBox('p3', 'Carol', 1);
-      stubSnapshots({
-        'penaltyBox-p1': { state: 'paused' },
-        'penaltyBox-p2': { state: 'expired' },
-        'penaltyBox-p3': { state: 'running' },
-      });
-
-      pauseAllPenaltyClocks();
-
-      expect(pauseClock).toHaveBeenCalledTimes(1);
-      expect(pauseClock).toHaveBeenCalledWith('penaltyBox-p3');
-    });
-
-    it('is safe when the box is empty', () => {
-      expect(() => pauseAllPenaltyClocks()).not.toThrow();
-      expect(pauseClock).not.toHaveBeenCalled();
-    });
-
-    it('bumps the store version so subscribers re-render', () => {
-      sendToBox('p1', 'Alice', 1);
-      const before = getPenaltyBoxState().version;
-      pauseAllPenaltyClocks();
-      expect(getPenaltyBoxState().version).toBeGreaterThan(before);
-    });
-  });
-
-  describe('resumeAllPenaltyClocks', () => {
-    it('resumes every paused penalty clock', () => {
-      sendToBox('p1', 'Alice', 1);
-      sendToBox('p2', 'Bob', 2);
-      stubSnapshots({
-        'penaltyBox-p1': { state: 'paused' },
-        'penaltyBox-p2': { state: 'paused' },
-      });
-
-      resumeAllPenaltyClocks();
-
-      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-p1');
-      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-p2');
-      expect(resumeClock).toHaveBeenCalledTimes(2);
-    });
-
-    it('does not resume clocks that are running or expired', () => {
-      sendToBox('p1', 'Alice', 1);
-      sendToBox('p2', 'Bob', 2);
-      stubSnapshots({
-        'penaltyBox-p1': { state: 'running' },
-        'penaltyBox-p2': { state: 'expired' },
-      });
-
-      resumeAllPenaltyClocks();
-
-      expect(resumeClock).not.toHaveBeenCalled();
-    });
-
-    it('pairs with pauseAllPenaltyClocks — round trip', () => {
-      sendToBox('p1', 'Alice', 1);
-
-      stubSnapshots({ 'penaltyBox-p1': { state: 'running' } });
-      pauseAllPenaltyClocks();
-      expect(pauseClock).toHaveBeenCalledWith('penaltyBox-p1');
-
-      stubSnapshots({ 'penaltyBox-p1': { state: 'paused' } });
-      resumeAllPenaltyClocks();
-      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-p1');
-    });
-  });
-
-  describe('resetPenaltyBox', () => {
-    it('destroys all clocks and clears entries', () => {
-      sendToBox('p1', 'Alice', 1);
-      sendToBox('p2', 'Bob', 2);
-      resetPenaltyBox();
-      expect(destroyClock).toHaveBeenCalledTimes(2);
-      expect(getPenaltyBoxState().entries).toHaveLength(0);
-      expect(isInBox('p1')).toBe(false);
-      expect(isInBox('p2')).toBe(false);
-    });
-
-    it('rewinds the version counter', () => {
-      sendToBox('p1', 'Alice', 1);
-      expect(getPenaltyBoxState().version).toBeGreaterThan(0);
-      resetPenaltyBox();
-      expect(getPenaltyBoxState().version).toBe(0);
-    });
-
-    it('clears the arc context', () => {
-      setArcContext('arc-A');
-      expect(getPenaltyBoxState().arcId).toBe('arc-A');
-      resetPenaltyBox();
-      expect(getPenaltyBoxState().arcId).toBeUndefined();
-    });
-  });
-
-  describe('sendToBox (gender-aware)', () => {
-    it('stores the penalised player\'s gender on the entry', () => {
-      sendToBox('p1', 'Alice', 1, 120_000, undefined, '7', 'FEMALE');
-      const snapshot = getBoxedPlayers(1)[0];
-      expect(snapshot.gender).toBe('FEMALE');
-    });
-
-    it('leaves gender undefined when not supplied (legacy callers)', () => {
-      sendToBox('p1', 'Alice', 1);
-      const snapshot = getBoxedPlayers(1)[0];
-      expect(snapshot.gender).toBeUndefined();
-    });
-  });
+  // ── isEligibleForBolt ───────────────────────────────────────
 
   describe('isEligibleForBolt', () => {
     it('MIXED bolt accepts every player', () => {
@@ -297,140 +193,316 @@ describe('penaltyBox store', () => {
     });
 
     it('unknown gender on either side defaults to eligible', () => {
-      // Backwards compatibility for legacy matchUps without gender metadata.
       expect(isEligibleForBolt(undefined, { gender: 'MALE' })).toBe(true);
-      expect(isEligibleForBolt('MALE', { gender: undefined })).toBe(true);
+      expect(isEligibleForBolt('MALE', {})).toBe(true);
       expect(isEligibleForBolt('MALE', undefined)).toBe(true);
+    });
+  });
+
+  // ── pause / resume ──────────────────────────────────────────
+
+  describe('pauseAllPenaltyClocks', () => {
+    it('pauses every running clock and flushes servedMs via persist callback', () => {
+      const persist = vi.fn();
+      setPersistCallback(persist);
+      sendToBox('p1', 'Alice', 1, { ...baseSendOpts('tie-MS', 4), gender: 'MALE' });
+      scriptSnapshot('penaltyBox-p1', 'running', 90_000); // 30s served
+
+      pauseAllPenaltyClocks();
+
+      expect(pauseClock).toHaveBeenCalledWith('penaltyBox-p1');
+      expect(persist).toHaveBeenCalledWith('tie-MS', 4, { penaltyServedMs: 30_000 });
+      expect(getPenaltyBoxState().entries[0].servedMs).toBe(30_000);
+    });
+
+    it('skips clocks that are not running', () => {
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
+      sendToBox('p2', 'Bob', 2, baseSendOpts('tie-A', 1));
+      scriptSnapshot('penaltyBox-p1', 'paused', 90_000);
+      scriptSnapshot('penaltyBox-p2', 'expired', 0);
+
+      pauseAllPenaltyClocks();
+
+      expect(pauseClock).not.toHaveBeenCalled();
+    });
+
+    it('never REDUCES servedMs (monotonic flush)', () => {
+      const persist = vi.fn();
+      setPersistCallback(persist);
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
+      // Entry already has 60s served from a prior pause.
+      getPenaltyBoxState().entries[0].servedMs = 60_000;
+      // Clock snapshot reports less elapsed than the entry knows (stale).
+      scriptSnapshot('penaltyBox-p1', 'running', 100_000); // would suggest 20s served
+
+      pauseAllPenaltyClocks();
+
+      expect(getPenaltyBoxState().entries[0].servedMs).toBe(60_000);
+      expect(persist).not.toHaveBeenCalledWith('tie-A', 0, expect.objectContaining({ penaltyServedMs: 20_000 }));
     });
   });
 
   describe('resumePenaltyClocksForBolt', () => {
     beforeEach(() => {
-      sendToBox('male1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
-      sendToBox('male2', 'Male Two', 1, 120_000, undefined, undefined, 'MALE');
-      sendToBox('female1', 'Female One', 2, 120_000, undefined, undefined, 'FEMALE');
+      sendToBox('male1', 'Male One', 1, { ...baseSendOpts('tie-MS', 0), gender: 'MALE' });
+      sendToBox('male2', 'Male Two', 1, { ...baseSendOpts('tie-MS', 1), gender: 'MALE' });
+      sendToBox('female1', 'Female One', 2, { ...baseSendOpts('tie-WS', 0), gender: 'FEMALE' });
     });
 
-    it('resumes only players whose gender matches an MS/MD bolt', () => {
-      stubSnapshots({
-        'penaltyBox-male1': { state: 'paused' },
-        'penaltyBox-male2': { state: 'paused' },
-        'penaltyBox-female1': { state: 'paused' },
-      });
+    it('resumes only players matching the current MS/MD bolt gender', () => {
+      scriptSnapshot('penaltyBox-male1', 'paused', 60_000);
+      scriptSnapshot('penaltyBox-male2', 'paused', 60_000);
+      scriptSnapshot('penaltyBox-female1', 'paused', 60_000);
 
       resumePenaltyClocksForBolt({ gender: 'MALE', matchUpType: 'SINGLES' });
 
       expect(resumeClock).toHaveBeenCalledWith('penaltyBox-male1');
       expect(resumeClock).toHaveBeenCalledWith('penaltyBox-male2');
       expect(resumeClock).not.toHaveBeenCalledWith('penaltyBox-female1');
-      expect(resumeClock).toHaveBeenCalledTimes(2);
     });
 
-    it('resumes only the female during WS/WD bolts', () => {
-      stubSnapshots({
-        'penaltyBox-male1': { state: 'paused' },
-        'penaltyBox-male2': { state: 'paused' },
-        'penaltyBox-female1': { state: 'paused' },
-      });
-
-      resumePenaltyClocksForBolt({ gender: 'FEMALE', matchUpType: 'DOUBLES' });
-
-      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-female1');
-      expect(resumeClock).toHaveBeenCalledTimes(1);
-    });
-
-    it('resumes every paused clock on a MIXED bolt', () => {
-      stubSnapshots({
-        'penaltyBox-male1': { state: 'paused' },
-        'penaltyBox-male2': { state: 'paused' },
-        'penaltyBox-female1': { state: 'paused' },
-      });
+    it('resumes every paused clock on MIXED bolts', () => {
+      scriptSnapshot('penaltyBox-male1', 'paused', 60_000);
+      scriptSnapshot('penaltyBox-female1', 'paused', 60_000);
 
       resumePenaltyClocksForBolt({ gender: 'MIXED', matchUpType: 'DOUBLES' });
 
-      expect(resumeClock).toHaveBeenCalledTimes(3);
+      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-male1');
+      expect(resumeClock).toHaveBeenCalledWith('penaltyBox-female1');
     });
 
-    it('skips clocks that are not paused', () => {
-      stubSnapshots({
-        'penaltyBox-male1': { state: 'running' },
-        'penaltyBox-male2': { state: 'expired' },
-        'penaltyBox-female1': { state: 'paused' },
-      });
+    it('does not touch running or expired clocks', () => {
+      scriptSnapshot('penaltyBox-male1', 'running', 60_000);
+      scriptSnapshot('penaltyBox-male2', 'expired', 0);
+      scriptSnapshot('penaltyBox-female1', 'paused', 60_000);
 
       resumePenaltyClocksForBolt({ gender: 'MIXED' });
 
       expect(resumeClock).toHaveBeenCalledTimes(1);
       expect(resumeClock).toHaveBeenCalledWith('penaltyBox-female1');
     });
+  });
 
-    it('is safe when bolt context is undefined (treats as "any player eligible")', () => {
-      stubSnapshots({
-        'penaltyBox-male1': { state: 'paused' },
-        'penaltyBox-female1': { state: 'paused' },
-      });
+  describe('resumeAllPenaltyClocks', () => {
+    it('resumes every paused clock regardless of gender (legacy unqualified resume)', () => {
+      sendToBox('male1', 'Male One', 1, { ...baseSendOpts('tie-MS', 0), gender: 'MALE' });
+      sendToBox('female1', 'Female One', 2, { ...baseSendOpts('tie-WS', 0), gender: 'FEMALE' });
+      scriptSnapshot('penaltyBox-male1', 'paused', 60_000);
+      scriptSnapshot('penaltyBox-female1', 'paused', 60_000);
 
-      resumePenaltyClocksForBolt(undefined);
+      resumeAllPenaltyClocks();
 
       expect(resumeClock).toHaveBeenCalledTimes(2);
     });
   });
 
-  describe('setArcContext', () => {
-    it('records the current arc id', () => {
-      setArcContext('arc-A');
-      expect(getPenaltyBoxState().arcId).toBe('arc-A');
+  // ── hydrateFromTeamMatchUp — the projection ─────────────────
+
+  describe('hydrateFromTeamMatchUp', () => {
+    const makeTie = (matchUpId: string, points: any[]) => ({
+      matchUpId,
+      engineState: { history: { points } },
+    });
+    const makeIncurred = (pid: string, extra: any = {}) => ({
+      penaltyEvent: true,
+      penaltyAgainstParticipantId: pid,
+      penaltyAgainstParticipantName: extra.participantName ?? `Player ${pid}`,
+      penaltyAgainstSideNumber: extra.sideNumber ?? 1,
+      penaltyAgainstJerseyNumber: extra.jerseyNumber,
+      penaltyDurationMs: extra.penaltyDurationMs ?? 120_000,
+      penaltyGender: extra.penaltyGender,
+      penaltyServedMs: extra.penaltyServedMs,
+      penaltyReleasedAt: extra.penaltyReleasedAt,
+      timestamp: extra.timestamp ?? '2026-04-16T12:00:00Z',
     });
 
-    it('is a no-op when called with the same arc id — penalties persist', () => {
-      sendToBox('p1', 'Alice', 1, 120_000, undefined, undefined, 'FEMALE');
-      setArcContext('arc-A');
-      expect(getBoxedPlayers()).toHaveLength(1);
-
-      // Same ARC, different tieMatchUp mounts — penalty carries over.
-      setArcContext('arc-A');
-      expect(getBoxedPlayers()).toHaveLength(1);
-      expect(destroyClock).not.toHaveBeenCalled();
+    it('rebuilds an empty box from an empty team matchUp', () => {
+      hydrateFromTeamMatchUp({ tieMatchUps: [] });
+      expect(getPenaltyBoxState().entries).toHaveLength(0);
     });
 
-    it('clears every penalty when a different arc is entered', () => {
-      sendToBox('p1', 'Alice', 1, 120_000, undefined, undefined, 'FEMALE');
-      sendToBox('p2', 'Bob', 2, 120_000, undefined, undefined, 'MALE');
-      setArcContext('arc-A');
-      expect(getBoxedPlayers()).toHaveLength(2);
+    it('picks up a single open penalty from a single tieMatchUp', () => {
+      const team = {
+        tieMatchUps: [makeTie('tie-MS', [makeIncurred('p1', { penaltyGender: 'MALE' })])],
+      };
+      hydrateFromTeamMatchUp(team);
 
-      setArcContext('arc-B');
+      const entries = getPenaltyBoxState().entries;
+      expect(entries).toHaveLength(1);
+      expect(entries[0]).toMatchObject({
+        participantId: 'p1',
+        gender: 'MALE',
+        sourceTieMatchUpId: 'tie-MS',
+        sourcePointIndex: 0,
+        durationMs: 120_000,
+        servedMs: 0,
+      });
+    });
 
-      expect(getBoxedPlayers()).toHaveLength(0);
+    it('seeds the clock with durationMs − servedMs', () => {
+      const team = {
+        tieMatchUps: [
+          makeTie('tie-MS', [makeIncurred('p1', { penaltyServedMs: 45_000 })]),
+        ],
+      };
+      hydrateFromTeamMatchUp(team);
+
+      // setClockRemaining should have been called with (120000 − 45000) = 75000.
+      expect(setClockRemaining).toHaveBeenCalledWith('penaltyBox-p1', 75_000);
+    });
+
+    it('excludes penalties with penaltyReleasedAt', () => {
+      const team = {
+        tieMatchUps: [
+          makeTie('tie-MS', [
+            makeIncurred('p1', { penaltyReleasedAt: '2026-04-16T12:02:00Z' }),
+          ]),
+        ],
+      };
+      hydrateFromTeamMatchUp(team);
+      expect(getPenaltyBoxState().entries).toHaveLength(0);
+    });
+
+    it('excludes penalties whose servedMs has reached durationMs', () => {
+      const team = {
+        tieMatchUps: [
+          makeTie('tie-MS', [makeIncurred('p1', { penaltyServedMs: 120_000 })]),
+        ],
+      };
+      hydrateFromTeamMatchUp(team);
+      expect(getPenaltyBoxState().entries).toHaveLength(0);
+    });
+
+    it('unions penalties across multiple tieMatchUps (cross-tie ARC continuity)', () => {
+      const team = {
+        tieMatchUps: [
+          makeTie('tie-MS', [
+            makeIncurred('male1', { penaltyGender: 'MALE', penaltyServedMs: 20_000 }),
+          ]),
+          makeTie('tie-WS', [
+            makeIncurred('female1', { penaltyGender: 'FEMALE', penaltyServedMs: 10_000, sideNumber: 2 }),
+          ]),
+        ],
+      };
+      hydrateFromTeamMatchUp(team);
+
+      const entries = getPenaltyBoxState().entries;
+      expect(entries).toHaveLength(2);
+      const male = entries.find((e) => e.participantId === 'male1');
+      const female = entries.find((e) => e.participantId === 'female1');
+      expect(male?.sourceTieMatchUpId).toBe('tie-MS');
+      expect(male?.servedMs).toBe(20_000);
+      expect(female?.sourceTieMatchUpId).toBe('tie-WS');
+      expect(female?.sideNumber).toBe(2);
+    });
+
+    it('takes the LATEST incurred entry when a participant appears twice', () => {
+      // Player penalised, released, penalised again — most recent open wins.
+      const team = {
+        tieMatchUps: [
+          makeTie('tie-MS', [
+            makeIncurred('p1', {
+              penaltyReleasedAt: '2026-04-16T12:02:00Z',
+              timestamp: '2026-04-16T12:00:00Z',
+            }),
+          ]),
+          makeTie('tie-MD', [
+            makeIncurred('p1', { timestamp: '2026-04-16T12:30:00Z', penaltyServedMs: 5000 }),
+          ]),
+        ],
+      };
+      hydrateFromTeamMatchUp(team);
+
+      const entries = getPenaltyBoxState().entries;
+      expect(entries).toHaveLength(1);
+      expect(entries[0].sourceTieMatchUpId).toBe('tie-MD');
+      expect(entries[0].servedMs).toBe(5000);
+    });
+
+    it('ignores non-penalty points in history', () => {
+      const team = {
+        tieMatchUps: [
+          makeTie('tie-MS', [
+            { result: 'Winner', winner: 0, scoreValue: 1 },
+            makeIncurred('p1'),
+            { result: 'Winner', winner: 1, scoreValue: 1 },
+          ]),
+        ],
+      };
+      hydrateFromTeamMatchUp(team);
+      expect(getPenaltyBoxState().entries).toHaveLength(1);
+      expect(getPenaltyBoxState().entries[0].sourcePointIndex).toBe(1);
+    });
+
+    it('is idempotent — hydrating the same document twice gives the same state', () => {
+      const team = {
+        tieMatchUps: [makeTie('tie-MS', [makeIncurred('p1', { penaltyServedMs: 30_000 })])],
+      };
+      hydrateFromTeamMatchUp(team);
+      const firstSnapshot = JSON.stringify(getPenaltyBoxState().entries);
+      hydrateFromTeamMatchUp(team);
+      const secondSnapshot = JSON.stringify(getPenaltyBoxState().entries);
+      expect(secondSnapshot).toBe(firstSnapshot);
+    });
+
+    it('tears down previous clocks when re-hydrating', () => {
+      const team1 = { tieMatchUps: [makeTie('tie-MS', [makeIncurred('p1')])] };
+      const team2 = { tieMatchUps: [makeTie('tie-WS', [makeIncurred('p2')])] };
+
+      hydrateFromTeamMatchUp(team1);
+      expect(isInBox('p1')).toBe(true);
+      hydrateFromTeamMatchUp(team2);
+      expect(isInBox('p1')).toBe(false);
+      expect(isInBox('p2')).toBe(true);
       expect(destroyClock).toHaveBeenCalledWith('penaltyBox-p1');
-      expect(destroyClock).toHaveBeenCalledWith('penaltyBox-p2');
-      expect(getPenaltyBoxState().arcId).toBe('arc-B');
     });
 
-    it('initial call from undefined → defined adopts the arc and preserves entries', () => {
-      // First mount of the ARC: arcId starts undefined. Any entries that
-      // exist at this point (e.g. created by a test before the component
-      // mounted, or by future persistence-hydration work) should survive
-      // the adoption — we have no prior ARC to "leave from".
-      sendToBox('p1', 'Alice', 1);
-      expect(getBoxedPlayers()).toHaveLength(1);
-
-      setArcContext('arc-first');
-
-      expect(getBoxedPlayers()).toHaveLength(1);
-      expect(getPenaltyBoxState().arcId).toBe('arc-first');
-      expect(destroyClock).not.toHaveBeenCalled();
+    it('safe when teamMatchUp is null or undefined', () => {
+      expect(() => hydrateFromTeamMatchUp(null)).not.toThrow();
+      expect(() => hydrateFromTeamMatchUp(undefined)).not.toThrow();
+      expect(getPenaltyBoxState().entries).toHaveLength(0);
     });
 
-    it('tearing down the arc (X → undefined) clears the box', () => {
-      setArcContext('arc-A');
-      sendToBox('p1', 'Alice', 1);
+    it('skips tieMatchUps without a matchUpId (malformed data)', () => {
+      const team = {
+        tieMatchUps: [
+          { matchUpId: '', engineState: { history: { points: [makeIncurred('p1')] } } },
+          makeTie('tie-ok', [makeIncurred('p2')]),
+        ],
+      };
+      hydrateFromTeamMatchUp(team);
+      expect(isInBox('p1')).toBe(false);
+      expect(isInBox('p2')).toBe(true);
+    });
+  });
 
-      setArcContext(undefined);
+  // ── resetPenaltyBox (test / dev escape hatch) ───────────────
 
-      expect(getBoxedPlayers()).toHaveLength(0);
-      expect(getPenaltyBoxState().arcId).toBeUndefined();
-      expect(destroyClock).toHaveBeenCalledWith('penaltyBox-p1');
+  describe('resetPenaltyBox', () => {
+    it('destroys all clocks and clears entries', () => {
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
+      sendToBox('p2', 'Bob', 2, baseSendOpts('tie-A', 1));
+      resetPenaltyBox();
+      expect(destroyClock).toHaveBeenCalledTimes(2);
+      expect(getPenaltyBoxState().entries).toHaveLength(0);
+    });
+
+    it('clears the persist callback too', () => {
+      const persist = vi.fn();
+      setPersistCallback(persist);
+      resetPenaltyBox();
+      sendToBox('p1', 'Alice', 1, baseSendOpts());
+      scriptSnapshot('penaltyBox-p1', 'running', 100_000);
+      pauseAllPenaltyClocks();
+      expect(persist).not.toHaveBeenCalled();
     });
   });
 });
+
+// Surface the mocked clock symbols used above so TypeScript resolves them.
+void createClock;
+void destroyClock;
+void getClockSnapshot;
+void pauseClock;
+void resumeClock;
+void setClockRemaining;

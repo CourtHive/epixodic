@@ -40,9 +40,11 @@
     isInBox,
     pauseAllPenaltyClocks,
     resumePenaltyClocksForBolt,
-    setArcContext,
+    hydrateFromTeamMatchUp,
+    setPersistCallback,
     type BoltContext,
     type BoltGender,
+    type PenaltyPoint,
   } from '../../stores/penaltyBox.svelte';
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
@@ -147,6 +149,34 @@
         ? (rawGender as BoltGender)
         : undefined;
     return { matchUpType: tieMatchUp?.matchUpType, gender };
+  }
+
+  /**
+   * Write penalty lifecycle metadata (servedMs / releasedAt) onto a
+   * PENALTY_INCURRED point that lives in a PRIOR tieMatchUp within the
+   * current ARC. The engine is scoped to the currently-loaded tie, so
+   * cross-tie updates mutate the persisted `engineState.history.points`
+   * entry directly and trigger a push for that tie.
+   */
+  function decoratePriorTiePenalty(
+    tieMatchUpId: string,
+    pointIndex: number,
+    metadata: Record<string, any>,
+  ) {
+    const team = getTeamMatchUpState().teamMatchUp as any;
+    const tie = team?.tieMatchUps?.find((t: any) => t?.matchUpId === tieMatchUpId);
+    const point = tie?.engineState?.history?.points?.[pointIndex];
+    if (!point) return;
+    for (const [k, v] of Object.entries(metadata)) {
+      if (v !== undefined) point[k] = v;
+    }
+    // Mark the prior tie dirty so the next push sends the updated history.
+    tie.updatedAt = new Date().toISOString();
+    // Note: we deliberately do NOT call pushBoltHistoryForTie here; the
+    // pending-push mechanism in teamMatchUp.svelte.ts fires on the next
+    // user-driven state change. If we need to force-push a stale penalty
+    // update (e.g. during navigation), that's handled by
+    // pauseAndPersistOnExit's existing persist path.
   }
 
   async function submitCurrentBoltScore(): Promise<boolean> {
@@ -354,10 +384,10 @@
     // `restorePlayerTimeSnapshots` below rehydrates `elapsedMs` after
     // `initTeamRosters` has re-created the player entries.
     //
-    // Penalty box is NOT reset here — it's scoped to the ARC (parent
-    // team matchUp) so a box entry created in MS continues serving into
-    // MD/XD. `setArcContext(...)` below clears the box only when a new
-    // ARC is entered.
+    // Penalty box is NOT reset here — it's a pure projection of
+    // `history.points` across every tieMatchUp in the ARC. We call
+    // `hydrateFromTeamMatchUp(...)` once the team matchUp has been
+    // loaded (see below) to rebuild the in-memory box from history.
     resetPlayerTimes();
 
     // Ensure the team matchUp is loaded into the store (handles page refresh)
@@ -392,10 +422,17 @@
 
     setActiveTieMatchUp(matchUpId);
 
-    // Rescope the penalty box to this ARC. If we're still inside the same
-    // team matchUp the box is preserved (penalties carry from MS → MD →
-    // etc.); if the ARC has changed, every pending penalty is cleared.
-    setArcContext(teamState.teamMatchUp?.matchUpId);
+    // Wire the penalty box's servedMs/releasedAt writer. For points in
+    // the currently-loaded tieMatchUp we go through the engine's
+    // decoratePoint; for points in a prior tieMatchUp within the same
+    // ARC we mutate the persisted history directly and push that tie.
+    setPersistCallback((tieMatchUpId, pointIndex, metadata) => {
+      if (tieMatchUpId === matchUpId) {
+        decoratePoint(pointIndex, metadata as Record<string, any>);
+      } else {
+        decoratePriorTiePenalty(tieMatchUpId, pointIndex, metadata);
+      }
+    });
 
     // Hydrate from server BEFORE reading the tieMatchUp into the engine.
     // If the server's stored document is newer than the local cached
@@ -515,6 +552,12 @@
       console.warn('[bolt mount] no tieMatchUp in team store for', matchUpId);
       initScoringEngine({ matchUpFormat: 'SET7XA-S:T10P', competitionFormat: INTENNSE_STANDARD });
     }
+
+    // Project the penalty box from every tieMatchUp's `history.points`
+    // in the ARC. Any PENALTY_INCURRED point without a `penaltyReleasedAt`
+    // becomes an open box entry with remaining time derived from
+    // `penaltyDurationMs − penaltyServedMs`.
+    hydrateFromTeamMatchUp(teamState.teamMatchUp);
 
     // Configure bolt duration from tieFormat, URL param (?boltMinutes=3), or default
     const searchParams = new URLSearchParams(globalThis.location?.search || '');
@@ -1000,7 +1043,6 @@
     const side = penaltyModalSide;
     if (!side) return;
 
-    // Send player to penalty box
     const isOnCourt = Object.values(playerTime.players).some(
       (p) => p.participantId === participantId && p.isOnCourt,
     );
@@ -1009,7 +1051,6 @@
     const durationMs = (boxProfile?.durationSeconds ?? 120) * 1000;
     const player = playerTime.players[participantId];
     const jerseyNumber = player?.jerseyNumber;
-    // Normalise gender → BoltGender for cross-tieMatchUp eligibility gating.
     const rawGender = (player?.gender ?? '').toUpperCase();
     const gender: BoltGender | undefined =
       rawGender === 'MALE' || rawGender === 'M'
@@ -1017,18 +1058,42 @@
         : rawGender === 'FEMALE' || rawGender === 'F'
           ? 'FEMALE'
           : undefined;
-    sendToBox(participantId, participantName, side, durationMs, undefined, jerseyNumber, gender);
 
-    // Award penalty as a single event (one point record with scoreValue = points)
+    // Write PENALTY_INCURRED into history.points as a scored point with
+    // lifecycle metadata embedded — this IS the authoritative record.
+    // `addPoint` returns the new point's index; we hand that to the box
+    // so the in-memory clock knows where to decorate servedMs later.
     const receiver = (side === 1 ? 1 : 0) as 0 | 1;
-    addPoint(receiver, {
+    const incurredAt = new Date().toISOString();
+    const pointIndex = addPoint(receiver, {
       result: 'Penalty',
       scoreValue: points,
       penaltyEvent: true,
       penaltyPoints: points,
       penaltyAgainstParticipantId: participantId,
+      penaltyAgainstParticipantName: participantName,
+      penaltyAgainstSideNumber: side,
+      penaltyAgainstJerseyNumber: jerseyNumber,
+      penaltyDurationMs: durationMs,
+      penaltyGender: gender,
+      timestamp: incurredAt,
       ...buildPointAttribution(receiver),
     });
+
+    if (typeof pointIndex === 'number') {
+      sendToBox(participantId, participantName, side, {
+        durationMs,
+        jerseyNumber,
+        gender,
+        sourceTieMatchUpId: matchUpId,
+        sourcePointIndex: pointIndex,
+        incurredAt,
+        // Autostart only if we're currently in live play. Break / timeout
+        // / unstarted bolts leave the clock paused; the next
+        // `resumePenaltyClocksForBolt(...)` call will pick it up.
+        autoStart: boltStarted && !boltComplete && !breakActive && !officialPause && !timeoutSide,
+      });
+    }
     broadcastState();
 
     penaltyModalSide = null;

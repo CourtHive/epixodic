@@ -137,10 +137,14 @@ export function initScoringEngine(config: {
 export function addPoint(
   winner: 0 | 1,
   options?: { result?: string; server?: 0 | 1; [key: string]: any },
-) {
-  if (!engine) return;
+): number | undefined {
+  if (!engine) return undefined;
   engine.addPoint({ winner, ...options });
   bump();
+  // Index of the point we just appended, so callers (e.g. the penalty box)
+  // can decorate it with lifecycle metadata (servedMs, releasedAt, ...).
+  const points = engine.getState()?.history?.points;
+  return points ? points.length - 1 : undefined;
 }
 
 export function undo(): boolean {

@@ -2,45 +2,50 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 /**
  * Integration tests for the "bolt clock paused ⇒ penalty clock paused"
- * contract, exercised everywhere `BoltScoringPage` pauses the bolt clock:
+ * contract, plus the end-to-end event-sourced projection across
+ * tieMatchUps within an ARC.
  *
- *   - startBreakClock()      → pauseAllPenaltyClocks
- *   - handleNextBolt()       → resumeAllPenaltyClocks
- *   - handleTimeout()        → pauseAllPenaltyClocks
- *   - handleDismissTimeout() → resumeAllPenaltyClocks
- *   - handleCancelTimeout()  → resumeAllPenaltyClocks
+ *   startBreakClock()      → pauseAllPenaltyClocks + persist servedMs
+ *   handleNextBolt()       → resumePenaltyClocksForBolt(...)
+ *   handleTimeout()        → pauseAllPenaltyClocks + persist servedMs
+ *   handleDismissTimeout() → resumePenaltyClocksForBolt(...)
+ *   handleCancelTimeout()  → resumePenaltyClocksForBolt(...)
  *
- * The component itself is not mounted — we exercise the same helpers the
- * component does, end-to-end through the real `penaltyBox` store, with the
- * underlying `clock` module stubbed so we can script each clock's state
- * transitions deterministically.
+ * ARC navigation: a PENALTY_INCURRED in MS persists servedMs into its
+ * point via the persist callback; mounting MD calls
+ * hydrateFromTeamMatchUp(team), which rebuilds the box from the cross-
+ * tieMatchUp history union.
  */
 
-const mockStates: Record<string, 'running' | 'paused' | 'expired' | 'idle'> = {};
+const mockStates: Record<
+  string,
+  { state: 'running' | 'paused' | 'expired' | 'idle'; remainingMs?: number }
+> = {};
 
 vi.mock('../../../clock', () => {
   return {
-    createClock: vi.fn((config: { id: string }) => {
-      mockStates[config.id] = 'running';
-      return {
-        id: config.id,
-        getState: () => mockStates[config.id] ?? 'idle',
-        getRemainingMs: () => 0,
-        getElapsedMs: () => 0,
+    createClock: vi.fn((config: { id: string; durationMs: number; autoStart?: boolean }) => {
+      mockStates[config.id] = {
+        state: config.autoStart ? 'running' : 'idle',
+        remainingMs: config.durationMs,
       };
+      return { id: config.id };
     }),
     destroyClock: vi.fn((id: string) => {
       delete mockStates[id];
     }),
     getClockSnapshot: vi.fn((id: string) => {
-      const state = mockStates[id];
-      return state ? { remainingMs: 0, elapsedMs: 0, state } : undefined;
+      const s = mockStates[id];
+      return s ? { remainingMs: s.remainingMs ?? 0, elapsedMs: 0, state: s.state } : undefined;
     }),
     pauseClock: vi.fn((id: string) => {
-      if (mockStates[id] === 'running') mockStates[id] = 'paused';
+      if (mockStates[id]?.state === 'running') mockStates[id].state = 'paused';
     }),
     resumeClock: vi.fn((id: string) => {
-      if (mockStates[id] === 'paused') mockStates[id] = 'running';
+      if (mockStates[id]?.state === 'paused') mockStates[id].state = 'running';
+    }),
+    setClockRemaining: vi.fn((id: string, ms: number) => {
+      if (mockStates[id]) mockStates[id].remainingMs = ms;
     }),
   };
 });
@@ -52,10 +57,16 @@ import {
   pauseAllPenaltyClocks,
   resumeAllPenaltyClocks,
   resumePenaltyClocksForBolt,
-  setArcContext,
+  hydrateFromTeamMatchUp,
+  setPersistCallback,
   getBoxedPlayers,
+  getPenaltyBoxState,
 } from '../penaltyBox.svelte';
 import { getClockSnapshot, pauseClock, resumeClock } from '../../../clock';
+
+function scriptSnapshot(id: string, state: 'running' | 'paused' | 'expired' | 'idle', remainingMs = 0) {
+  mockStates[id] = { state, remainingMs };
+}
 
 describe('break-flow integration — penalty clocks pause across the break', () => {
   beforeEach(() => {
@@ -65,97 +76,42 @@ describe('break-flow integration — penalty clocks pause across the break', () 
   });
 
   it('freezes an active penalty timer for the duration of a break', () => {
-    sendToBox('p1', 'Alice', 1, 120_000);
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+    sendToBox('p1', 'Alice', 1, {
+      sourceTieMatchUpId: 'tie-MS',
+      sourcePointIndex: 0,
+      autoStart: true,
+    });
+    scriptSnapshot('penaltyBox-p1', 'running', 90_000);
 
-    // Bolt ends → break begins. Component calls pauseAllPenaltyClocks().
     pauseAllPenaltyClocks();
     expect(pauseClock).toHaveBeenCalledWith('penaltyBox-p1');
     expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
 
-    // Next bolt begins. Component calls resumeAllPenaltyClocks().
+    scriptSnapshot('penaltyBox-p1', 'paused', 90_000);
     resumeAllPenaltyClocks();
     expect(resumeClock).toHaveBeenCalledWith('penaltyBox-p1');
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
   });
 
-  it('round-trips across multiple break cycles for the same penalty', () => {
-    sendToBox('p1', 'Alice', 1);
-
-    for (let i = 0; i < 3; i += 1) {
-      pauseAllPenaltyClocks();
-      expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
-      resumeAllPenaltyClocks();
-      expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
-    }
-  });
-
-  it('does not resume a penalty that expired during the break', () => {
-    sendToBox('p1', 'Alice', 1);
-    // Simulate the clock expiring during the break
-    mockStates['penaltyBox-p1'] = 'expired';
-
-    resumeAllPenaltyClocks();
-    // Expired → stays expired; resumeClock was a no-op because state !== paused
-    expect(resumeClock).not.toHaveBeenCalled();
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('expired');
-  });
-
-  it('handles multiple concurrent penalties on both sides', () => {
-    sendToBox('p1', 'Alice', 1);
-    sendToBox('p2', 'Bob', 2);
-    sendToBox('p3', 'Carol', 1);
+  it('flushes servedMs to history on every pause (persist callback)', () => {
+    const persist = vi.fn();
+    setPersistCallback(persist);
+    sendToBox('p1', 'Alice', 1, {
+      sourceTieMatchUpId: 'tie-MS',
+      sourcePointIndex: 4,
+      autoStart: true,
+    });
+    scriptSnapshot('penaltyBox-p1', 'running', 90_000); // 30s served
 
     pauseAllPenaltyClocks();
-    expect(pauseClock).toHaveBeenCalledTimes(3);
-    expect(getBoxedPlayers()).toHaveLength(3);
-    for (const id of ['penaltyBox-p1', 'penaltyBox-p2', 'penaltyBox-p3']) {
-      expect(getClockSnapshot(id)?.state).toBe('paused');
-    }
 
-    resumeAllPenaltyClocks();
-    expect(resumeClock).toHaveBeenCalledTimes(3);
-    for (const id of ['penaltyBox-p1', 'penaltyBox-p2', 'penaltyBox-p3']) {
-      expect(getClockSnapshot(id)?.state).toBe('running');
-    }
+    expect(persist).toHaveBeenCalledWith('tie-MS', 4, { penaltyServedMs: 30_000 });
   });
 
-  it('releasing a player during the break clears their clock entirely', () => {
-    sendToBox('p1', 'Alice', 1);
+  it('releasing a player mid-break clears the entry and its clock', () => {
+    sendToBox('p1', 'Alice', 1, { sourceTieMatchUpId: 'tie-MS', sourcePointIndex: 0 });
     pauseAllPenaltyClocks();
     releaseFromBox('p1');
     expect(getClockSnapshot('penaltyBox-p1')).toBeUndefined();
-
-    // Resume is a no-op for a released player
-    resumeAllPenaltyClocks();
-    expect(resumeClock).not.toHaveBeenCalled();
-    expect(getBoxedPlayers()).toHaveLength(0);
-  });
-
-  it('setArcContext with the SAME arc preserves penalties across tieMatchUp mounts', () => {
-    // Enter ARC-A, penalise a male in MS, bolt ends → pause.
-    setArcContext('arc-A');
-    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
-    pauseAllPenaltyClocks();
-    expect(getBoxedPlayers()).toHaveLength(1);
-
-    // Mount the next tieMatchUp WITHIN the same ARC — setArcContext is
-    // called with the same id, so the box is preserved and MD (MALE)
-    // can resume the ongoing penalty.
-    setArcContext('arc-A');
-    expect(getBoxedPlayers()).toHaveLength(1);
-
-    resumePenaltyClocksForBolt({ gender: 'MALE', matchUpType: 'DOUBLES' });
-    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('running');
-  });
-
-  it('setArcContext with a NEW arc clears the box — different team match', () => {
-    setArcContext('arc-A');
-    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
-    expect(getBoxedPlayers()).toHaveLength(1);
-
-    setArcContext('arc-B');
-
     expect(getBoxedPlayers()).toHaveLength(0);
   });
 });
@@ -167,80 +123,52 @@ describe('timeout-flow integration — penalty clocks pause across the timeout',
     vi.clearAllMocks();
   });
 
-  it('freezes an active penalty timer when a timeout is called', () => {
-    sendToBox('p1', 'Alice', 1, 120_000);
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+  it('timeout pause + dismiss flushes servedMs and resumes', () => {
+    const persist = vi.fn();
+    setPersistCallback(persist);
+    sendToBox('p1', 'Alice', 1, {
+      sourceTieMatchUpId: 'tie-MS',
+      sourcePointIndex: 0,
+      gender: 'MALE',
+      autoStart: true,
+    });
+    scriptSnapshot('penaltyBox-p1', 'running', 100_000);
 
-    // Timeout called → component calls pauseAllPenaltyClocks().
     pauseAllPenaltyClocks();
-    expect(pauseClock).toHaveBeenCalledWith('penaltyBox-p1');
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
+    expect(persist).toHaveBeenCalledWith('tie-MS', 0, { penaltyServedMs: 20_000 });
 
-    // END TIMEOUT → component calls resumeAllPenaltyClocks().
-    resumeAllPenaltyClocks();
+    scriptSnapshot('penaltyBox-p1', 'paused', 100_000);
+    resumePenaltyClocksForBolt({ gender: 'MALE' });
     expect(resumeClock).toHaveBeenCalledWith('penaltyBox-p1');
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
   });
 
-  it('resumes penalty clocks the same way for END TIMEOUT and CANCEL', () => {
-    // The component calls resumeAllPenaltyClocks in both handleDismissTimeout
-    // and handleCancelTimeout — behaviour is symmetric regardless of whether
-    // the timeout counted against the team's 5-per-ARC quota.
-    sendToBox('p1', 'Alice', 1);
+  it('a timeout-then-break sequence flushes servedMs twice without double-counting', () => {
+    const persist = vi.fn();
+    setPersistCallback(persist);
+    sendToBox('p1', 'Alice', 1, {
+      sourceTieMatchUpId: 'tie-MS',
+      sourcePointIndex: 0,
+      autoStart: true,
+    });
 
+    // First interval — 30s served.
+    scriptSnapshot('penaltyBox-p1', 'running', 90_000);
     pauseAllPenaltyClocks();
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
-    resumeAllPenaltyClocks(); // e.g. END TIMEOUT
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+    expect(persist).toHaveBeenLastCalledWith('tie-MS', 0, { penaltyServedMs: 30_000 });
 
-    pauseAllPenaltyClocks();
-    resumeAllPenaltyClocks(); // e.g. CANCEL (doesn't count)
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
-  });
-
-  it('a penalty issued *during* a timeout ticks down normally after the box entry is created', () => {
-    // Scenario: ref hits Penalty while timeout overlay is up. sendToBox still
-    // creates the clock (autoStart), and the penalty-pause-during-timeout
-    // rule is the caller's responsibility — once the caller triggers it, the
-    // clock ends up paused as expected.
-    sendToBox('mid-timeout-p', 'Bob', 2);
-    expect(getClockSnapshot('penaltyBox-mid-timeout-p')?.state).toBe('running');
-
-    pauseAllPenaltyClocks();
-    expect(getClockSnapshot('penaltyBox-mid-timeout-p')?.state).toBe('paused');
-
+    // Resume and tick another 20s → 50s total served.
+    scriptSnapshot('penaltyBox-p1', 'paused', 90_000);
     resumeAllPenaltyClocks();
-    expect(getClockSnapshot('penaltyBox-mid-timeout-p')?.state).toBe('running');
-  });
-
-  it('a single penalty survives a timeout followed immediately by a break', () => {
-    // Common sequence: penalty → timeout called (60s) → timeout ends →
-    // bolt expires → between-bolts break → next bolt. The penalty clock
-    // must pause twice and resume twice, with no double-counting.
-    sendToBox('p1', 'Alice', 1);
-
-    // Timeout cycle.
+    scriptSnapshot('penaltyBox-p1', 'running', 70_000);
     pauseAllPenaltyClocks();
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
-    resumeAllPenaltyClocks();
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
-
-    // Break cycle.
-    pauseAllPenaltyClocks();
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
-    resumeAllPenaltyClocks();
-    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
-
-    expect(pauseClock).toHaveBeenCalledTimes(2);
-    expect(resumeClock).toHaveBeenCalledTimes(2);
+    expect(persist).toHaveBeenLastCalledWith('tie-MS', 0, { penaltyServedMs: 50_000 });
   });
 });
 
-describe('cross-tieMatchUp penalty persistence (ARC-scoped)', () => {
-  // The league commissioner confirmed: a male penalty incurred in the
-  // final second of MS must carry into MD with remaining time intact.
-  // The penalty clock only ticks during bolts for which the player is
-  // eligible (not gender-blocked).
+describe('cross-tieMatchUp penalty persistence (ARC-scoped projection)', () => {
+  // Commissioner scenario: male player penalised in the final second of
+  // MS → box time resumes at the start of MD. WS bolts in between keep
+  // the male's clock paused because he's gender-ineligible.
 
   beforeEach(() => {
     for (const k of Object.keys(mockStates)) delete mockStates[k];
@@ -248,80 +176,119 @@ describe('cross-tieMatchUp penalty persistence (ARC-scoped)', () => {
     vi.clearAllMocks();
   });
 
-  it('canonical scenario: MS penalty → WS bolt (paused) → MD bolt (resumes)', () => {
-    setArcContext('arc-2026-04-16');
+  const makeTie = (matchUpId: string, points: any[]) => ({
+    matchUpId,
+    engineState: { history: { points } },
+  });
+  const incurred = (pid: string, extra: any = {}) => ({
+    penaltyEvent: true,
+    penaltyAgainstParticipantId: pid,
+    penaltyAgainstParticipantName: extra.participantName ?? pid,
+    penaltyAgainstSideNumber: extra.sideNumber ?? 1,
+    penaltyDurationMs: extra.penaltyDurationMs ?? 120_000,
+    penaltyGender: extra.penaltyGender,
+    penaltyServedMs: extra.penaltyServedMs,
+    penaltyReleasedAt: extra.penaltyReleasedAt,
+    timestamp: extra.timestamp ?? '2026-04-16T12:00:00Z',
+  });
 
-    // MS bolt ends with a penalty on the male player.
-    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
-    pauseAllPenaltyClocks(); // end-of-bolt break
+  it('hydrating MD from a history containing an open MS penalty rebuilds the box', () => {
+    const team = {
+      tieMatchUps: [
+        makeTie('tie-MS', [incurred('male-1', { penaltyGender: 'MALE', penaltyServedMs: 1000 })]),
+        makeTie('tie-MD', []),
+      ],
+    };
+    hydrateFromTeamMatchUp(team);
+
+    const boxed = getBoxedPlayers();
+    expect(boxed).toHaveLength(1);
+    expect(boxed[0].participantId).toBe('male-1');
+    // Clock seeded to 120000 − 1000 = 119000.
+    expect(boxed[0].remainingMs).toBe(119_000);
+  });
+
+  it('WS bolt leaves a male-flagged entry paused; MD resumes it', () => {
+    const team = {
+      tieMatchUps: [
+        makeTie('tie-MS', [incurred('male-1', { penaltyGender: 'MALE', penaltyServedMs: 30_000 })]),
+      ],
+    };
+    hydrateFromTeamMatchUp(team);
+
+    // Clock starts idle — setClockRemaining seeded it to 90s remaining.
+    // WS bolt begins — resume for FEMALE. Male stays idle/paused.
+    mockStates['penaltyBox-male-1'] = { state: 'paused', remainingMs: 90_000 };
+    resumePenaltyClocksForBolt({ gender: 'FEMALE' });
+    expect(resumeClock).not.toHaveBeenCalled();
     expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('paused');
 
-    // MS completes, TD auto-advances to WS. Same ARC → box preserved.
-    setArcContext('arc-2026-04-16');
+    // MD bolt begins.
+    resumePenaltyClocksForBolt({ gender: 'MALE' });
+    expect(resumeClock).toHaveBeenCalledWith('penaltyBox-male-1');
+  });
+
+  it('a released penalty in an earlier tie does not re-appear in the box', () => {
+    const team = {
+      tieMatchUps: [
+        makeTie('tie-MS', [
+          incurred('male-1', {
+            penaltyGender: 'MALE',
+            penaltyServedMs: 120_000,
+            penaltyReleasedAt: '2026-04-16T12:02:00Z',
+          }),
+        ]),
+        makeTie('tie-MD', []),
+      ],
+    };
+    hydrateFromTeamMatchUp(team);
+    expect(getBoxedPlayers()).toHaveLength(0);
+  });
+
+  it('hydrate → pause → persist ends up with consistent servedMs on the source tie', () => {
+    const msTie = makeTie('tie-MS', [
+      incurred('male-1', { penaltyGender: 'MALE', penaltyServedMs: 30_000 }),
+    ]);
+    const team = { tieMatchUps: [msTie] };
+
+    // Simulate the component: hydrate, then register a persist callback
+    // that mutates the history directly (which is what the prior-tie
+    // path does in BoltScoringPage).
+    hydrateFromTeamMatchUp(team);
+    setPersistCallback((tieId, pointIndex, metadata) => {
+      const tie = team.tieMatchUps.find((t: any) => t.matchUpId === tieId) as any;
+      const point = tie?.engineState?.history?.points?.[pointIndex];
+      if (point) Object.assign(point, metadata);
+    });
+
+    // Simulate the next bolt running the clock down another 20s.
+    mockStates['penaltyBox-male-1'] = { state: 'running', remainingMs: 70_000 };
+    pauseAllPenaltyClocks();
+
+    // The source MS tie's history now reflects 50s served total.
+    expect((msTie.engineState.history.points[0] as any).penaltyServedMs).toBe(50_000);
+  });
+
+  it('the box is EMPTY after tearing down to an empty team matchUp (leaving the ARC)', () => {
+    const team = {
+      tieMatchUps: [makeTie('tie-MS', [incurred('male-1', { penaltyServedMs: 10_000 })])],
+    };
+    hydrateFromTeamMatchUp(team);
     expect(getBoxedPlayers()).toHaveLength(1);
 
-    // WS starts. Only eligible (FEMALE) players would resume — male
-    // stays paused.
-    resumePenaltyClocksForBolt({ gender: 'FEMALE', matchUpType: 'SINGLES' });
-    expect(resumeClock).not.toHaveBeenCalled();
-    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('paused');
-
-    // WS ends, auto-advance to MD. Same ARC.
-    setArcContext('arc-2026-04-16');
-
-    // MD starts — the male's penalty finally resumes.
-    resumePenaltyClocksForBolt({ gender: 'MALE', matchUpType: 'DOUBLES' });
-    expect(resumeClock).toHaveBeenCalledWith('penaltyBox-male-1');
-    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('running');
-  });
-
-  it('MIXED doubles resumes every pending penalty regardless of gender', () => {
-    setArcContext('arc-X');
-    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
-    sendToBox('female-1', 'Female One', 2, 120_000, undefined, undefined, 'FEMALE');
-    pauseAllPenaltyClocks();
-
-    resumePenaltyClocksForBolt({ gender: 'MIXED', matchUpType: 'DOUBLES' });
-
-    expect(getClockSnapshot('penaltyBox-male-1')?.state).toBe('running');
-    expect(getClockSnapshot('penaltyBox-female-1')?.state).toBe('running');
-  });
-
-  it('a different ARC wipes the box even when a penalty is mid-serve', () => {
-    setArcContext('arc-A');
-    sendToBox('male-1', 'Male One', 1, 120_000, undefined, undefined, 'MALE');
-    pauseAllPenaltyClocks();
-
-    // Team matchup ends, user navigates to a different ARC entirely.
-    setArcContext('arc-B');
-
+    hydrateFromTeamMatchUp({ tieMatchUps: [] });
     expect(getBoxedPlayers()).toHaveLength(0);
-    // Re-mount in arc-B: resume is a no-op.
-    resumePenaltyClocksForBolt({ gender: 'MALE' });
-    expect(resumeClock).not.toHaveBeenCalled();
+    expect(getPenaltyBoxState().entries).toHaveLength(0);
   });
 
-  it('penalty incurred mid-ARC in one gender continues to tick through same-gender bolts', () => {
-    setArcContext('arc-X');
-    sendToBox('female-1', 'Female One', 2, 120_000, undefined, undefined, 'FEMALE');
+  it('hydration replaces any previously-projected entries (no leaks across ARCs)', () => {
+    const arcA = { tieMatchUps: [makeTie('tie-MS', [incurred('male-arc-A')])] };
+    const arcB = { tieMatchUps: [makeTie('tie-WS', [incurred('female-arc-B', { penaltyGender: 'FEMALE' })])] };
 
-    // WS bolt ends.
-    pauseAllPenaltyClocks();
+    hydrateFromTeamMatchUp(arcA);
+    expect(getBoxedPlayers().map((p) => p.participantId)).toEqual(['male-arc-A']);
 
-    // Next WD bolt — same gender, same ARC.
-    setArcContext('arc-X');
-    resumePenaltyClocksForBolt({ gender: 'FEMALE', matchUpType: 'DOUBLES' });
-
-    expect(getClockSnapshot('penaltyBox-female-1')?.state).toBe('running');
-  });
-
-  it('unknown player gender resumes on any bolt (legacy roster compatibility)', () => {
-    setArcContext('arc-legacy');
-    // Roster predates the gender-aware sendToBox signature.
-    sendToBox('legacy-1', 'Legacy', 1);
-    pauseAllPenaltyClocks();
-
-    resumePenaltyClocksForBolt({ gender: 'MALE' });
-    expect(getClockSnapshot('penaltyBox-legacy-1')?.state).toBe('running');
+    hydrateFromTeamMatchUp(arcB);
+    expect(getBoxedPlayers().map((p) => p.participantId)).toEqual(['female-arc-B']);
   });
 });
