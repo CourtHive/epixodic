@@ -150,6 +150,50 @@ export function buildHistoryEntry(
   };
 }
 
+/** Swap 1 → 2 and 2 → 1. Centralised so the detail modal + tests share one copy. */
+export function oppositeWinningSide(side: 1 | 2): 1 | 2 {
+  return side === 1 ? 2 : 1;
+}
+
+/**
+ * Build the `editPoint` payload that flips a past point's winner to the
+ * other side. Kept pure so Phase 3 can be unit-tested without a DOM.
+ *
+ * Returns both `winner` (0-based engine field) and `winningSide` (1-based
+ * display field) so either consumer reads the same truth.
+ */
+export function buildEditWinnerPayload(nextWinningSide: 1 | 2): {
+  winner: 0 | 1;
+  winningSide: 1 | 2;
+} {
+  return {
+    winner: (nextWinningSide - 1) as 0 | 1,
+    winningSide: nextWinningSide,
+  };
+}
+
+/**
+ * Parse a free-text rally-length input into either a non-negative integer
+ * or `undefined` (blank input clears the field). Returns a parsed number
+ * in an object plus a `dirty` flag indicating whether the parsed value
+ * differs from the current entry's rallyLength — useful for enabling a
+ * Save button only when a change is pending.
+ */
+export function parseRallyLengthInput(
+  raw: string,
+  current: number | undefined,
+): { value: number | undefined; dirty: boolean; valid: boolean } {
+  const trimmed = raw.trim();
+  if (trimmed === '') {
+    return { value: undefined, dirty: current !== undefined, valid: true };
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (Number.isNaN(parsed) || parsed < 0) {
+    return { value: undefined, dirty: false, valid: false };
+  }
+  return { value: parsed, dirty: parsed !== current, valid: true };
+}
+
 /**
  * Build the full display list, most-recent-first. Skips null/undefined
  * points defensively (historical serialisations have occasionally

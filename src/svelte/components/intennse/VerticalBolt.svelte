@@ -63,6 +63,7 @@
     scoreSubmitting = false,
     onSubmitScore,
     historyPoints = [],
+    onHistoryEntryTap,
   }: {
     side1Name: string;
     side2Name: string;
@@ -121,6 +122,8 @@
     onSubmitScore?: () => void;
     /** Reactive `engine.history.points` for the current tieMatchUp. */
     historyPoints?: any[];
+    /** Phase 3: open the point-detail modal for a history row. */
+    onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
   } = $props();
 
   /** Portrait history-stream drawer toggle — hidden by default. */
@@ -206,6 +209,7 @@
         points={historyPoints}
         {side1Name}
         {side2Name}
+        onEntryTap={onHistoryEntryTap}
       />
     </div>
   {/if}

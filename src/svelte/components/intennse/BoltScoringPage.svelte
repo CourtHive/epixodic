@@ -7,6 +7,8 @@
   import PenaltyModal from './PenaltyModal.svelte';
   import PenaltyBoxDetailModal from './PenaltyBoxDetailModal.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
+  import PointDetailModal from './PointDetailModal.svelte';
+  import { buildEditWinnerPayload, type PointHistoryEntry } from './historyStream';
   import {
     getScoringState,
     getEngineState,
@@ -20,6 +22,9 @@
     substitute as engineSubstitute,
     endSegment,
     getPenaltyBoxProfile,
+    decoratePoint,
+    editPoint,
+    removePoint,
   } from '../../stores/scoringEngine.svelte';
   import {
     getPlayerTimeState,
@@ -1125,6 +1130,46 @@
 
   let showBackConfirm = $state(false);
   let penaltyBoxModalOpen = $state(false);
+  /** Phase 3: point-history detail modal (targeted undo / edit). */
+  let pointDetailEntry = $state<PointHistoryEntry | null>(null);
+
+  /** After any edit/remove, re-project the penalty box from the new history. */
+  function rehydratePenaltyBox() {
+    hydrateFromTeamMatchUp(getTeamMatchUpState().teamMatchUp);
+  }
+
+  function handleRemovePoint(entry: PointHistoryEntry) {
+    removePoint(entry.pointIndex, { recalculate: true });
+    rehydratePenaltyBox();
+    broadcastState();
+    pointDetailEntry = null;
+  }
+
+  function handleEditWinner(entry: PointHistoryEntry, nextWinningSide: 1 | 2) {
+    editPoint(
+      entry.pointIndex,
+      buildEditWinnerPayload(nextWinningSide),
+      { recalculate: true },
+    );
+    rehydratePenaltyBox();
+    broadcastState();
+    pointDetailEntry = null;
+  }
+
+  function handleEditRallyLength(entry: PointHistoryEntry, nextRallyLength: number | undefined) {
+    editPoint(
+      entry.pointIndex,
+      // `recalculate: false` — rally length never affects downstream score
+      // or serve order; no need to replay the whole history.
+      { rallyLength: nextRallyLength as any },
+      { recalculate: false },
+    );
+    broadcastState();
+    // Keep the modal open with the updated rally length visible.
+    pointDetailEntry = pointDetailEntry
+      ? { ...pointDetailEntry, rallyLength: nextRallyLength }
+      : null;
+  }
 
   function handleBack() {
     if (boltStarted && !boltComplete) {
@@ -1387,6 +1432,7 @@
     scoreSubmitting,
     onSubmitScore: handleManualSubmit,
     historyPoints,
+    onHistoryEntryTap: (entry: PointHistoryEntry) => { pointDetailEntry = entry; },
   });
 </script>
 
@@ -1403,6 +1449,18 @@
 
   {#if penaltyBoxModalOpen}
     <PenaltyBoxDetailModal onClose={() => (penaltyBoxModalOpen = false)} />
+  {/if}
+
+  {#if pointDetailEntry}
+    <PointDetailModal
+      entry={pointDetailEntry}
+      {side1Name}
+      {side2Name}
+      onClose={() => (pointDetailEntry = null)}
+      onRemove={handleRemovePoint}
+      onEditWinner={handleEditWinner}
+      onEditRallyLength={handleEditRallyLength}
+    />
   {/if}
 
   {#if showLoginModal}

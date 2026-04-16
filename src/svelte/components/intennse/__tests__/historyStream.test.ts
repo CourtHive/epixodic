@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildEditWinnerPayload,
   buildHistoryEntry,
   buildHistoryStream,
   classifyPointResult,
   formatTimeLabel,
   glyphForKind,
+  oppositeWinningSide,
+  parseRallyLengthInput,
 } from '../historyStream';
 
 describe('classifyPointResult', () => {
@@ -235,5 +238,60 @@ describe('buildHistoryStream', () => {
     // Most-recent first: touch at position 1 first, winner at index 100 second.
     expect(rows[0].pointIndex).toBe(1);
     expect(rows[1].pointIndex).toBe(100);
+  });
+});
+
+describe('oppositeWinningSide', () => {
+  it('swaps 1 and 2', () => {
+    expect(oppositeWinningSide(1)).toBe(2);
+    expect(oppositeWinningSide(2)).toBe(1);
+  });
+});
+
+describe('buildEditWinnerPayload', () => {
+  it('returns matched winner / winningSide pair for side 1', () => {
+    expect(buildEditWinnerPayload(1)).toEqual({ winner: 0, winningSide: 1 });
+  });
+
+  it('returns matched winner / winningSide pair for side 2', () => {
+    expect(buildEditWinnerPayload(2)).toEqual({ winner: 1, winningSide: 2 });
+  });
+});
+
+describe('parseRallyLengthInput', () => {
+  it('accepts a valid non-negative integer that differs from current', () => {
+    expect(parseRallyLengthInput('7', 4)).toEqual({ value: 7, dirty: true, valid: true });
+  });
+
+  it('reports clean when the parsed value equals the current', () => {
+    expect(parseRallyLengthInput('4', 4)).toEqual({ value: 4, dirty: false, valid: true });
+  });
+
+  it('blank input clears to undefined (dirty when current was set)', () => {
+    expect(parseRallyLengthInput('', 4)).toEqual({ value: undefined, dirty: true, valid: true });
+  });
+
+  it('blank input is clean when current is already undefined', () => {
+    expect(parseRallyLengthInput('', undefined)).toEqual({ value: undefined, dirty: false, valid: true });
+  });
+
+  it('whitespace-only input is treated as blank', () => {
+    expect(parseRallyLengthInput('   ', 4)).toEqual({ value: undefined, dirty: true, valid: true });
+  });
+
+  it('negative numbers are invalid', () => {
+    const r = parseRallyLengthInput('-3', 4);
+    expect(r.valid).toBe(false);
+    expect(r.dirty).toBe(false);
+  });
+
+  it('non-numeric input is invalid', () => {
+    const r = parseRallyLengthInput('abc', 4);
+    expect(r.valid).toBe(false);
+    expect(r.dirty).toBe(false);
+  });
+
+  it('zero is a valid rally length (aces / immediate errors)', () => {
+    expect(parseRallyLengthInput('0', 4)).toEqual({ value: 0, dirty: true, valid: true });
   });
 });

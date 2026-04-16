@@ -191,6 +191,33 @@ export function decoratePoint(pointIndex: number, metadata: Record<string, any>)
   bump();
 }
 
+/**
+ * Overwrite attributes on a specific past point and recalculate
+ * downstream state. Used by the point-history detail modal (Phase 3)
+ * for non-LIFO edits.
+ */
+export function editPoint(
+  pointIndex: number,
+  newData: Record<string, any>,
+  options?: { recalculate?: boolean },
+) {
+  if (!engine) return;
+  engine.editPoint(pointIndex, newData, options);
+  bump();
+}
+
+/**
+ * Remove a specific past point and recalculate downstream state.
+ * Used by the point-history detail modal (Phase 3) for non-LIFO
+ * corrections where the user wants the record gone entirely (e.g.
+ * a mis-entered penalty or an accidentally-logged point).
+ */
+export function removePoint(pointIndex: number, options?: { recalculate?: boolean }) {
+  if (!engine) return;
+  engine.removePoint(pointIndex, options);
+  bump();
+}
+
 export function getEngineState(): any {
   return engine?.getState();
 }
