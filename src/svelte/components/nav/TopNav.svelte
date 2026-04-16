@@ -39,15 +39,20 @@
   </div>
   <div class="top-nav-right">
     <RelayStatus />
-    {#if auth.isAuthenticated}
-      <button class="top-nav-auth top-nav-auth--in" onclick={handleLogout} title="Sign out">
-        {auth.email?.[0]?.toUpperCase() ?? '?'}
-      </button>
-    {:else}
-      <button class="top-nav-auth top-nav-auth--out" onclick={() => (showLoginModal = true)}>
-        Login
-      </button>
-    {/if}
+    <button
+      class="top-nav-avatar"
+      class:top-nav-avatar--out={!auth.isAuthenticated}
+      class:top-nav-avatar--in={auth.isAuthenticated && !auth.hasScoreRole}
+      class:top-nav-avatar--score={auth.isAuthenticated && auth.hasScoreRole}
+      onclick={() => (auth.isAuthenticated ? handleLogout() : (showLoginModal = true))}
+      title={auth.isAuthenticated ? `Signed in as ${auth.email ?? 'user'} — click to sign out` : 'Log in'}
+      aria-label={auth.isAuthenticated ? 'Sign out' : 'Log in'}
+    >
+      <!-- fa-solid fa-circle-user path, inlined — epixodic has no FontAwesome dep. -->
+      <svg class="top-nav-avatar-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+        <path fill="currentColor" d="M399 384.2C376.9 345.8 335.4 320 288 320H224c-47.4 0-88.9 25.8-111 64.2c35.2 39.2 86.2 63.8 143 63.8s107.8-24.6 143-63.8zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm256 16a72 72 0 1 0 0-144 72 72 0 1 0 0 144z"/>
+      </svg>
+    </button>
   </div>
 </nav>
 
@@ -99,28 +104,40 @@
     touch-action: manipulation;
   }
   .top-nav-back:active { opacity: 0.7; }
-  .top-nav-auth {
+  /* User avatar — mirrors TMX's fa-circle-user + color-by-state pattern.
+   * Icon colour is driven by currentColor so the state classes below
+   * set a single colour that propagates into the SVG fill. */
+  .top-nav-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
     border: none;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.25rem 0.5rem;
+    padding: 0.2rem;
     cursor: pointer;
     touch-action: manipulation;
-    line-height: 1;
+    line-height: 0;
+    color: var(--ep-page-text-muted, #888);
+    transition: color 0.15s, transform 0.1s;
   }
-  .top-nav-auth:active { opacity: 0.7; }
-  .top-nav-auth--out {
-    background: var(--ep-accent, #3b82f6);
-    color: #fff;
-  }
-  .top-nav-auth--in {
-    background: #10b981;
-    color: #fff;
-    min-width: 1.6rem;
-    text-align: center;
+  .top-nav-avatar:hover { transform: scale(1.05); }
+  .top-nav-avatar:active { transform: scale(0.95); opacity: 0.8; }
+  .top-nav-avatar:focus-visible {
+    outline: 2px solid var(--ep-accent, #3b82f6);
+    outline-offset: 2px;
     border-radius: 50%;
-    padding: 0.3rem;
-    font-size: 0.7rem;
   }
+
+  .top-nav-avatar-icon {
+    width: 1.6rem;
+    height: 1.6rem;
+    display: block;
+  }
+
+  /* Logged out: muted default. */
+  .top-nav-avatar--out { color: var(--ep-page-text-muted, #888); }
+  /* Logged in, regular user: accent (blue). */
+  .top-nav-avatar--in { color: var(--ep-accent, #3b82f6); }
+  /* Logged in with elevated role (score/superadmin): green. */
+  .top-nav-avatar--score { color: #10b981; }
 </style>
