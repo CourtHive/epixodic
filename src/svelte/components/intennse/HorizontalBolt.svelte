@@ -180,6 +180,8 @@
       {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
       {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
       {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
+      {side1Name} {side2Name}
+      onTimeoutSubstitute={onSubstitute}
     />
     {#if canSubmitScore && (breakActive || (matchComplete && !breakActive))}
       <button

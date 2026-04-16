@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 /**
- * Integration test for the break-flow contract wired into `BoltScoringPage`:
- *   startBreakClock() → `pauseAllPenaltyClocks`
- *   handleNextBolt()  → `resumeAllPenaltyClocks`
+ * Integration tests for the "bolt clock paused ⇒ penalty clock paused"
+ * contract, exercised everywhere `BoltScoringPage` pauses the bolt clock:
+ *
+ *   - startBreakClock()      → pauseAllPenaltyClocks
+ *   - handleNextBolt()       → resumeAllPenaltyClocks
+ *   - handleTimeout()        → pauseAllPenaltyClocks
+ *   - handleDismissTimeout() → resumeAllPenaltyClocks
+ *   - handleCancelTimeout()  → resumeAllPenaltyClocks
  *
  * The component itself is not mounted — we exercise the same helpers the
  * component does, end-to-end through the real `penaltyBox` store, with the
@@ -137,5 +142,81 @@ describe('break-flow integration — penalty clocks pause across the break', () 
     // B starts clean — no carryover penalty.
     expect(getBoxedPlayers()).toHaveLength(0);
     expect(getClockSnapshot('penaltyBox-A1')).toBeUndefined();
+  });
+});
+
+describe('timeout-flow integration — penalty clocks pause across the timeout', () => {
+  beforeEach(() => {
+    for (const k of Object.keys(mockStates)) delete mockStates[k];
+    resetPenaltyBox();
+    vi.clearAllMocks();
+  });
+
+  it('freezes an active penalty timer when a timeout is called', () => {
+    sendToBox('p1', 'Alice', 1, 120_000);
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+
+    // Timeout called → component calls pauseAllPenaltyClocks().
+    pauseAllPenaltyClocks();
+    expect(pauseClock).toHaveBeenCalledWith('penaltyBox-p1');
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
+
+    // END TIMEOUT → component calls resumeAllPenaltyClocks().
+    resumeAllPenaltyClocks();
+    expect(resumeClock).toHaveBeenCalledWith('penaltyBox-p1');
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+  });
+
+  it('resumes penalty clocks the same way for END TIMEOUT and CANCEL', () => {
+    // The component calls resumeAllPenaltyClocks in both handleDismissTimeout
+    // and handleCancelTimeout — behaviour is symmetric regardless of whether
+    // the timeout counted against the team's 5-per-ARC quota.
+    sendToBox('p1', 'Alice', 1);
+
+    pauseAllPenaltyClocks();
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
+    resumeAllPenaltyClocks(); // e.g. END TIMEOUT
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+
+    pauseAllPenaltyClocks();
+    resumeAllPenaltyClocks(); // e.g. CANCEL (doesn't count)
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+  });
+
+  it('a penalty issued *during* a timeout ticks down normally after the box entry is created', () => {
+    // Scenario: ref hits Penalty while timeout overlay is up. sendToBox still
+    // creates the clock (autoStart), and the penalty-pause-during-timeout
+    // rule is the caller's responsibility — once the caller triggers it, the
+    // clock ends up paused as expected.
+    sendToBox('mid-timeout-p', 'Bob', 2);
+    expect(getClockSnapshot('penaltyBox-mid-timeout-p')?.state).toBe('running');
+
+    pauseAllPenaltyClocks();
+    expect(getClockSnapshot('penaltyBox-mid-timeout-p')?.state).toBe('paused');
+
+    resumeAllPenaltyClocks();
+    expect(getClockSnapshot('penaltyBox-mid-timeout-p')?.state).toBe('running');
+  });
+
+  it('a single penalty survives a timeout followed immediately by a break', () => {
+    // Common sequence: penalty → timeout called (60s) → timeout ends →
+    // bolt expires → between-bolts break → next bolt. The penalty clock
+    // must pause twice and resume twice, with no double-counting.
+    sendToBox('p1', 'Alice', 1);
+
+    // Timeout cycle.
+    pauseAllPenaltyClocks();
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
+    resumeAllPenaltyClocks();
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+
+    // Break cycle.
+    pauseAllPenaltyClocks();
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('paused');
+    resumeAllPenaltyClocks();
+    expect(getClockSnapshot('penaltyBox-p1')?.state).toBe('running');
+
+    expect(pauseClock).toHaveBeenCalledTimes(2);
+    expect(resumeClock).toHaveBeenCalledTimes(2);
   });
 });

@@ -776,6 +776,10 @@
     const serveSnapshot = getClockSnapshot('serveClock');
     serveClockWasRunning = serveSnapshot?.state === 'running';
     executeClockCommands(onTimeoutStart(serveClockWasRunning));
+    // A penalised player should not burn their penalty-box time while the
+    // bolt clock is paused for a timeout. Mirrors the between-bolts break
+    // behaviour in startBreakClock().
+    pauseAllPenaltyClocks();
   }
 
   function handleDismissTimeout() {
@@ -783,6 +787,7 @@
       timeoutsUsed[timeoutSide]++;
     }
     executeClockCommands(onTimeoutEnd(serveClockWasRunning));
+    resumeAllPenaltyClocks();
     timeoutTeamName = '';
     timeoutSide = null;
   }
@@ -792,6 +797,7 @@
     const timeoutSnapshot = getClockSnapshot('timeoutTimer');
     const elapsedMs = timeoutSnapshot?.elapsedMs ?? 0;
     executeClockCommands(onTimeoutEnd(serveClockWasRunning));
+    resumeAllPenaltyClocks();
     // Bolt clock resumed by onTimeoutEnd; no timeout counted
     timeoutTeamName = '';
     timeoutSide = null;

@@ -140,6 +140,14 @@
         <div class="intennse-timeout-team">{timeoutTeamName}</div>
       {/if}
       <ClockDisplay clockId="timeoutTimer" label="" urgentAtMs={30000} criticalAtMs={10000} />
+      <div class="intennse-timeout-sub-row">
+        <button class="intennse-ctrl-btn intennse-timeout-sub" onclick={() => onSubstitute(1)}>
+          Sub {side1Name || 'Side 1'}
+        </button>
+        <button class="intennse-ctrl-btn intennse-timeout-sub" onclick={() => onSubstitute(2)}>
+          Sub {side2Name || 'Side 2'}
+        </button>
+      </div>
       <button class="intennse-ctrl-btn intennse-timeout-dismiss" onclick={onDismissTimeout}>
         END TIMEOUT
       </button>

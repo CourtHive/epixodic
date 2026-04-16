@@ -11,6 +11,9 @@
     timeoutTeamName = '',
     onDismissTimeout,
     onCancelTimeout,
+    onTimeoutSubstitute,
+    side1Name = '',
+    side2Name = '',
     onBack,
     serveClock = false,
     rallyInProgress = false,
@@ -34,6 +37,10 @@
     timeoutTeamName?: string;
     onDismissTimeout: () => void;
     onCancelTimeout?: () => void;
+    /** Open the Substitution modal from inside the timeout overlay. */
+    onTimeoutSubstitute?: (side: 1 | 2) => void;
+    side1Name?: string;
+    side2Name?: string;
     onBack?: () => void;
     serveClock?: boolean;
     rallyInProgress?: boolean;
@@ -62,6 +69,16 @@
         <div class="intennse-timeout-team">{timeoutTeamName}</div>
       {/if}
       <ClockDisplay clockId="timeoutTimer" label="" urgentAtMs={30000} criticalAtMs={10000} />
+      {#if onTimeoutSubstitute}
+        <div class="intennse-timeout-sub-row">
+          <button class="intennse-ctrl-btn intennse-timeout-sub" onclick={() => onTimeoutSubstitute(1)}>
+            Sub {side1Name || 'Side 1'}
+          </button>
+          <button class="intennse-ctrl-btn intennse-timeout-sub" onclick={() => onTimeoutSubstitute(2)}>
+            Sub {side2Name || 'Side 2'}
+          </button>
+        </div>
+      {/if}
       <button class="intennse-ctrl-btn intennse-timeout-dismiss" onclick={onDismissTimeout}>
         END TIMEOUT
       </button>

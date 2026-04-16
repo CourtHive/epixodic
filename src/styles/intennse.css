@@ -636,6 +636,26 @@
   color: var(--intennse-accent, #4a90d9);
 }
 
+.intennse-timeout-sub-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.intennse-timeout-sub {
+  flex: 1;
+  font-size: 0.7rem !important;
+  min-width: 0 !important;
+  padding: 0.4rem 0.6rem !important;
+  background: var(--intennse-surface, #1a1a2e) !important;
+  border-color: var(--intennse-serving, #00d4aa) !important;
+  color: var(--intennse-serving, #00d4aa) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .intennse-timeout-dismiss {
   font-size: 0.8rem !important;
   min-width: 120px !important;
