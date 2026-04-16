@@ -32,7 +32,22 @@
     side2Name?: string;
     onClose: () => void;
     onRemove: (entry: PointHistoryEntry) => void;
-    onEditWinner: (entry: PointHistoryEntry, nextWinningSide: 1 | 2) => void;
+    /**
+     * `mode` distinguishes the two correction scenarios:
+     *   - 'recalculate'     — live scorekeeping error, play continued
+     *                         with the actual (correct) winner; the full
+     *                         history is recomputed from the flipped
+     *                         winner onward.
+     *   - 'preserveServers' — post-review award change; play already
+     *                         continued based on the wrong call, so
+     *                         subsequent points retain the servers they
+     *                         were actually played with.
+     */
+    onEditWinner: (
+      entry: PointHistoryEntry,
+      nextWinningSide: 1 | 2,
+      mode: 'recalculate' | 'preserveServers',
+    ) => void;
     onEditRallyLength: (entry: PointHistoryEntry, nextRallyLength: number | undefined) => void;
   } = $props();
 
@@ -40,8 +55,8 @@
   let rallyDraft = $state<string>(entry.rallyLength != null ? String(entry.rallyLength) : '');
   const rallyParse = $derived(parseRallyLengthInput(rallyDraft, entry.rallyLength));
 
-  function handleFlipWinner() {
-    onEditWinner(entry, oppositeWinningSide(entry.winningSide));
+  function handleFlipWinner(mode: 'recalculate' | 'preserveServers') {
+    onEditWinner(entry, oppositeWinningSide(entry.winningSide), mode);
   }
 
   function handleSaveRally() {
@@ -59,6 +74,9 @@
   }
 
   const sideLabel = $derived(entry.winningSide === 1 ? side1Name || 'Side 1' : side2Name || 'Side 2');
+  const otherSideLabel = $derived(
+    oppositeWinningSide(entry.winningSide) === 1 ? side1Name || 'Side 1' : side2Name || 'Side 2',
+  );
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -91,19 +109,37 @@
     </div>
 
     <div class="pdm-section">
-      <div class="pdm-section-label">Edit</div>
-      <button class="pdm-action-btn" onclick={handleFlipWinner}>
-        Give point to {entry.winningSide === 1 ? side2Name || 'Side 2' : side1Name || 'Side 1'}
+      <div class="pdm-section-label">Give point to {otherSideLabel}</div>
+      <p class="pdm-winner-help">
+        How should the rest of the bolt be handled?
+      </p>
+      <button class="pdm-winner-btn" onclick={() => handleFlipWinner('recalculate')}>
+        <span class="pdm-winner-btn-title">Scorekeeping error — recalculate</span>
+        <span class="pdm-winner-btn-help">
+          Use when play continued with the actual winner but the scorekeeper
+          recorded the wrong side. Downstream score and serve order rebuild.
+        </span>
       </button>
+      <button class="pdm-winner-btn" onclick={() => handleFlipWinner('preserveServers')}>
+        <span class="pdm-winner-btn-title">Post-review correction — retain serve order</span>
+        <span class="pdm-winner-btn-help">
+          Use when play continued based on the original (now-flipped) call —
+          e.g. a later video review reversed the award. Subsequent points
+          keep the servers they were actually played with.
+        </span>
+      </button>
+    </div>
+
+    <div class="pdm-section">
+      <div class="pdm-section-label">Rally length</div>
       <div class="pdm-rally-row">
-        <label class="pdm-rally-label" for="pdm-rally-input">Rally length</label>
         <input
-          id="pdm-rally-input"
           class="pdm-rally-input"
           type="number"
           min="0"
           bind:value={rallyDraft}
           placeholder="(none)"
+          aria-label="Rally length"
         />
         <button class="pdm-action-btn pdm-action-btn--rally" onclick={handleSaveRally} disabled={!rallyParse.dirty || !rallyParse.valid}>
           Save
@@ -262,14 +298,46 @@
   .pdm-action-btn:disabled { opacity: 0.4; cursor: default; }
   .pdm-action-btn:active:not(:disabled) { opacity: 0.7; }
 
+  .pdm-winner-help {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    color: var(--intennse-text-muted, #8892b0);
+    line-height: 1.3;
+  }
+
+  .pdm-winner-btn {
+    display: block;
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    margin-bottom: 0.4rem;
+    background: var(--intennse-bg, #1a1a2e);
+    color: var(--intennse-text, #e0e0e0);
+    border: 1px solid var(--intennse-accent, #0f3460);
+    border-radius: 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+    text-align: left;
+  }
+  .pdm-winner-btn:active { opacity: 0.7; }
+  .pdm-winner-btn-title {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--intennse-text, #e0e0e0);
+  }
+  .pdm-winner-btn-help {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.65rem;
+    font-weight: 400;
+    color: var(--intennse-text-muted, #8892b0);
+    line-height: 1.35;
+  }
+
   .pdm-rally-row {
     display: flex;
     gap: 0.4rem;
     align-items: center;
-  }
-  .pdm-rally-label {
-    font-size: 0.7rem;
-    color: var(--intennse-text-muted, #8892b0);
   }
   .pdm-rally-input {
     flex: 1;

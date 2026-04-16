@@ -25,6 +25,7 @@
     decoratePoint,
     editPoint,
     removePoint,
+    pinEntryServersToPoints,
   } from '../../stores/scoringEngine.svelte';
   import {
     getPlayerTimeState,
@@ -1145,7 +1146,25 @@
     pointDetailEntry = null;
   }
 
-  function handleEditWinner(entry: PointHistoryEntry, nextWinningSide: 1 | 2) {
+  function handleEditWinner(
+    entry: PointHistoryEntry,
+    nextWinningSide: 1 | 2,
+    mode: 'recalculate' | 'preserveServers',
+  ) {
+    if (mode === 'preserveServers') {
+      // Post-review correction: play continued based on the original
+      // (now-flipped) call, so every subsequent point keeps the server
+      // it was actually played with. Pin each point's observed server
+      // into its history entry before the rebuild so the replay honours
+      // the real serve order instead of re-deriving from the new winner
+      // chain. Stamp audit metadata on the flipped point itself.
+      pinEntryServersToPoints();
+      decoratePoint(entry.pointIndex, {
+        reviewedAt: new Date().toISOString(),
+        originalWinningSide: entry.winningSide,
+        serverPinned: true,
+      });
+    }
     editPoint(
       entry.pointIndex,
       buildEditWinnerPayload(nextWinningSide),

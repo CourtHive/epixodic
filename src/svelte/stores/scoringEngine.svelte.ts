@@ -218,6 +218,40 @@ export function removePoint(pointIndex: number, options?: { recalculate?: boolea
   bump();
 }
 
+/**
+ * Snapshot each point's currently-stored `server` field into its matching
+ * `history.entries` entry so that a subsequent `editPoint(recalculate:
+ * true)` rebuild honours the actual-observed serve order rather than
+ * re-deriving servers from the new winner chain.
+ *
+ * Used by the point-history detail modal (Phase 3) when the scorekeeper
+ * flips a winner as a **post-review correction**: play continued
+ * based on the original (incorrect) call, so subsequent points keep
+ * the servers they were actually played with. For ordinary
+ * scorekeeping-error corrections — where the on-court winner was right
+ * but got mis-recorded — this function is not called, and the rebuild
+ * re-derives servers naturally.
+ *
+ * Safe to call before any rebuild; no-op when there is no engine.
+ */
+export function pinEntryServersToPoints() {
+  if (!engine) return;
+  const state = engine.getState();
+  const points: any[] = state?.history?.points ?? [];
+  const entries: any[] = state?.history?.entries ?? [];
+  for (const entry of entries) {
+    if (entry?.type !== 'point') continue;
+    const idx = entry.pointIndex;
+    if (typeof idx !== 'number') continue;
+    const point = points[idx];
+    if (point && typeof point.server === 'number') {
+      entry.data = entry.data ?? {};
+      entry.data.server = point.server;
+    }
+  }
+  bump();
+}
+
 export function getEngineState(): any {
   return engine?.getState();
 }
