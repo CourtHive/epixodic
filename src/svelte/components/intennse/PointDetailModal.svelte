@@ -77,6 +77,22 @@
   const otherSideLabel = $derived(
     oppositeWinningSide(entry.winningSide) === 1 ? side1Name || 'Side 1' : side2Name || 'Side 2',
   );
+
+  /** Is the entry a previously-edited point? */
+  const hasEditAudit = $derived(Boolean(entry.editReason));
+  const originalSideLabel = $derived(
+    entry.originalWinningSide === 1 ? side1Name || 'Side 1' : side2Name || 'Side 2',
+  );
+
+  function formatEditedAt(): string {
+    if (!entry.editedAt) return '';
+    const d = new Date(entry.editedAt);
+    if (Number.isNaN(d.getTime())) return '';
+    const hh = d.getHours().toString().padStart(2, '0');
+    const mm = d.getMinutes().toString().padStart(2, '0');
+    const ss = d.getSeconds().toString().padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -107,6 +123,29 @@
         </div>
       </div>
     </div>
+
+    {#if hasEditAudit}
+      <div class="pdm-audit pdm-audit--{entry.editReason}">
+        <div class="pdm-audit-title">
+          {entry.editReason === 'reviewCorrection'
+            ? 'Post-review correction'
+            : 'Edited — scorekeeping error'}
+        </div>
+        <div class="pdm-audit-meta">
+          {#if entry.originalWinningSide}
+            Originally awarded to <strong>{originalSideLabel}</strong>.
+          {/if}
+          {#if entry.editedAt}
+            <span class="pdm-audit-time">Edited at {formatEditedAt()}.</span>
+          {/if}
+          {#if entry.serverPinned}
+            <span>Serve order retained as played.</span>
+          {:else if entry.editReason === 'scorekeepingError'}
+            <span>Serve order recalculated from the corrected chain.</span>
+          {/if}
+        </div>
+      </div>
+    {/if}
 
     <div class="pdm-section">
       <div class="pdm-section-label">Give point to {otherSideLabel}</div>
@@ -304,6 +343,30 @@
     color: var(--intennse-text-muted, #8892b0);
     line-height: 1.3;
   }
+
+  .pdm-audit {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    border-left: 3px solid var(--intennse-urgent, #ff9800);
+    background: rgba(255, 152, 0, 0.06);
+  }
+  .pdm-audit--scorekeepingError {
+    border-left-color: var(--intennse-text-muted, #8892b0);
+    background: rgba(136, 146, 176, 0.08);
+  }
+  .pdm-audit-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--intennse-text, #e0e0e0);
+    margin-bottom: 0.2rem;
+  }
+  .pdm-audit-meta {
+    font-size: 0.65rem;
+    line-height: 1.4;
+    color: var(--intennse-text-muted, #8892b0);
+  }
+  .pdm-audit-time { display: inline-block; margin-right: 0.25rem; }
 
   .pdm-winner-btn {
     display: block;

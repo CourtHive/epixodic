@@ -39,6 +39,7 @@
         <li class="phs-row phs-row--side{entry.winningSide} phs-row--{entry.kind}">
           <button
             class="phs-row-btn"
+            class:phs-row-btn--edited={entry.editReason}
             type="button"
             disabled={!onEntryTap}
             onclick={() => onEntryTap?.(entry)}
@@ -62,6 +63,17 @@
             {/if}
             {#if entry.wonOnServe && (entry.kind === 'winner' || entry.kind === 'ace')}
               <span class="phs-serve" title="Won on serve">↑</span>
+            {/if}
+            {#if entry.editReason === 'scorekeepingError'}
+              <span
+                class="phs-edit-badge phs-edit-badge--scorekeeping"
+                title="Edited — scorekeeping error, serve order recalculated"
+              >✎</span>
+            {:else if entry.editReason === 'reviewCorrection'}
+              <span
+                class="phs-edit-badge phs-edit-badge--review"
+                title="Post-review correction — serve order retained as played"
+              >⚖</span>
             {/if}
           </button>
         </li>
@@ -188,4 +200,25 @@
     color: var(--intennse-serving, #00d4aa);
     font-size: 0.75rem;
   }
+
+  /* Edit badge — small glyph next to the row indicating the point has
+   * been corrected after the fact. Hover / long-press reveals the
+   * scenario via the `title` attribute. */
+  .phs-edit-badge {
+    font-size: 0.7rem;
+    line-height: 1;
+    padding: 0.1rem 0.25rem;
+    border-radius: 3px;
+    font-weight: 700;
+  }
+  .phs-edit-badge--scorekeeping {
+    background: var(--intennse-text-muted, #8892b0);
+    color: var(--intennse-surface, #16213e);
+  }
+  .phs-edit-badge--review {
+    background: var(--intennse-urgent, #ff9800);
+    color: #000;
+  }
+  /* Subtle row tint so the edit is scannable without reading the badge. */
+  .phs-row-btn--edited { background: rgba(255, 152, 0, 0.04); }
 </style>

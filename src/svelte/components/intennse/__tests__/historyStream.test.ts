@@ -3,6 +3,7 @@ import {
   buildEditWinnerPayload,
   buildHistoryEntry,
   buildHistoryStream,
+  buildWinnerEditDecorations,
   classifyPointResult,
   formatTimeLabel,
   glyphForKind,
@@ -172,6 +173,57 @@ describe('buildHistoryEntry', () => {
     const entry = buildHistoryEntry({ winner: 0 }, 7, sides);
     expect(entry.pointIndex).toBe(7);
   });
+
+  it('surfaces the scorekeepingError audit metadata on a flipped point', () => {
+    const entry = buildHistoryEntry(
+      {
+        winner: 1, // current winner is now side 2
+        editedAt: '2026-04-16T14:32:05Z',
+        editReason: 'scorekeepingError',
+        originalWinningSide: 1,
+      },
+      0,
+      sides,
+    );
+    expect(entry.editReason).toBe('scorekeepingError');
+    expect(entry.editedAt).toBe('2026-04-16T14:32:05Z');
+    expect(entry.originalWinningSide).toBe(1);
+    expect(entry.serverPinned).toBeUndefined();
+  });
+
+  it('surfaces the reviewCorrection audit metadata AND serverPinned=true', () => {
+    const entry = buildHistoryEntry(
+      {
+        winner: 0,
+        editReason: 'reviewCorrection',
+        originalWinningSide: 2,
+        serverPinned: true,
+      },
+      0,
+      sides,
+    );
+    expect(entry.editReason).toBe('reviewCorrection');
+    expect(entry.originalWinningSide).toBe(2);
+    expect(entry.serverPinned).toBe(true);
+  });
+
+  it('ignores garbage audit values from upstream (forward-compatibility guard)', () => {
+    const entry = buildHistoryEntry(
+      {
+        winner: 0,
+        editReason: 'someUnknownReason', // not in the union
+        originalWinningSide: 7 as any, // not 1 | 2
+        serverPinned: 'yes' as any, // not true
+        editedAt: 42 as any, // not a string
+      },
+      0,
+      sides,
+    );
+    expect(entry.editReason).toBeUndefined();
+    expect(entry.originalWinningSide).toBeUndefined();
+    expect(entry.serverPinned).toBeUndefined();
+    expect(entry.editedAt).toBeUndefined();
+  });
 });
 
 describe('buildHistoryStream', () => {
@@ -255,6 +307,58 @@ describe('buildEditWinnerPayload', () => {
 
   it('returns matched winner / winningSide pair for side 2', () => {
     expect(buildEditWinnerPayload(2)).toEqual({ winner: 1, winningSide: 2 });
+  });
+});
+
+describe('buildWinnerEditDecorations', () => {
+  const base = { currentWinningSide: 1 as const, editedAt: '2026-04-16T14:32:05Z' };
+
+  it('scorekeeper-error mode returns editReason=scorekeepingError and no serverPinned flag', () => {
+    const out = buildWinnerEditDecorations({ ...base, mode: 'recalculate' });
+    expect(out).toEqual({
+      editedAt: '2026-04-16T14:32:05Z',
+      editReason: 'scorekeepingError',
+      originalWinningSide: 1,
+    });
+    expect('serverPinned' in out).toBe(false);
+  });
+
+  it('review-correction mode returns editReason=reviewCorrection and serverPinned=true', () => {
+    const out = buildWinnerEditDecorations({ ...base, mode: 'preserveServers' });
+    expect(out).toEqual({
+      editedAt: '2026-04-16T14:32:05Z',
+      editReason: 'reviewCorrection',
+      originalWinningSide: 1,
+      serverPinned: true,
+    });
+  });
+
+  it('preserves the earliest recorded original awarding side across repeated flips', () => {
+    // User flipped once already; a second flip should not overwrite the first-recorded original.
+    const first = buildWinnerEditDecorations({
+      currentWinningSide: 1,
+      mode: 'recalculate',
+      editedAt: '2026-04-16T14:32:05Z',
+    });
+    const second = buildWinnerEditDecorations({
+      currentWinningSide: 2, // point is now on side 2 after the first flip
+      mode: 'reviewCorrection' as any, // bogus mode falls back to scorekeepingError
+      existingOriginalWinningSide: first.originalWinningSide,
+      editedAt: '2026-04-16T14:33:00Z',
+    });
+    expect(second.originalWinningSide).toBe(1);
+  });
+
+  it('uses the system clock when editedAt is omitted', () => {
+    const out = buildWinnerEditDecorations({ currentWinningSide: 1, mode: 'recalculate' });
+    // Basic sanity: a parseable ISO string.
+    expect(typeof out.editedAt).toBe('string');
+    expect(Number.isNaN(new Date(out.editedAt).getTime())).toBe(false);
+  });
+
+  it('non-preserveServers modes never add serverPinned=true', () => {
+    const out = buildWinnerEditDecorations({ currentWinningSide: 1, mode: 'recalculate' });
+    expect(out.serverPinned).toBeUndefined();
   });
 });
 

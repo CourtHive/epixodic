@@ -20,6 +20,19 @@ export type PointResultKind =
   | 'adjustment'
   | 'other';
 
+/**
+ * Why a point's winner was corrected after the fact.
+ *
+ * - `scorekeepingError` — the live scorekeeper recorded the wrong side;
+ *   play continued with the actual (correct) winner, so the rebuild
+ *   re-derives score + serve order from the flipped chain.
+ * - `reviewCorrection` — the original on-court call was later reversed
+ *   (video review, umpire change). Play already continued based on the
+ *   now-flipped call, so the serve order of subsequent points is
+ *   preserved as historically played via `serverPinned: true`.
+ */
+export type WinnerEditReason = 'scorekeepingError' | 'reviewCorrection';
+
 export interface PointHistoryEntry {
   /** Stable index of the point within its tieMatchUp's history. */
   pointIndex: number;
@@ -45,6 +58,16 @@ export interface PointHistoryEntry {
   penaltyAgainstParticipantName?: string;
   /** Length of the rally in shots, when the scorer logged it. */
   rallyLength?: number;
+
+  // ── Audit fields — present only if the point has been corrected ────
+  /** ISO timestamp of the most recent winner flip. */
+  editedAt?: string;
+  /** Distinguishes a live scorekeeping error from a post-review correction. */
+  editReason?: WinnerEditReason;
+  /** First-recorded awarding side — survives later flips and flip-backs. */
+  originalWinningSide?: 1 | 2;
+  /** True when the rebuild was told to retain the actual-played serve order. */
+  serverPinned?: boolean;
 }
 
 export interface HistoryStreamSides {
@@ -134,6 +157,15 @@ export function buildHistoryEntry(
     ? point.winningSide
     : (point?.winner === 0 ? 1 : 2);
   const kind = classifyPointResult(point);
+  const editReason: WinnerEditReason | undefined =
+    point?.editReason === 'scorekeepingError' || point?.editReason === 'reviewCorrection'
+      ? point.editReason
+      : undefined;
+  const originalWinningSide: 1 | 2 | undefined =
+    point?.originalWinningSide === 1 || point?.originalWinningSide === 2
+      ? point.originalWinningSide
+      : undefined;
+
   return {
     pointIndex: typeof point?.index === 'number' ? point.index : fallbackIndex,
     timestamp: point?.timestamp,
@@ -147,6 +179,10 @@ export function buildHistoryEntry(
     wonOnServe: wonOnServe(point),
     penaltyAgainstParticipantName: point?.penaltyAgainstParticipantName,
     rallyLength: typeof point?.rallyLength === 'number' ? point.rallyLength : undefined,
+    editedAt: typeof point?.editedAt === 'string' ? point.editedAt : undefined,
+    editReason,
+    originalWinningSide,
+    serverPinned: point?.serverPinned === true ? true : undefined,
   };
 }
 
@@ -170,6 +206,50 @@ export function buildEditWinnerPayload(nextWinningSide: 1 | 2): {
     winner: (nextWinningSide - 1) as 0 | 1,
     winningSide: nextWinningSide,
   };
+}
+
+/**
+ * Audit metadata to attach to a PENALTY-free point when its winner has
+ * been flipped after the fact. Captures the scenario (scorekeeping error
+ * vs post-review correction), the original awarding side (preserved
+ * across repeat flips so the very first award stays recorded), and a
+ * flag for the pinned-serve-order path.
+ *
+ * Shared by both flip modes so the viewer / detail modal can surface a
+ * consistent "this point was edited" indicator with accurate context.
+ */
+export function buildWinnerEditDecorations(opts: {
+  currentWinningSide: 1 | 2;
+  mode: 'recalculate' | 'preserveServers';
+  /** Already-stored first-recorded awarding side — preserve through repeat flips. */
+  existingOriginalWinningSide?: 1 | 2;
+  /** ISO timestamp injection point for deterministic tests. */
+  editedAt?: string;
+}): {
+  editedAt: string;
+  editReason: WinnerEditReason;
+  originalWinningSide: 1 | 2;
+  serverPinned?: true;
+} {
+  const editReason: WinnerEditReason =
+    opts.mode === 'preserveServers' ? 'reviewCorrection' : 'scorekeepingError';
+  // If this is the first flip, the "original" is whatever the point
+  // currently shows. Later flips (incl. flip-back) preserve the very
+  // first recorded awarding side.
+  const originalWinningSide: 1 | 2 =
+    opts.existingOriginalWinningSide ?? opts.currentWinningSide;
+  const base: {
+    editedAt: string;
+    editReason: WinnerEditReason;
+    originalWinningSide: 1 | 2;
+    serverPinned?: true;
+  } = {
+    editedAt: opts.editedAt ?? new Date().toISOString(),
+    editReason,
+    originalWinningSide,
+  };
+  if (opts.mode === 'preserveServers') base.serverPinned = true;
+  return base;
 }
 
 /**

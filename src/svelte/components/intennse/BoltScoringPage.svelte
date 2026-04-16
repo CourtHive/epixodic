@@ -8,7 +8,11 @@
   import PenaltyBoxDetailModal from './PenaltyBoxDetailModal.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
   import PointDetailModal from './PointDetailModal.svelte';
-  import { buildEditWinnerPayload, type PointHistoryEntry } from './historyStream';
+  import {
+    buildEditWinnerPayload,
+    buildWinnerEditDecorations,
+    type PointHistoryEntry,
+  } from './historyStream';
   import {
     getScoringState,
     getEngineState,
@@ -1151,20 +1155,25 @@
     nextWinningSide: 1 | 2,
     mode: 'recalculate' | 'preserveServers',
   ) {
-    if (mode === 'preserveServers') {
-      // Post-review correction: play continued based on the original
-      // (now-flipped) call, so every subsequent point keeps the server
-      // it was actually played with. Pin each point's observed server
-      // into its history entry before the rebuild so the replay honours
-      // the real serve order instead of re-deriving from the new winner
-      // chain. Stamp audit metadata on the flipped point itself.
-      pinEntryServersToPoints();
-      decoratePoint(entry.pointIndex, {
-        reviewedAt: new Date().toISOString(),
-        originalWinningSide: entry.winningSide,
-        serverPinned: true,
-      });
-    }
+    // Post-review correction: pin actual-observed servers into the
+    // entries so the rebuild below doesn't re-derive and rewrite the
+    // post-flip serve order.
+    if (mode === 'preserveServers') pinEntryServersToPoints();
+
+    // Audit metadata — written for BOTH flip modes so the viewer row
+    // can surface "this point was edited" with accurate context
+    // (scorekeeping error vs post-review correction; original
+    // awarding side; serve-order pinned or not).
+    const existingPoint = getEngineState()?.history?.points?.[entry.pointIndex];
+    decoratePoint(
+      entry.pointIndex,
+      buildWinnerEditDecorations({
+        currentWinningSide: entry.winningSide,
+        mode,
+        existingOriginalWinningSide: existingPoint?.originalWinningSide,
+      }),
+    );
+
     editPoint(
       entry.pointIndex,
       buildEditWinnerPayload(nextWinningSide),
