@@ -225,7 +225,12 @@
   justify-self: end;
 }
 
-.intennse-h-arc-row :global(.pbi) {
+/* `.pbi` + `.pbi-jersey` come from the PenaltyBoxIndicator component.
+ * Because `intennse.css` is a plain (unscoped) global stylesheet,
+ * every class here is already globally scoped — `:global(...)` is a
+ * Svelte-scope construct and would be invalid CSS if it survived into
+ * the bundle. Use the bare descendant selector. */
+.intennse-h-arc-row .pbi {
   height: 100%;
   border-radius: 0;
   font-size: 1rem;
@@ -233,7 +238,7 @@
   gap: 0.4rem;
 }
 
-.intennse-h-arc-row :global(.pbi-jersey) {
+.intennse-h-arc-row .pbi-jersey {
   min-width: 1.8rem;
   height: 1.8rem;
   font-size: 0.9rem;
