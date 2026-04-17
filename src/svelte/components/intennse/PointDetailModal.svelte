@@ -52,6 +52,12 @@
   } = $props();
 
   let confirmingRemove = $state(false);
+  // The modal is mounted fresh per entry (the parent keys the
+  // `{#if pointDetailEntry}` block on identity), so seeding the draft
+  // from `entry.rallyLength` at mount time is intentional — not a
+  // staleness bug. Silence Svelte 5's state-referenced-locally check
+  // matching the SubstitutionModal pattern.
+  // svelte-ignore state_referenced_locally
   let rallyDraft = $state<string>(entry.rallyLength != null ? String(entry.rallyLength) : '');
   const rallyParse = $derived(parseRallyLengthInput(rallyDraft, entry.rallyLength));
 

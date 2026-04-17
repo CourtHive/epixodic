@@ -635,7 +635,11 @@
     display: flex;
     overflow: hidden;
   }
-  .iv-history-drawer > * { flex: 1; min-height: 0; }
+  /* The drawer renders <PointHistoryStream> (a child component) as its
+   * only child, so this selector targets that child's root element.
+   * `:global` is required because Svelte's scoped-CSS analyzer can't
+   * match a descendant living inside another component. */
+  .iv-history-drawer > :global(*) { flex: 1; min-height: 0; }
 
   .iv-footer {
     display: grid;
