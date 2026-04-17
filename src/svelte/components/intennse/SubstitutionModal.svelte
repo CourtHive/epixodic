@@ -7,28 +7,37 @@
     activePlayers,
     benchPlayers,
     preSelectedOut,
+    isMixedBolt = false,
     onSubstitute,
     onClose,
   }: {
     side: 1 | 2;
-    activePlayers: { participantId: string; participantName: string; jerseyNumber?: string }[];
+    activePlayers: { participantId: string; participantName: string; jerseyNumber?: string; gender?: string }[];
     benchPlayers: { participantId: string; participantName: string; gender?: string; jerseyNumber?: string }[];
     preSelectedOut?: string;
+    /** True when the current bolt is Mixed Doubles — enables per-outgoing
+     *  gender gating on the bench (male→male, female→female). For non-MIXED
+     *  bolts the bench is already pre-filtered by BoltScoringPage. */
+    isMixedBolt?: boolean;
     onSubstitute: (outId: string, inId: string) => void;
     onClose: () => void;
   } = $props();
 
-  // svelte-ignore state_referenced_locally — initial value only; the modal
-  // is mounted once per open with a stable activePlayers list, and the user
-  // mutates selectedOut directly via selectOut().
+  // svelte-ignore state_referenced_locally — mount-time seeding, same
+  // as SubstitutionModal's existing pattern; the modal is keyed by the
+  // parent and never survives across different activePlayers lists.
   let selectedOut = $state<string | null>(
     // svelte-ignore state_referenced_locally
     preSelectedOut ?? (activePlayers.length === 1 ? activePlayers[0].participantId : null),
   );
 
+  /** Gender of the currently-selected outgoing player (for XD gating). */
+  const selectedOutGender = $derived(
+    activePlayers.find((p) => p.participantId === selectedOut)?.gender,
+  );
+
   function selectOut(participantId: string) {
     if (participantId === preSelectedOut) return;
-    // Don't allow deselecting when only one active player (singles)
     if (activePlayers.length === 1) {
       selectedOut = participantId;
       return;
@@ -36,10 +45,28 @@
     selectedOut = selectedOut === participantId ? null : participantId;
   }
 
+  /** True when a bench player may NOT be tapped because their gender
+   *  doesn't match the outgoing player (XD-only rule; for non-MIXED
+   *  bolts the bench is already pre-filtered by BoltScoringPage). */
+  function isBenchGenderBlocked(benchGender?: string): boolean {
+    if (!isMixedBolt) return false;
+    if (!selectedOut || !selectedOutGender) return false;
+    if (!benchGender) return false;
+    return benchGender !== selectedOutGender;
+  }
+
   function selectIn(participantId: string) {
     if (!selectedOut) return;
     onSubstitute(selectedOut, participantId);
     selectedOut = null;
+  }
+
+  /** CSS color for participant name based on gender. */
+  function genderColor(gender?: string): string {
+    const g = (gender ?? '').toUpperCase();
+    if (g === 'MALE' || g === 'M') return 'var(--chc-gender-male, #2E86C1)';
+    if (g === 'FEMALE' || g === 'F') return 'var(--chc-gender-female, #E07BAF)';
+    return '';
   }
 </script>
 
@@ -66,7 +93,7 @@
           onclick={() => selectOut(player.participantId)}
           disabled={locked}
         >
-          <span class="sub-player-name">
+          <span class="sub-player-name" style:color={genderColor(player.gender)}>
             {#if player.jerseyNumber}<span class="sub-jersey">{player.jerseyNumber}</span>{/if}
             {player.participantName}{locked ? ' (penalized)' : ''}
           </span>
@@ -78,17 +105,21 @@
     </div>
 
     <div class="sub-section">
-      <div class="sub-section-label">Bench — tap replacement{selectedOut ? '' : ' (select a player above first)'}</div>
+      <div class="sub-section-label">
+        Bench — tap replacement{selectedOut ? '' : ' (select a player above first)'}
+      </div>
       {#each benchPlayers as player (player.participantId)}
         {@const remaining = getRemainingMs(player.participantId)}
         {@const exhausted = isTimeExhausted(player.participantId)}
+        {@const genderBlocked = isBenchGenderBlocked(player.gender)}
         <button
           class="sub-player sub-player--bench"
           class:sub-player--exhausted={exhausted}
+          class:sub-player--gender-blocked={genderBlocked}
           onclick={() => selectIn(player.participantId)}
-          disabled={exhausted || !selectedOut}
+          disabled={exhausted || genderBlocked || !selectedOut}
         >
-          <span class="sub-player-name">
+          <span class="sub-player-name" style:color={genderColor(player.gender)}>
             {#if player.jerseyNumber}<span class="sub-jersey">{player.jerseyNumber}</span>{/if}
             {player.participantName}
           </span>
@@ -178,6 +209,7 @@
   .sub-player--locked { border-color: var(--intennse-critical, #ef5350); opacity: 0.5; cursor: default; }
   .sub-player--exhausted { opacity: 0.4; }
   .sub-player--exhausted .sub-player-time { color: var(--intennse-expired, #b71c1c); font-weight: 700; }
+  .sub-player--gender-blocked { opacity: 0.3; cursor: default; }
 
   .sub-player--bench { background: var(--intennse-accent, #0f3460); }
 

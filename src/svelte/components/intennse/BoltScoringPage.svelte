@@ -1538,20 +1538,25 @@
   {/if}
 
   {#if subModalSide}
+    {@const boltCtx = getCurrentBoltContext()}
+    {@const benchGender = boltCtx.gender === 'MIXED' ? undefined : boltCtx.gender}
+    {@const isMixedBolt = boltCtx.gender === 'MIXED'}
     <SubstitutionModal
       side={subModalSide}
       preSelectedOut={penaltySubPlayer?.participantId}
+      {isMixedBolt}
       activePlayers={
         penaltySubPlayer
-          ? [penaltySubPlayer, ...Object.values(playerTime.players)
+          ? [{ ...penaltySubPlayer, gender: playerTime.players[penaltySubPlayer.participantId]?.gender },
+             ...Object.values(playerTime.players)
               .filter((p) => p.isOnCourt && sideRoster[p.participantId] === subModalSide && p.participantId !== penaltySubPlayer.participantId)
-              .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber }))]
+              .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber, gender: p.gender }))]
           : Object.values(playerTime.players)
               .filter((p) => p.isOnCourt && sideRoster[p.participantId] === subModalSide)
-              .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber }))
+              .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber, gender: p.gender }))
       }
       benchPlayers={
-        getBenchPlayers(subModalSide, sideRoster)
+        getBenchPlayers(subModalSide, sideRoster, benchGender as any)
           .filter((p) => !isInBox(p.participantId))
           .map((p) => ({ participantId: p.participantId, participantName: p.participantName, gender: p.gender, jerseyNumber: p.jerseyNumber }))
       }
