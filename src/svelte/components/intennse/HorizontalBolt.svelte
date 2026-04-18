@@ -147,7 +147,7 @@
       side={0}
       isServing={server === 0}
       {rallyInProgress}
-      disabled={!boltStarted || boltComplete}
+      disabled={!boltStarted || boltComplete || officialPause}
       onRallyStart={onReceiverRallyStart}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault} {showForcedError}
     />
@@ -225,7 +225,7 @@
       side={1}
       isServing={server === 1}
       {rallyInProgress}
-      disabled={!boltStarted || boltComplete}
+      disabled={!boltStarted || boltComplete || officialPause}
       onRallyStart={onReceiverRallyStart}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault} {showForcedError}
     />

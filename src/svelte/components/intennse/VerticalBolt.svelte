@@ -315,7 +315,7 @@
           isServing={server === 0}
           {rallyInProgress}
           {showForcedError}
-          disabled={!boltStarted || boltComplete}
+          disabled={!boltStarted || boltComplete || officialPause}
           onRallyStart={onReceiverRallyStart}
           {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
         />
@@ -324,7 +324,7 @@
           isServing={server === 1}
           {rallyInProgress}
           {showForcedError}
-          disabled={!boltStarted || boltComplete}
+          disabled={!boltStarted || boltComplete || officialPause}
           onRallyStart={onReceiverRallyStart}
           {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault}
         />
