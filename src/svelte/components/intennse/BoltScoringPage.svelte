@@ -128,7 +128,7 @@
   const maxTimeoutsPerSide = (INTENNSE_STANDARD as any).timeoutRules?.maxPerSide ?? 5;
   let serveSide = $state<ServeSide>('DEUCE');
   const isMobile = matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 768;
-  let isLandscape = $state(!isMobile && window.innerWidth > window.innerHeight);
+  let isLandscape = $state(window.innerWidth > window.innerHeight);
   const scoringPrefs = getScoringPrefs();
   const auth = getAuthState();
 
@@ -384,9 +384,7 @@
   // ── Lifecycle ──
 
   function handleResize() {
-    if (!isMobile) {
-      isLandscape = window.innerWidth > window.innerHeight;
-    }
+    isLandscape = window.innerWidth > window.innerHeight;
   }
 
   onMount(async () => {
@@ -1460,6 +1458,7 @@
     scoreSubmitting,
     onSubmitScore: handleManualSubmit,
     historyPoints,
+    compactFooter: isMobile,
     onHistoryEntryTap: (entry: PointHistoryEntry) => { pointDetailEntry = entry; },
   });
 </script>

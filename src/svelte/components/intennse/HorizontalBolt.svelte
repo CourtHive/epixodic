@@ -65,6 +65,7 @@
     onSubmitScore,
     historyPoints = [],
     onHistoryEntryTap,
+    compactFooter = false,
   }: {
     side1Name: string;
     side2Name: string;
@@ -123,7 +124,12 @@
     historyPoints?: any[];
     /** Phase 3: open the point-detail modal for a history row. */
     onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
+    /** When true, collapses the footer to [⋯ 1] [⋯ 2] action-sheet triggers (phone landscape). */
+    compactFooter?: boolean;
   } = $props();
+
+  /** Compact per-side action menu for phone landscape. */
+  let actionMenuSide = $state<1 | 2 | null>(null);
 </script>
 
 <div class="intennse-horizontal">
@@ -231,49 +237,124 @@
     />
   </div>
 
-  <!-- Footer: Sub / Timeout / Penalty under respective columns -->
-  <div class="intennse-h-footer">
-    <div class="intennse-h-footer-col">
-      <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)} disabled={!boltStarted} title="Substitution Side 1">
-        <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
+  {#if compactFooter}
+    <!-- Phone landscape: compact footer with per-side action sheets -->
+    <div class="intennse-h-footer intennse-h-footer--compact">
+      <button
+        class="ih-actions-trigger"
+        class:ih-actions-trigger--open={actionMenuSide === 1}
+        onclick={() => (actionMenuSide = actionMenuSide === 1 ? null : 1)}
+        aria-label="Side 1 actions"
+      >
+        ⋯ 1
       </button>
-      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={isTimeoutButtonDisabled({ breakActive, timeoutsRemaining: timeoutsRemaining[1], requireBoltStarted: true, boltStarted })} title="Timeout Side 1">
-        <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
-      </button>
-      <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)} disabled={!boltStarted} title="Penalty Side 1">
-        <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
+      <div class="ih-compact-center">
+        <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
+        <button
+          class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
+          class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
+          class:intennse-ctrl-btn--paused={officialPause}
+          onclick={onPointStart}
+          disabled={boltComplete || breakActive}
+        >
+          {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
+        </button>
+        <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
+      </div>
+      <button
+        class="ih-actions-trigger"
+        class:ih-actions-trigger--open={actionMenuSide === 2}
+        onclick={() => (actionMenuSide = actionMenuSide === 2 ? null : 2)}
+        aria-label="Side 2 actions"
+      >
+        ⋯ 2
       </button>
     </div>
-    <div class="intennse-h-footer-col intennse-h-footer-col--center">
-      <div class="intennse-h-time-row">
-        <button
-          class="intennse-footer-btn intennse-footer-btn--info"
-          class:intennse-footer-btn--active={playerTimeSide === 1}
-          onclick={() => onTogglePlayerTimeSide?.(1)}
-          title="Player Time Side 1"
-        >
-          <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 1
+
+    {#if actionMenuSide}
+      {@const s = actionMenuSide}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="ih-action-sheet-backdrop" onclick={() => (actionMenuSide = null)}>
+        <div class="ih-action-sheet" onclick={(e) => e.stopPropagation()}>
+          <div class="ih-action-sheet-header">
+            Side {s} actions
+            <button class="ih-action-sheet-close" onclick={() => (actionMenuSide = null)}>✕</button>
+          </div>
+          <button
+            class="ih-action-sheet-item ih-action-sheet-item--info"
+            class:ih-action-sheet-item--active={playerTimeSide === s}
+            onclick={() => { onTogglePlayerTimeSide?.(s); actionMenuSide = null; }}
+          >
+            Player Time
+          </button>
+          <button
+            class="ih-action-sheet-item ih-action-sheet-item--sub"
+            onclick={() => { onSubstitute(s); actionMenuSide = null; }}
+          >
+            Substitute
+          </button>
+          <button
+            class="ih-action-sheet-item ih-action-sheet-item--timeout"
+            onclick={() => { onTimeout(s); actionMenuSide = null; }}
+            disabled={isTimeoutButtonDisabled({ breakActive, timeoutsRemaining: timeoutsRemaining[s], requireBoltStarted: true, boltStarted })}
+          >
+            Timeout ({timeoutsRemaining[s]})
+          </button>
+          <button
+            class="ih-action-sheet-item ih-action-sheet-item--penalty"
+            onclick={() => { onPenalty(s); actionMenuSide = null; }}
+          >
+            Penalty
+          </button>
+        </div>
+      </div>
+    {/if}
+  {:else}
+    <!-- Tablet: full 3-column footer -->
+    <div class="intennse-h-footer">
+      <div class="intennse-h-footer-col">
+        <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)} disabled={!boltStarted} title="Substitution Side 1">
+          <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
         </button>
-        <button
-          class="intennse-footer-btn intennse-footer-btn--info"
-          class:intennse-footer-btn--active={playerTimeSide === 2}
-          onclick={() => onTogglePlayerTimeSide?.(2)}
-          title="Player Time Side 2"
-        >
-          <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 2
+        <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={isTimeoutButtonDisabled({ breakActive, timeoutsRemaining: timeoutsRemaining[1], requireBoltStarted: true, boltStarted })} title="Timeout Side 1">
+          <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
+        </button>
+        <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)} disabled={!boltStarted} title="Penalty Side 1">
+          <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
+        </button>
+      </div>
+      <div class="intennse-h-footer-col intennse-h-footer-col--center">
+        <div class="intennse-h-time-row">
+          <button
+            class="intennse-footer-btn intennse-footer-btn--info"
+            class:intennse-footer-btn--active={playerTimeSide === 1}
+            onclick={() => onTogglePlayerTimeSide?.(1)}
+            title="Player Time Side 1"
+          >
+            <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 1
+          </button>
+          <button
+            class="intennse-footer-btn intennse-footer-btn--info"
+            class:intennse-footer-btn--active={playerTimeSide === 2}
+            onclick={() => onTogglePlayerTimeSide?.(2)}
+            title="Player Time Side 2"
+          >
+            <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 2
+          </button>
+        </div>
+      </div>
+      <div class="intennse-h-footer-col">
+        <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)} disabled={!boltStarted} title="Substitution Side 2">
+          <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
+        </button>
+        <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={isTimeoutButtonDisabled({ breakActive, timeoutsRemaining: timeoutsRemaining[2], requireBoltStarted: true, boltStarted })} title="Timeout Side 2">
+          <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
+        </button>
+        <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)} disabled={!boltStarted} title="Penalty Side 2">
+          <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
         </button>
       </div>
     </div>
-    <div class="intennse-h-footer-col">
-      <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)} disabled={!boltStarted} title="Substitution Side 2">
-        <span class="footer-label-full">Substitution</span><span class="footer-label-short">SUB</span>
-      </button>
-      <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={isTimeoutButtonDisabled({ breakActive, timeoutsRemaining: timeoutsRemaining[2], requireBoltStarted: true, boltStarted })} title="Timeout Side 2">
-        <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
-      </button>
-      <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)} disabled={!boltStarted} title="Penalty Side 2">
-        <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
-      </button>
-    </div>
-  </div>
+  {/if}
 </div>
