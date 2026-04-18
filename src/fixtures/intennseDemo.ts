@@ -172,21 +172,39 @@ export function createIntennseDemoMatchUp(config: IntennseDemoConfig = {}) {
   const s2 = assignParticipants ? t2Males : empty;
   const s2f = assignParticipants ? t2Females : empty;
 
+  // Simplified demo: 1 MS + 1 WS + 1 MD + 1 WD + 1 XD, each with
+  // 2 bolts (singles) or 1 bolt (doubles) per the standard format.
   const tieMatchUps = assignParticipants
     ? [
         makeTieMatchUp(matchUpId, 'intennse-ms', 1, 'SINGLES', SINGLES_FORMAT, [s1[0]], [s2[0]], t1, t2),
-        makeTieMatchUp(matchUpId, 'intennse-ms', 2, 'SINGLES', SINGLES_FORMAT, [s1[1]], [s2[1]], t1, t2),
         makeTieMatchUp(matchUpId, 'intennse-ws', 1, 'SINGLES', SINGLES_FORMAT, [s1f[0]], [s2f[0]], t1, t2),
-        makeTieMatchUp(matchUpId, 'intennse-ws', 2, 'SINGLES', SINGLES_FORMAT, [s1f[1]], [s2f[1]], t1, t2),
         makeTieMatchUp(matchUpId, 'intennse-md', 1, 'DOUBLES', DOUBLES_FORMAT, [s1[0], s1[2]], [s2[0], s2[2]], t1, t2),
-        makeTieMatchUp(matchUpId, 'intennse-wd', 1, 'DOUBLES', DOUBLES_FORMAT, [s1f[0], s1f[2]], [s2f[0], s2f[2]], t1, t2),
-        makeTieMatchUp(matchUpId, 'intennse-xd', 1, 'DOUBLES', DOUBLES_FORMAT, [s1[1], s1f[1]], [s2[1], s2f[1]], t1, t2),
+        makeTieMatchUp(
+          matchUpId,
+          'intennse-wd',
+          1,
+          'DOUBLES',
+          DOUBLES_FORMAT,
+          [s1f[0], s1f[2]],
+          [s2f[0], s2f[2]],
+          t1,
+          t2,
+        ),
+        makeTieMatchUp(
+          matchUpId,
+          'intennse-xd',
+          1,
+          'DOUBLES',
+          DOUBLES_FORMAT,
+          [s1[1], s1f[1]],
+          [s2[1], s2f[1]],
+          t1,
+          t2,
+        ),
       ]
     : [
         makeEmptyTieMatchUp(matchUpId, 'intennse-ms', 1, 'SINGLES', SINGLES_FORMAT),
-        makeEmptyTieMatchUp(matchUpId, 'intennse-ms', 2, 'SINGLES', SINGLES_FORMAT),
         makeEmptyTieMatchUp(matchUpId, 'intennse-ws', 1, 'SINGLES', SINGLES_FORMAT),
-        makeEmptyTieMatchUp(matchUpId, 'intennse-ws', 2, 'SINGLES', SINGLES_FORMAT),
         makeEmptyTieMatchUp(matchUpId, 'intennse-md', 1, 'DOUBLES', DOUBLES_FORMAT),
         makeEmptyTieMatchUp(matchUpId, 'intennse-wd', 1, 'DOUBLES', DOUBLES_FORMAT),
         makeEmptyTieMatchUp(matchUpId, 'intennse-xd', 1, 'DOUBLES', DOUBLES_FORMAT),
@@ -238,7 +256,7 @@ export function createIntennseDemoMatchUp(config: IntennseDemoConfig = {}) {
           collectionId: 'intennse-ms',
           collectionName: "Men's Singles",
           matchUpType: 'SINGLES',
-          matchUpCount: 2,
+          matchUpCount: 1,
           matchUpFormat: SINGLES_FORMAT,
           scoreValue: 1,
           gender: 'MALE',
@@ -249,7 +267,7 @@ export function createIntennseDemoMatchUp(config: IntennseDemoConfig = {}) {
           collectionId: 'intennse-ws',
           collectionName: "Women's Singles",
           matchUpType: 'SINGLES',
-          matchUpCount: 2,
+          matchUpCount: 1,
           matchUpFormat: SINGLES_FORMAT,
           scoreValue: 1,
           gender: 'FEMALE',
