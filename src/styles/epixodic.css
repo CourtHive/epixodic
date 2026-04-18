@@ -122,9 +122,6 @@ body {
   background-color: var(--ep-bg-primary);
   /* Prevent iOS rubber-band scrolling from exposing white space behind the app. */
   overflow: hidden;
-  /* Safe-area insets are handled per-screen (e.g. .intennse-vertical)
-   * so each screen's background extends behind the notch / status bar
-   * instead of body's light-mode --ep-bg-primary bleeding through. */
 }
 
 #scoring-container > * {
@@ -132,6 +129,38 @@ body {
    * can flex their inner panels without overflowing. */
   height: 100%;
   min-height: 0;
+}
+
+/* ── iOS safe-area insets (notch / Dynamic Island / home indicator) ──
+ *
+ * In PWA standalone mode (Add to Home Screen), iPhones extend the
+ * viewport into the notch / status-bar / home-indicator regions. Every
+ * full-screen surface needs padding so its content (buttons, text) sits
+ * inside the safe zone while the surface's OWN background extends
+ * behind the system UI for a seamless look.
+ *
+ * Applied to every known full-screen container (Svelte pages + legacy
+ * HTML containers) rather than on body, because body's --ep-bg-primary
+ * light background would bleed through above dark-themed screens.
+ *
+ * env(safe-area-inset-*, 0px) returns 0 in non-standalone browser mode,
+ * so this is a no-op outside PWA. */
+.intennse-vertical,
+.intennse-horizontal,
+.archive-page,
+.team-scorecard-page,
+.tournament-page,
+#welcome,
+#matcharchive,
+#pointhistory,
+#statsscreen,
+#momentum,
+#pts,
+#gametree {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 *:focus {

@@ -435,16 +435,8 @@
     color: var(--intennse-text);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
-    /* iPhone notch / Dynamic Island / home indicator: the dark intennse
-     * background extends behind the status bar; content (header buttons,
-     * footer controls) starts inside the safe area. Applied here rather
-     * than on body so the background colour is continuous — body's
-     * light-mode --ep-bg-primary would otherwise bleed through as a
-     * strip above/below the scoring surface. */
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
+    /* Safe-area insets are applied globally via epixodic.css's
+     * .ep-safe-area rule — see the note there. */
   }
 
   .iv-header {
