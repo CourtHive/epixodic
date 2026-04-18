@@ -14,6 +14,8 @@ export interface ClockAnchor {
   /** True when the bolt clock is running (play); false during break,
    *  timeout, officialPause, or bolt-complete. */
   running: boolean;
+  /** Stored so the ticker can fan out to the tournament room. */
+  tournamentId?: string;
 }
 
 interface MatchState {
@@ -81,11 +83,21 @@ export function removeMatch(matchUpId: string): void {
 // ── Clock anchor + tick timer ───────────────────────────────
 
 export function setClockAnchor(matchUpId: string, anchor: ClockAnchor): void {
-  const state = activeMatches.get(matchUpId);
-  if (state) {
-    state.clockAnchor = anchor;
-    state.updatedAt = Date.now();
+  let state = activeMatches.get(matchUpId);
+  if (!state) {
+    // The intennse handler doesn't call updateMatch (it fans out
+    // without storing), so the match entry may not exist yet. Create
+    // a minimal one so the anchor persists.
+    state = {
+      matchUpId,
+      tournamentId: anchor.tournamentId,
+      lastUpdate: { matchUpId, score: {} },
+      updatedAt: Date.now(),
+    };
+    activeMatches.set(matchUpId, state);
   }
+  state.clockAnchor = anchor;
+  state.updatedAt = Date.now();
 }
 
 export function getClockAnchor(matchUpId: string): ClockAnchor | undefined {

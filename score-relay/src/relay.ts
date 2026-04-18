@@ -96,6 +96,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
         serveRemainingMs: serveMs,
         anchoredAt: Date.now(),
         running,
+        tournamentId: data.tournamentId,
       });
 
       if (running) {
@@ -206,13 +207,22 @@ export function createRelay(io: Server, config: RelayConfig): void {
       const boltMs = Math.max(0, anchor.boltRemainingMs - elapsed);
       const serveMs = Math.max(0, anchor.serveRemainingMs - elapsed);
 
-      ns.to(matchUpId).emit('scorebug-tick', {
-        kind: 'tick',
+      const tickPayload = {
+        kind: 'tick' as const,
         matchUpId,
         boltTimerRemainingMs: boltMs,
         serveClockRemainingMs: serveMs,
         generatedAt: new Date().toISOString(),
-      });
+      };
+
+      // Fan out to match room, tournament room, and "all" room —
+      // mirrors the intennse event fan-out so every subscriber type
+      // (match-level, tournament-level, dashboard) receives ticks.
+      ns.to(matchUpId).emit('scorebug-tick', tickPayload);
+      if (anchor.tournamentId) {
+        ns.to(`tournament:${anchor.tournamentId}`).emit('scorebug-tick', tickPayload);
+      }
+      ns.to('all').emit('scorebug-tick', tickPayload);
 
       // Auto-stop when the bolt clock reaches zero — the next
       // intennse event (bolt-expired) will formally signal completion.

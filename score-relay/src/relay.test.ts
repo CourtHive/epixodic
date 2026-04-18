@@ -638,4 +638,183 @@ describe('Score Relay Integration', () => {
       listener3.disconnect();
     });
   });
+
+  describe('Relay-native clock ticks', () => {
+    it('should emit scorebug-tick after receiving an intennse event with running clocks', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-tick-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Consume the intennse event itself first
+      const intennsePromise = waitForEvent(listener, 'intennse');
+      tracker.emit('intennse', {
+        matchUpId: 'mu-tick-1',
+        boltTimerRemainingMs: 300000,
+        serveClockRemainingMs: 12000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await intennsePromise;
+
+      // Now wait for a tick — should arrive within ~200ms (10Hz interval)
+      const tick = await waitForEvent(listener, 'scorebug-tick', 500);
+      expect(tick.kind).toBe('tick');
+      expect(tick.matchUpId).toBe('mu-tick-1');
+      expect(typeof tick.boltTimerRemainingMs).toBe('number');
+      expect(typeof tick.serveClockRemainingMs).toBe('number');
+      expect(tick.boltTimerRemainingMs).toBeLessThanOrEqual(300000);
+      expect(tick.boltTimerRemainingMs).toBeGreaterThan(299000);
+      expect(typeof tick.generatedAt).toBe('string');
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should stop ticking when a COMPLETED intennse event arrives', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-tick-stop');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Start ticking
+      tracker.emit('intennse', {
+        matchUpId: 'mu-tick-stop',
+        boltTimerRemainingMs: 100000,
+        serveClockRemainingMs: 10000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'intennse');
+      await waitForEvent(listener, 'scorebug-tick', 500);
+
+      // Now send a completed event
+      tracker.emit('intennse', {
+        matchUpId: 'mu-tick-stop',
+        boltTimerRemainingMs: 0,
+        serveClockRemainingMs: 0,
+        matchUpStatus: 'COMPLETED',
+      });
+      await waitForEvent(listener, 'intennse');
+
+      // Wait and verify NO more ticks arrive
+      let ticksAfterComplete = 0;
+      listener.on('scorebug-tick', () => { ticksAfterComplete++; });
+      await new Promise((r) => setTimeout(r, 300));
+      expect(ticksAfterComplete).toBe(0);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should re-anchor clocks when a new intennse event arrives', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-tick-reanchor');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // First event: bolt at 5 minutes
+      tracker.emit('intennse', {
+        matchUpId: 'mu-tick-reanchor',
+        boltTimerRemainingMs: 300000,
+        serveClockRemainingMs: 14000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'intennse');
+      const tick1 = await waitForEvent(listener, 'scorebug-tick', 500);
+      expect(tick1.boltTimerRemainingMs).toBeGreaterThan(299000);
+
+      // Second event: bolt at 4 minutes (new point scored, 1 minute elapsed)
+      tracker.emit('intennse', {
+        matchUpId: 'mu-tick-reanchor',
+        boltTimerRemainingMs: 240000,
+        serveClockRemainingMs: 14000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'intennse');
+      const tick2 = await waitForEvent(listener, 'scorebug-tick', 500);
+      // After re-anchor, ticks should be near 240000, not still near 300000
+      expect(tick2.boltTimerRemainingMs).toBeLessThan(241000);
+      expect(tick2.boltTimerRemainingMs).toBeGreaterThan(239000);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should stop ticking when bolt clock reaches zero', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-tick-zero');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Start with only 150ms remaining — should auto-stop quickly
+      tracker.emit('intennse', {
+        matchUpId: 'mu-tick-zero',
+        boltTimerRemainingMs: 150,
+        serveClockRemainingMs: 150,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'intennse');
+
+      // Wait for the bolt to expire + one tick cycle
+      await new Promise((r) => setTimeout(r, 400));
+
+      // Should have stopped — no more ticks
+      let lateTicks = 0;
+      listener.on('scorebug-tick', () => { lateTicks++; });
+      await new Promise((r) => setTimeout(r, 300));
+      expect(lateTicks).toBe(0);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should NOT emit ticks to listeners not subscribed to the match', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      // Subscribe to a different match
+      listener.emit('subscribe', 'mu-other-match');
+      await new Promise((r) => setTimeout(r, 50));
+
+      tracker.emit('intennse', {
+        matchUpId: 'mu-tick-isolated',
+        boltTimerRemainingMs: 300000,
+        serveClockRemainingMs: 14000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+
+      let receivedTick = false;
+      listener.on('scorebug-tick', () => { receivedTick = true; });
+      await new Promise((r) => setTimeout(r, 300));
+      expect(receivedTick).toBe(false);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should emit ticks to "all" subscribers', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe:all');
+      await new Promise((r) => setTimeout(r, 50));
+
+      tracker.emit('intennse', {
+        matchUpId: 'mu-tick-all',
+        boltTimerRemainingMs: 200000,
+        serveClockRemainingMs: 10000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'intennse');
+
+      const tick = await waitForEvent(listener, 'scorebug-tick', 500);
+      expect(tick.matchUpId).toBe('mu-tick-all');
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+  });
 });
