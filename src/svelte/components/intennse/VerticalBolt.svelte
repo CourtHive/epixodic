@@ -223,9 +223,7 @@
     {:else}
       <ClockDisplay clockId="boltTimer" label="BOLT" size="compact" urgentAt={60000} criticalAt={30000} />
       <span class="iv-bolt-label">{boltLabel}</span>
-      {#if serveSide}
-        <span class="iv-serve-side">{serveSide === 'AD' ? 'AD' : 'DEUCE'}</span>
-      {/if}
+      <span class="iv-serve-side">{serveSide === 'AD' ? 'AD' : serveSide ? 'DEUCE' : ''}</span>
       <button
         class="intennse-ctrl-btn iv-history-toggle"
         class:iv-history-toggle--active={showPointHistory}
@@ -475,12 +473,19 @@
   }
 
   .iv-serve-side {
+    /* Fixed width so switching between "AD" and "DEUCE" (or empty
+     * before the first point) doesn't reflow the header. "DEUCE" is
+     * the widest value at this font-size; 3rem covers it with a
+     * small margin. */
+    display: inline-block;
+    width: 3rem;
     font-size: 0.6rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--intennse-serving, #00d4aa);
     white-space: nowrap;
+    text-align: center;
   }
 
   .iv-score {
