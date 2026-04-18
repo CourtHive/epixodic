@@ -874,4 +874,105 @@ describe('Score Relay Integration', () => {
       shortHttpServer.close();
     });
   });
+
+  describe('clockSync event', () => {
+    it('should stop ticking when clockSync with paused state arrives', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-sync-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Start ticking via score event with clocks
+      tracker.emit('score', {
+        matchUpId: 'mu-sync-1',
+        score: {},
+        boltTimerRemainingMs: 300000,
+        serveClockRemainingMs: 14000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'score');
+      await waitForEvent(listener, 'scorebug-tick', 500);
+
+      // Send clockSync with paused state
+      tracker.emit('clockSync', {
+        matchUpId: 'mu-sync-1',
+        boltTimerRemainingMs: 295000,
+        serveClockRemainingMs: 14000,
+        clockState: 'paused',
+      });
+      await waitForEvent(listener, 'clockSync');
+
+      // Ticks should have stopped
+      let ticksAfterPause = 0;
+      listener.on('scorebug-tick', () => { ticksAfterPause++; });
+      await new Promise((r) => setTimeout(r, 300));
+      expect(ticksAfterPause).toBe(0);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should resume ticking when clockSync with running state arrives', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-sync-2');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Start paused (no ticks yet)
+      tracker.emit('clockSync', {
+        matchUpId: 'mu-sync-2',
+        boltTimerRemainingMs: 280000,
+        serveClockRemainingMs: 14000,
+        clockState: 'paused',
+      });
+      await waitForEvent(listener, 'clockSync');
+      await new Promise((r) => setTimeout(r, 200));
+
+      // Resume
+      tracker.emit('clockSync', {
+        matchUpId: 'mu-sync-2',
+        boltTimerRemainingMs: 280000,
+        serveClockRemainingMs: 14000,
+        clockState: 'running',
+      });
+      await waitForEvent(listener, 'clockSync');
+
+      // Ticks should now arrive
+      const tick = await waitForEvent(listener, 'scorebug-tick', 500);
+      expect(tick.matchUpId).toBe('mu-sync-2');
+      expect(tick.boltTimerRemainingMs).toBeGreaterThan(279000);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should fan out clockSync to all subscriber types', async () => {
+      const tracker = await connectClient('/tracker');
+      const matchListener = await connectClient('/live');
+      const allListener = await connectClient('/live');
+
+      matchListener.emit('subscribe', 'mu-sync-3');
+      allListener.emit('subscribe:all');
+      await new Promise((r) => setTimeout(r, 50));
+
+      const p1 = waitForEvent(matchListener, 'clockSync');
+      const p2 = waitForEvent(allListener, 'clockSync');
+      tracker.emit('clockSync', {
+        matchUpId: 'mu-sync-3',
+        boltTimerRemainingMs: 200000,
+        serveClockRemainingMs: 10000,
+        clockState: 'paused',
+      });
+
+      const [r1, r2] = await Promise.all([p1, p2]);
+      expect(r1.clockState).toBe('paused');
+      expect(r2.clockState).toBe('paused');
+
+      tracker.disconnect();
+      matchListener.disconnect();
+      allListener.disconnect();
+    });
+  });
 });

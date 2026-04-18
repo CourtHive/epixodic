@@ -57,7 +57,7 @@
     type PenaltyPoint,
   } from '../../stores/penaltyBox.svelte';
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
-  import { sendScore, sendIntennseUpdate } from '../../../services/messaging/scoreRelay';
+  import { sendScore, sendIntennseUpdate, sendClockSync } from '../../../services/messaging/scoreRelay';
   import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock, setClockRemaining } from '../../../clock';
   import {
     getTieMatchUp,
@@ -866,10 +866,8 @@
       boltStarted = true;
       executeClockCommands(onBoltStart());
       resumeAllOnCourtClocks();
-      // Resume penalty clocks for players eligible for this bolt. Covers
-      // the case where a new tieMatchUp was mounted with penalties
-      // carried over from a prior bolt in the ARC.
       resumePenaltyClocksForBolt(getCurrentBoltContext());
+      emitClockSync('running');
       return;
     }
     if (officialPause) {
@@ -877,18 +875,16 @@
       officialPause = false;
       resumeClock('boltTimer');
       if (!rallyInProgress) resumeClock('serveClock');
-      // Any penalty clocks paused by the officialPause should also resume —
-      // but gender-gated, so an ineligible player's clock stays paused.
       resumePenaltyClocksForBolt(getCurrentBoltContext());
+      emitClockSync('running');
       return;
     }
     // Pause everything
     officialPause = true;
     pauseClock('boltTimer');
     pauseClock('serveClock');
-    // Penalty clock only ticks when the bolt clock ticks, so pause it here
-    // too. Resumed (gender-gated) when the official toggles back to play.
     pauseAllPenaltyClocks();
+    emitClockSync('paused');
   }
 
   function handleRallyStart() {
@@ -907,10 +903,8 @@
     const serveSnapshot = getClockSnapshot('serveClock');
     serveClockWasRunning = serveSnapshot?.state === 'running';
     executeClockCommands(onTimeoutStart(serveClockWasRunning));
-    // A penalised player should not burn their penalty-box time while the
-    // bolt clock is paused for a timeout. Mirrors the between-bolts break
-    // behaviour in startBreakClock().
     pauseAllPenaltyClocks();
+    emitClockSync('paused');
   }
 
   function handleDismissTimeout() {
@@ -918,28 +912,27 @@
       timeoutsUsed[timeoutSide]++;
     }
     executeClockCommands(onTimeoutEnd(serveClockWasRunning));
-    // Only resume penalty clocks whose player is eligible for the bolt we
-    // are returning to; an ineligible player's clock stays paused.
     resumePenaltyClocksForBolt(getCurrentBoltContext());
     timeoutTeamName = '';
     timeoutSide = null;
+    emitClockSync('running');
   }
 
   function handleCancelTimeout() {
-    // Return elapsed time to bolt clock by resuming without counting the timeout
     const timeoutSnapshot = getClockSnapshot('timeoutTimer');
     const elapsedMs = timeoutSnapshot?.elapsedMs ?? 0;
     executeClockCommands(onTimeoutEnd(serveClockWasRunning));
     resumePenaltyClocksForBolt(getCurrentBoltContext());
-    // Bolt clock resumed by onTimeoutEnd; no timeout counted
     timeoutTeamName = '';
     timeoutSide = null;
+    emitClockSync('running');
   }
 
   function handleBoltExpired() {
     boltExpired = true;
     pauseClock('serveClock');
     pauseAllOnCourtClocks();
+    emitClockSync('paused');
   }
 
   function handleServeClockExpired() {
@@ -1252,10 +1245,9 @@
       pauseAllOnCourtClocks();
       officialPause = true;
     }
-    // Penalty box is ARC-scoped and must not keep ticking after this
-    // tieMatchUp unmounts. Always pause — the next mount within the ARC
-    // resumes only the eligible clocks via resumePenaltyClocksForBolt().
     pauseAllPenaltyClocks();
+    // Tell the relay to stop ticking — we're leaving the page.
+    emitClockSync('paused');
     const boltSnap = getClockSnapshot('boltTimer');
     const serveSnap = getClockSnapshot('serveClock');
     persistTieMatchUpState(matchUpId, {
@@ -1331,6 +1323,24 @@
       }
     }
     arcBaseScore = { side1, side2 };
+  }
+
+  /**
+   * Notify the relay of a clock-state transition that doesn't involve
+   * a point being scored — pause, resume, break, timeout, navigation.
+   * The relay uses this to stop/start its ticker so the scorebug
+   * display stays in sync.
+   */
+  function emitClockSync(clockState: 'running' | 'paused' | 'completed') {
+    const boltSnap = getClockSnapshot('boltTimer');
+    const serveSnap = getClockSnapshot('serveClock');
+    sendClockSync({
+      matchUpId,
+      tournamentId: (getTeamMatchUpState().teamMatchUp as any)?.tournamentId,
+      boltTimerRemainingMs: boltSnap?.remainingMs ?? 0,
+      serveClockRemainingMs: serveSnap?.remainingMs ?? 0,
+      clockState,
+    });
   }
 
   function broadcastState() {

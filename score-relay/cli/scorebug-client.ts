@@ -257,6 +257,12 @@ socket.on('scorebug-tick', (data) => {
   }
 });
 
+socket.on('clockSync', (data) => {
+  logPacket('clockSync', data, YELLOW, (d) =>
+    `  ${coloured(BOLD, d.clockState ?? '?')}  ${formatClocks(d)}  ${coloured(DIM, d.matchUpId?.slice(0, 12) + '…')}`,
+  );
+});
+
 socket.on('videoboard', (data) => {
   logPacket('videoboard', data, MAGENTA);
 });
@@ -264,7 +270,7 @@ socket.on('videoboard', (data) => {
 // Catch-all: log any event we don't have a specific handler for so
 // nothing is silently dropped during integration testing.
 socket.onAny((eventName, data) => {
-  const handled = ['intennse', 'score', 'history', 'active', 'scorebug-event', 'scorebug-tick', 'videoboard'];
+  const handled = ['intennse', 'score', 'history', 'active', 'scorebug-event', 'scorebug-tick', 'videoboard', 'clockSync'];
   if (!handled.includes(eventName)) {
     logPacket(eventName, data, DIM, (d) => `  ${coloured(DIM, JSON.stringify(d).slice(0, 200))}`);
   }

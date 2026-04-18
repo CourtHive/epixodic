@@ -130,6 +130,44 @@ export function createRelay(io: Server, config: RelayConfig): void {
       }
     });
 
+    // Clock state sync — lightweight event fired when the bolt clock
+    // pauses/resumes/completes WITHOUT a point being scored (official
+    // pause, timeout, break, navigation away). Re-anchors or stops
+    // the relay's ticker so the scorebug display matches reality.
+    socket.on('clockSync', (data: any) => {
+      if (!data?.matchUpId) {
+        socket.emit('error', { message: 'matchUpId required' });
+        return;
+      }
+
+      socket.emit('ack', { matchUpId: data.matchUpId, received: true });
+
+      const boltMs = typeof data.boltTimerRemainingMs === 'number' ? data.boltTimerRemainingMs : 0;
+      const serveMs = typeof data.serveClockRemainingMs === 'number' ? data.serveClockRemainingMs : 0;
+      const running = data.clockState === 'running' && boltMs > 0;
+
+      setClockAnchor(data.matchUpId, {
+        boltRemainingMs: boltMs,
+        serveRemainingMs: serveMs,
+        anchoredAt: Date.now(),
+        running,
+        tournamentId: data.tournamentId,
+      });
+
+      if (running) {
+        startClockTicker(data.matchUpId, listeners);
+      } else {
+        clearClockTimer(data.matchUpId);
+      }
+
+      // Fan out to listeners so display clients know the clock state changed
+      listeners.to(data.matchUpId).emit('clockSync', data);
+      if (data.tournamentId) {
+        listeners.to(`tournament:${data.tournamentId}`).emit('clockSync', data);
+      }
+      listeners.to('all').emit('clockSync', data);
+    });
+
     socket.on('history', async (data: MatchHistory) => {
       if (!data?.matchUpId) {
         socket.emit('error', { message: 'matchUpId required' });

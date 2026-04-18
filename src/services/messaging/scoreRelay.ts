@@ -125,6 +125,26 @@ export function sendHistory(history: {
 }
 
 /**
+ * Send a lightweight clock-state sync to the relay so it can pause,
+ * resume, or re-anchor its ticker without waiting for the next score
+ * event. Fired on officialPause, timeout, break, navigation away —
+ * any transition that changes the bolt clock state without scoring.
+ */
+export function sendClockSync(data: {
+  matchUpId: string;
+  tournamentId?: string;
+  boltTimerRemainingMs: number;
+  serveClockRemainingMs: number;
+  /** 'running' | 'paused' | 'completed' */
+  clockState: string;
+}): void {
+  if (!trackerSocket?.connected) {
+    connectTracker();
+  }
+  trackerSocket?.emit('clockSync', data);
+}
+
+/**
  * Broadcast enriched INTENNSE update with per-player stats, aggregate scores,
  * penalty box state, and clock data. External displays subscribe to these
  * for rich scoreboard rendering.
