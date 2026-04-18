@@ -124,8 +124,12 @@
   let arcBaseScore = $state({ side1: 0, side2: 0 });
   let timeoutTeamName = $state('');
   let timeoutSide = $state<1 | 2 | null>(null);
+  /** Per-tieMatchUp timeout count (live state, persisted on exit). */
   let timeoutsUsed = $state<{ 1: number; 2: number }>({ 1: 0, 2: 0 });
-  const maxTimeoutsPerSide = (INTENNSE_STANDARD as any).timeoutRules?.maxPerSide ?? 5;
+  /** Max timeouts per side across the entire ARC (rulebook §2.8: 5). */
+  const maxTimeoutsPerArc = (INTENNSE_STANDARD as any).timeoutRules?.maxPerSide ?? 5;
+  /** Max timeouts per side within a single tieMatchUp (rulebook §2.8: 2). */
+  const maxTimeoutsPerTieMatchUp = (INTENNSE_STANDARD as any).timeoutRules?.maxPerTieMatchUp ?? 2;
   let serveSide = $state<ServeSide>('DEUCE');
   const isMobile = matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 768;
   let isLandscape = $state(window.innerWidth > window.innerHeight);
@@ -894,7 +898,10 @@
   }
 
   function handleTimeout(side: 1 | 2) {
-    if (timeoutsUsed[side] >= maxTimeoutsPerSide) return;
+    // Guard: per-tieMatchUp limit (2) and per-ARC limit (5).
+    if (timeoutsUsed[side] >= maxTimeoutsPerTieMatchUp) return;
+    const arcUsed = getArcTimeoutsUsed();
+    if (arcUsed[side] >= maxTimeoutsPerArc) return;
     timeoutSide = side;
     timeoutTeamName = side === 1 ? side1Name : side2Name;
     const serveSnapshot = getClockSnapshot('serveClock');
@@ -1273,6 +1280,44 @@
 
   // ── Helpers ──
 
+  /**
+   * Compute total timeouts used per side across the entire ARC (all
+   * tieMatchUps in the parent team matchUp). Uses the LIVE
+   * `timeoutsUsed` state for the current tieMatchUp and the persisted
+   * values for the others.
+   */
+  function getArcTimeoutsUsed(): { 1: number; 2: number } {
+    const team = getTeamMatchUpState().teamMatchUp as any;
+    const result = { 1: 0, 2: 0 };
+    for (const tie of team?.tieMatchUps ?? []) {
+      if (tie.matchUpId === matchUpId) {
+        // Live state — persisted value may be stale mid-bolt.
+        result[1] += timeoutsUsed[1];
+        result[2] += timeoutsUsed[2];
+      } else {
+        const used = tie.timeoutsUsed;
+        if (used) {
+          result[1] += used[1] ?? 0;
+          result[2] += used[2] ?? 0;
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Effective timeouts remaining for a side — the lower of per-
+   * tieMatchUp remaining (2 max) and per-ARC remaining (5 max).
+   * Accounts for visual swap if sides are flipped.
+   */
+  function effectiveTimeoutsRemaining(displaySide: 1 | 2): number {
+    const dataSide = swapped ? (3 - displaySide) as 1 | 2 : displaySide;
+    const perTie = maxTimeoutsPerTieMatchUp - timeoutsUsed[dataSide];
+    const arcUsed = getArcTimeoutsUsed();
+    const perArc = maxTimeoutsPerArc - arcUsed[dataSide];
+    return Math.max(0, Math.min(perTie, perArc));
+  }
+
   function loadArcBaseScoreFromTeam(teamMatchUp: any, currentMatchUpId: string) {
     if (!teamMatchUp) return;
     const tieMatchUps = teamMatchUp.tieMatchUps ?? [];
@@ -1445,9 +1490,10 @@
     selectionRequired: !selectionComplete,
     playersPerSide,
     timeoutTeamName,
-    timeoutsRemaining: swapped
-      ? { 1: maxTimeoutsPerSide - timeoutsUsed[2], 2: maxTimeoutsPerSide - timeoutsUsed[1] }
-      : { 1: maxTimeoutsPerSide - timeoutsUsed[1], 2: maxTimeoutsPerSide - timeoutsUsed[2] },
+    timeoutsRemaining: {
+      1: effectiveTimeoutsRemaining(1),
+      2: effectiveTimeoutsRemaining(2),
+    },
     onDismissTimeout: handleDismissTimeout,
     playerTimePanelOpen,
     playerTimeSide,
