@@ -416,8 +416,8 @@ The Archive page offers a one-tap **+ INTENNSE Demo** button that creates a full
 - Two team participants with 6-player rosters each (3 male, 3 female)
 - Realistic player names with jersey numbers (1-6)
 - Standard INTENNSE tieFormat: 7 tieMatchUps
-  - 2x Men's Singles (SET2XA-S:T10)
-  - 2x Women's Singles (SET2XA-S:T10)
+  - 1x Men's Singles (SET2XA-S:T10)
+  - 1x Women's Singles (SET2XA-S:T10)
   - 1x Men's Doubles (SET1A-S:T10)
   - 1x Women's Doubles (SET1A-S:T10)
   - 1x Mixed Doubles (SET1A-S:T10)
