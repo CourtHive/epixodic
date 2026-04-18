@@ -110,6 +110,9 @@ export interface IntennseDemoConfig {
   team1Name?: string;
   team2Name?: string;
   boltDurationMinutes?: number;
+  /** Between-bolts break duration in seconds. Default 120 (2:00).
+   *  Common testing values: 30 (:30), 60 (1:00), 120 (2:00 official). */
+  breakDurationSeconds?: number;
   assignParticipants?: boolean;
 }
 
@@ -251,6 +254,7 @@ export function createIntennseDemoMatchUp(config: IntennseDemoConfig = {}) {
       tieFormatName: 'INTENNSE',
       winCriteria: { aggregateValue: true },
       ...(config.boltDurationMinutes && { boltDurationMinutes: config.boltDurationMinutes }),
+      ...(config.breakDurationSeconds && { breakDurationSeconds: config.breakDurationSeconds }),
       collectionDefinitions: [
         {
           collectionId: 'intennse-ms',

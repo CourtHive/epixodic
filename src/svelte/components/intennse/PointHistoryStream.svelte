@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { buildHistoryStream, type PointHistoryEntry } from './historyStream';
 
   /**
-   * Displays the scoring engine's history.points stream, most recent
-   * first. Phase 2 of the penalty-history-derivation workstream —
-   * Phase 3 will wire `onEntryTap` to a detail modal with edit /
-   * remove actions.
+   * Displays the scoring engine's history in chronological order
+   * (oldest at top, latest at bottom). Auto-scrolls to the bottom
+   * whenever new entries appear so the most recent event is always
+   * visible. The user can scroll up to review older events.
    */
   let {
     points = [],
@@ -32,13 +33,24 @@
     const stream = buildHistoryStream(points, { side1Name, side2Name, entries });
     return maxRows ? stream.slice(0, maxRows) : stream;
   });
+
+  /** Ref to the scrollable list — used for auto-scroll-to-bottom. */
+  let listEl: HTMLOListElement | undefined = $state();
+
+  // Auto-scroll to the bottom whenever the row count changes.
+  $effect(() => {
+    void rows.length;
+    tick().then(() => {
+      if (listEl) listEl.scrollTop = listEl.scrollHeight;
+    });
+  });
 </script>
 
 <div class="phs" role="log" aria-label="Point history" aria-live="polite">
   {#if rows.length === 0}
     <div class="phs-empty">{emptyLabel}</div>
   {:else}
-    <ol class="phs-list">
+    <ol class="phs-list" bind:this={listEl}>
       {#each rows as entry, idx (`${entry.entryType}-${entry.pointIndex}-${idx}`)}
         {#if entry.entryType === 'boltBoundary'}
           <li class="phs-row phs-row--boundary">

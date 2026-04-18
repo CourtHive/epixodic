@@ -585,9 +585,13 @@
     const searchParams = new URLSearchParams(globalThis.location?.search || '');
     const tieFormatBoltMinutes = (teamState.teamMatchUp as any)?.tieFormat?.boltDurationMinutes;
     const urlBoltMinutes = searchParams.get('boltMinutes');
+    const tieFormatBreakSeconds = (teamState.teamMatchUp as any)?.tieFormat?.breakDurationSeconds;
     const urlBreakSeconds = searchParams.get('breakSeconds');
     if (urlBreakSeconds) {
       const ms = Number.parseFloat(urlBreakSeconds) * 1000;
+      if (ms > 0) BREAK_DURATION_MS = ms;
+    } else if (tieFormatBreakSeconds) {
+      const ms = Number(tieFormatBreakSeconds) * 1000;
       if (ms > 0) BREAK_DURATION_MS = ms;
     }
     if (urlBoltMinutes) {

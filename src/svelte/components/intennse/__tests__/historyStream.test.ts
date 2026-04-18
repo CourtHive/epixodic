@@ -253,9 +253,9 @@ describe('buildHistoryStream', () => {
     expect(buildHistoryStream([], sides)).toEqual([]);
   });
 
-  it('returns rows in most-recent-first order', () => {
+  it('returns rows in chronological order (oldest first, latest last)', () => {
     const rows = buildHistoryStream([winner0, touch1, penalty1], sides);
-    expect(rows.map((r) => r.kind)).toEqual(['penalty', 'touch', 'winner']);
+    expect(rows.map((r) => r.kind)).toEqual(['winner', 'touch', 'penalty']);
   });
 
   it('skips null / undefined holes defensively', () => {
@@ -265,20 +265,19 @@ describe('buildHistoryStream', () => {
 
   it('hideAdjustments filters out adjustmentEvent rows when requested', () => {
     const rows = buildHistoryStream([winner0, adjustment0, touch1], { ...sides, hideAdjustments: true });
-    expect(rows.map((r) => r.kind)).toEqual(['touch', 'winner']);
+    expect(rows.map((r) => r.kind)).toEqual(['winner', 'touch']);
   });
 
   it('hideAdjustments defaults to false — audit view sees everything', () => {
     const rows = buildHistoryStream([winner0, adjustment0, touch1], sides);
-    expect(rows.map((r) => r.kind)).toEqual(['touch', 'adjustment', 'winner']);
+    expect(rows.map((r) => r.kind)).toEqual(['winner', 'adjustment', 'touch']);
   });
 
-  it('preserves the original pointIndex even after reversing', () => {
+  it('preserves the original pointIndex in chronological order', () => {
     const rows = buildHistoryStream([winner0, touch1, penalty1], sides);
-    // After reverse, the penalty (originally index 2) comes first.
-    expect(rows[0].pointIndex).toBe(2);
+    expect(rows[0].pointIndex).toBe(0);
     expect(rows[1].pointIndex).toBe(1);
-    expect(rows[2].pointIndex).toBe(0);
+    expect(rows[2].pointIndex).toBe(2);
   });
 
   it('uses point.index when provided, falling back to position otherwise', () => {
@@ -287,9 +286,9 @@ describe('buildHistoryStream', () => {
       { winner: 1, result: 'Touch' }, // no explicit index → use position 1
     ];
     const rows = buildHistoryStream(points, sides);
-    // Most-recent first: touch at position 1 first, winner at index 100 second.
-    expect(rows[0].pointIndex).toBe(1);
-    expect(rows[1].pointIndex).toBe(100);
+    // Chronological: winner at index 100 first, touch at position 1 second.
+    expect(rows[0].pointIndex).toBe(100);
+    expect(rows[1].pointIndex).toBe(1);
   });
 });
 

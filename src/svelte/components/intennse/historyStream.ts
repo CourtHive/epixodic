@@ -341,7 +341,8 @@ function buildBoltBoundaryEntry(entry: any, boltNumber: number): PointHistoryEnt
 }
 
 /**
- * Build the full display list, most-recent-first. Interleaves point
+ * Build the full display list in chronological order (oldest at top,
+ * latest at bottom — the list auto-scrolls to the end). Interleaves point
  * events with substitution and bolt-boundary markers when `entries`
  * is provided. Skips null/undefined points defensively (historical
  * serialisations have occasionally contained holes).
@@ -366,7 +367,6 @@ export function buildHistoryStream(
   }
 
   if (!Array.isArray(options.entries) || options.entries.length === 0) {
-    pointRows.reverse();
     return pointRows;
   }
 
@@ -405,7 +405,5 @@ export function buildHistoryStream(
     pointCursor++;
   }
 
-  // Most recent at the top.
-  unified.reverse();
   return unified;
 }
