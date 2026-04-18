@@ -1359,7 +1359,17 @@
       console.log('[bolt persist]', { matchUpId, sets, boltComplete, boltStarted });
     }
 
-    sendScore({ matchUpId, score: { sets }, matchUpStatus });
+    sendScore({
+      matchUpId,
+      tournamentId: (getTeamMatchUpState().teamMatchUp as any)?.tournamentId,
+      score: { sets },
+      matchUpStatus,
+      // Clock fields so the relay can anchor countdown ticks directly
+      // from the score event. The intennse event carries richer data
+      // but score is the reliable baseline flow.
+      boltTimerRemainingMs: boltTimer?.remainingMs,
+      serveClockRemainingMs: serveClock?.remainingMs,
+    });
 
     sendIntennseUpdate(buildIntennseSnapshot({
       matchUpId,

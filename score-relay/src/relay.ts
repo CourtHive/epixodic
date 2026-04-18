@@ -33,6 +33,7 @@ export function getMetrics(): RelayMetrics {
 export function createRelay(io: Server, config: RelayConfig): void {
   const staleMatchAgeMs = config.staleMatchHours * 60 * 60 * 1000;
   const pruneIntervalMs = config.pruneIntervalMinutes * 60 * 1000;
+  const tickerIdleMs = (config.tickerIdleTimeoutSeconds ?? 1800) * 1000;
 
   // --- Tracker namespace: mobile trackers push scores here ---
   const tracker = io.of('/tracker');
@@ -61,6 +62,29 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Also emit to the "all" room for dashboards
       listeners.to('all').emit('score', data);
+
+      // Anchor clock ticks from the score event if it carries clock
+      // fields. This is the reliable baseline — the intennse event
+      // has richer data but may not always be sent.
+      const anyData = data as any;
+      const boltMs = typeof anyData.boltTimerRemainingMs === 'number' ? anyData.boltTimerRemainingMs : undefined;
+      const serveMs = typeof anyData.serveClockRemainingMs === 'number' ? anyData.serveClockRemainingMs : undefined;
+      if (boltMs !== undefined) {
+        const status = ((data as any).matchUpStatus ?? '').toUpperCase();
+        const running = boltMs > 0 && status !== 'COMPLETED';
+        setClockAnchor(data.matchUpId, {
+          boltRemainingMs: boltMs,
+          serveRemainingMs: serveMs ?? 0,
+          anchoredAt: Date.now(),
+          running,
+          tournamentId: data.tournamentId,
+        });
+        if (running) {
+          startClockTicker(data.matchUpId, listeners);
+        } else {
+          clearClockTimer(data.matchUpId);
+        }
+      }
     });
 
     // INTENNSE enriched snapshots: fan out to listeners + anchor clocks
@@ -204,6 +228,16 @@ export function createRelay(io: Server, config: RelayConfig): void {
       }
 
       const elapsed = Date.now() - anchor.anchoredAt;
+
+      // Idle timeout: if no intennse event has re-anchored this match
+      // for longer than the configured threshold, the tracker is
+      // presumed disconnected or the match abandoned. Stop ticking.
+      if (elapsed > tickerIdleMs) {
+        console.log(`[relay] ticker idle timeout for ${matchUpId} (${Math.round(elapsed / 1000)}s since last anchor)`);
+        clearClockTimer(matchUpId);
+        return;
+      }
+
       const boltMs = Math.max(0, anchor.boltRemainingMs - elapsed);
       const serveMs = Math.max(0, anchor.serveRemainingMs - elapsed);
 

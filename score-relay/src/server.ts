@@ -13,6 +13,7 @@ const config: RelayConfig = {
   corsOrigin: process.env.CORS_ORIGIN?.split(',') || '*',
   staleMatchHours: parseFloat(process.env.STALE_MATCH_HOURS || '6'),
   pruneIntervalMinutes: parseFloat(process.env.PRUNE_INTERVAL_MINUTES || '30'),
+  tickerIdleTimeoutSeconds: parseInt(process.env.TICKER_IDLE_TIMEOUT_SECONDS || '1800', 10),
 };
 
 let projectionIntake: ReturnType<typeof createProjectionIntake> | null = null;

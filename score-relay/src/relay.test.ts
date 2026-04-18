@@ -816,5 +816,62 @@ describe('Score Relay Integration', () => {
       tracker.disconnect();
       listener.disconnect();
     });
+
+    it('should auto-stop ticking after idle timeout (no re-anchor)', async () => {
+      // Spin up a SEPARATE relay with a very short idle timeout (0.3s)
+      // so we can test the timeout without waiting 30 minutes.
+      const shortHttpServer = createServer();
+      const shortIoServer = new Server(shortHttpServer, { cors: { origin: '*' } });
+      createRelay(shortIoServer, {
+        port: 0,
+        persistScores: false,
+        corsOrigin: '*',
+        staleMatchHours: 4,
+        pruneIntervalMinutes: 30,
+        tickerIdleTimeoutSeconds: 0.3, // 300ms idle threshold
+      });
+
+      const shortPort = await new Promise<number>((resolve) => {
+        shortHttpServer.listen(0, () => {
+          const addr = shortHttpServer.address();
+          resolve(typeof addr === 'object' && addr ? addr.port : 0);
+        });
+      });
+
+      const shortConnect = (ns: string) => new Promise<ClientSocket>((resolve) => {
+        const s = ioClient(`http://localhost:${shortPort}${ns}`, { transports: ['websocket'], forceNew: true });
+        s.on('connect', () => resolve(s));
+      });
+
+      const tracker = await shortConnect('/tracker');
+      const listener = await shortConnect('/live');
+
+      listener.emit('subscribe', 'mu-idle');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Start ticking — 5 minutes on the bolt clock
+      tracker.emit('intennse', {
+        matchUpId: 'mu-idle',
+        boltTimerRemainingMs: 300000,
+        serveClockRemainingMs: 14000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'intennse');
+      await waitForEvent(listener, 'scorebug-tick', 500);
+
+      // Wait longer than the idle timeout (300ms + buffer)
+      await new Promise((r) => setTimeout(r, 600));
+
+      // Should have auto-stopped — no more ticks
+      let ticksAfterIdle = 0;
+      listener.on('scorebug-tick', () => { ticksAfterIdle++; });
+      await new Promise((r) => setTimeout(r, 300));
+      expect(ticksAfterIdle).toBe(0);
+
+      tracker.disconnect();
+      listener.disconnect();
+      shortIoServer.close();
+      shortHttpServer.close();
+    });
   });
 });
