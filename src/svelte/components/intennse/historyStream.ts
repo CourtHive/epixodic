@@ -9,6 +9,9 @@
  * `sourceTieMatchUpId` handles to surface edit/remove actions.
  */
 
+/** An entry in the unified stream — either a scored point, a bolt boundary, or a substitution. */
+export type StreamEntryType = 'point' | 'boltBoundary' | 'substitution';
+
 export type PointResultKind =
   | 'winner'
   | 'touch'
@@ -34,7 +37,11 @@ export type PointResultKind =
 export type WinnerEditReason = 'scorekeepingError' | 'reviewCorrection';
 
 export interface PointHistoryEntry {
-  /** Stable index of the point within its tieMatchUp's history. */
+  /** What kind of stream item — points are the primary; bolt boundaries
+   *  and substitutions are interleaved visual separators. */
+  entryType: StreamEntryType;
+  /** Stable index of the point within its tieMatchUp's history.
+   *  -1 for non-point entries. */
   pointIndex: number;
   /** Original ISO timestamp when present (from addPoint). */
   timestamp?: string;
@@ -59,6 +66,16 @@ export interface PointHistoryEntry {
   /** Length of the rally in shots, when the scorer logged it. */
   rallyLength?: number;
 
+  // ── Non-point entry fields ─────────────────────────────────────────
+  /** Substitution: outgoing player name. */
+  subOutName?: string;
+  /** Substitution: incoming player name. */
+  subInName?: string;
+  /** Substitution: side number. */
+  subSideNumber?: 1 | 2;
+  /** Bolt boundary: label for the divider (e.g. "BOLT 1 → 2"). */
+  boundaryLabel?: string;
+
   // ── Audit fields — present only if the point has been corrected ────
   /** ISO timestamp of the most recent winner flip. */
   editedAt?: string;
@@ -81,6 +98,12 @@ export interface BuildHistoryStreamOptions extends HistoryStreamSides {
    * Default false — the scorekeeper's audit view wants everything.
    */
   hideAdjustments?: boolean;
+  /**
+   * The engine's `history.entries` array. When provided, substitution
+   * events and bolt boundaries (endSegment) are interleaved into the
+   * stream as non-point visual separators.
+   */
+  entries?: any[];
 }
 
 /**
@@ -167,6 +190,7 @@ export function buildHistoryEntry(
       : undefined;
 
   return {
+    entryType: 'point' as StreamEntryType,
     pointIndex: typeof point?.index === 'number' ? point.index : fallbackIndex,
     timestamp: point?.timestamp,
     timeLabel: formatTimeLabel(point?.timestamp),
@@ -275,23 +299,113 @@ export function parseRallyLengthInput(
 }
 
 /**
- * Build the full display list, most-recent-first. Skips null/undefined
- * points defensively (historical serialisations have occasionally
- * contained holes).
+ * Build a substitution display entry from an engine `substitution`
+ * history entry.
+ */
+function buildSubstitutionEntry(entry: any): PointHistoryEntry {
+  const sideNumber = entry?.data?.sideNumber as 1 | 2 | undefined;
+  return {
+    entryType: 'substitution',
+    pointIndex: -1,
+    timestamp: entry?.timestamp,
+    timeLabel: formatTimeLabel(entry?.timestamp),
+    winningSide: sideNumber ?? 1,
+    sideLabel: '',
+    kind: 'other',
+    glyph: '↔',
+    scoreValue: 0,
+    wonOnServe: false,
+    subOutName: entry?.data?.outParticipantId,
+    subInName: entry?.data?.inParticipantId,
+    subSideNumber: sideNumber,
+  };
+}
+
+/**
+ * Build a bolt-boundary (segment end) display entry.
+ */
+function buildBoltBoundaryEntry(entry: any, boltNumber: number): PointHistoryEntry {
+  return {
+    entryType: 'boltBoundary',
+    pointIndex: -1,
+    timestamp: entry?.timestamp,
+    timeLabel: formatTimeLabel(entry?.timestamp),
+    winningSide: 1,
+    sideLabel: '',
+    kind: 'other',
+    glyph: '—',
+    scoreValue: 0,
+    wonOnServe: false,
+    boundaryLabel: `Bolt ${boltNumber} ended`,
+  };
+}
+
+/**
+ * Build the full display list, most-recent-first. Interleaves point
+ * events with substitution and bolt-boundary markers when `entries`
+ * is provided. Skips null/undefined points defensively (historical
+ * serialisations have occasionally contained holes).
  */
 export function buildHistoryStream(
   points: any[] | undefined | null,
   options: BuildHistoryStreamOptions = {},
 ): PointHistoryEntry[] {
-  if (!Array.isArray(points) || points.length === 0) return [];
-  const rows: PointHistoryEntry[] = [];
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
+  if (!Array.isArray(points) || points.length === 0) {
+    // Even with no points we might have entries (subs before first point).
+    if (!Array.isArray(options.entries) || options.entries.length === 0) return [];
+  }
+
+  // Build the point rows first, indexed by their position in points[].
+  const pointRows: PointHistoryEntry[] = [];
+  const safePoints = Array.isArray(points) ? points : [];
+  for (let i = 0; i < safePoints.length; i++) {
+    const p = safePoints[i];
     if (!p) continue;
     if (options.hideAdjustments && p.adjustmentEvent) continue;
-    rows.push(buildHistoryEntry(p, i, options));
+    pointRows.push(buildHistoryEntry(p, i, options));
   }
-  // Most recent at the top — scorekeeper's eye goes there first.
-  rows.reverse();
-  return rows;
+
+  if (!Array.isArray(options.entries) || options.entries.length === 0) {
+    pointRows.reverse();
+    return pointRows;
+  }
+
+  // Interleave non-point entries (substitution, endSegment) by walking
+  // the unified entries array. Point entries reference their pointIndex
+  // so we can insert non-point items at the right chronological position.
+  const unified: PointHistoryEntry[] = [];
+  let pointCursor = 0;
+  let boltNumber = 1;
+
+  for (const entry of options.entries) {
+    if (!entry) continue;
+    if (entry.type === 'point') {
+      // Advance the point cursor — the corresponding pointRow is at
+      // the same offset (entries and points are kept in sync by the
+      // factory). When an entry is a point we emit the pre-built
+      // pointRow so its full metadata (audit fields, etc.) is preserved.
+      if (pointCursor < pointRows.length) {
+        unified.push(pointRows[pointCursor]);
+        pointCursor++;
+      }
+    } else if (entry.type === 'substitution') {
+      unified.push(buildSubstitutionEntry(entry));
+    } else if (entry.type === 'endSegment') {
+      unified.push(buildBoltBoundaryEntry(entry, boltNumber));
+      boltNumber++;
+    }
+    // Other entry types (setServer, setInitialScore, etc.) are skipped
+    // — they're internal bookkeeping, not user-visible events.
+  }
+
+  // Any remaining points that weren't covered by an entry (edge case:
+  // entries array shorter than points, or entries disabled).
+  while (pointCursor < pointRows.length) {
+    unified.push(pointRows[pointCursor]);
+    pointCursor++;
+  }
+
+  // Most recent at the top.
+  unified.reverse();
+  return unified;
 }

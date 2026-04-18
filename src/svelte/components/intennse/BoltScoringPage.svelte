@@ -358,6 +358,13 @@
     return getEngineState()?.history?.points ?? [];
   });
 
+  /** Reactive entries array — includes substitutions, endSegment, etc.
+   *  Interleaved with points by the PointHistoryStream viewer. */
+  const historyEntries = $derived.by<any[]>(() => {
+    void scoring.version;
+    return getEngineState()?.history?.entries ?? [];
+  });
+
   // ── Clock command executor ──
 
   function executeClockCommands(commands: ClockCommand[]) {
@@ -1458,6 +1465,7 @@
     scoreSubmitting,
     onSubmitScore: handleManualSubmit,
     historyPoints,
+    historyEntries,
     compactFooter: isMobile,
     onHistoryEntryTap: (entry: PointHistoryEntry) => { pointDetailEntry = entry; },
   });

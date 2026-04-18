@@ -63,6 +63,7 @@
     scoreSubmitting = false,
     onSubmitScore,
     historyPoints = [],
+    historyEntries,
     onHistoryEntryTap,
   }: {
     side1Name: string;
@@ -122,6 +123,8 @@
     onSubmitScore?: () => void;
     /** Reactive `engine.history.points` for the current tieMatchUp. */
     historyPoints?: any[];
+    /** Reactive `engine.history.entries` — interleaves subs + bolt boundaries. */
+    historyEntries?: any[];
     /** Phase 3: open the point-detail modal for a history row. */
     onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
   } = $props();
@@ -144,7 +147,11 @@
   /** Score-pop animation: a brief scale+glow when the score digit changes. */
   let side1Pop = $state(false);
   let side2Pop = $state(false);
+  // svelte-ignore state_referenced_locally — intentional: these are
+  // non-reactive previous-value trackers; the $effect below reads the
+  // live prop and compares against the stale snapshot.
   let prevSide1Score = boltScore.side1;
+  // svelte-ignore state_referenced_locally
   let prevSide2Score = boltScore.side2;
 
   $effect(() => {
@@ -229,6 +236,7 @@
     <div class="iv-history-drawer">
       <PointHistoryStream
         points={historyPoints}
+        entries={historyEntries}
         {side1Name}
         {side2Name}
         onEntryTap={onHistoryEntryTap}

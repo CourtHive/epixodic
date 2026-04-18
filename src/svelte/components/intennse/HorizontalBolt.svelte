@@ -64,6 +64,7 @@
     scoreSubmitting = false,
     onSubmitScore,
     historyPoints = [],
+    historyEntries,
     onHistoryEntryTap,
     compactFooter = false,
   }: {
@@ -122,6 +123,8 @@
     onSubmitScore?: () => void;
     /** Reactive `engine.history.points` for the current tieMatchUp. */
     historyPoints?: any[];
+    /** Reactive `engine.history.entries` — interleaves subs + bolt boundaries. */
+    historyEntries?: any[];
     /** Phase 3: open the point-detail modal for a history row. */
     onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
     /** When true, collapses the footer to [⋯ 1] [⋯ 2] action-sheet triggers (phone landscape). */
@@ -191,9 +194,9 @@
       <div class="intennse-h-center-history">
         <PointHistoryStream
           points={historyPoints}
+          entries={historyEntries}
           {side1Name}
           {side2Name}
-          maxRows={12}
           onEntryTap={onHistoryEntryTap}
         />
       </div>

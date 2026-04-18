@@ -9,6 +9,7 @@
    */
   let {
     points = [],
+    entries,
     side1Name = '',
     side2Name = '',
     maxRows,
@@ -16,16 +17,19 @@
     emptyLabel = 'No points yet',
   }: {
     points?: any[];
+    /** Engine `history.entries` — when provided, substitution and
+     *  bolt-boundary events are interleaved into the stream. */
+    entries?: any[];
     side1Name?: string;
     side2Name?: string;
-    /** Cap rows displayed in the scroll area (viewer virtualises via DOM overflow). */
+    /** Cap rows displayed in the scroll area. */
     maxRows?: number;
     onEntryTap?: (entry: PointHistoryEntry) => void;
     emptyLabel?: string;
   } = $props();
 
   const rows = $derived.by<PointHistoryEntry[]>(() => {
-    const stream = buildHistoryStream(points, { side1Name, side2Name });
+    const stream = buildHistoryStream(points, { side1Name, side2Name, entries });
     return maxRows ? stream.slice(0, maxRows) : stream;
   });
 </script>
@@ -35,48 +39,67 @@
     <div class="phs-empty">{emptyLabel}</div>
   {:else}
     <ol class="phs-list">
-      {#each rows as entry (entry.pointIndex)}
-        <li class="phs-row phs-row--side{entry.winningSide} phs-row--{entry.kind}">
-          <button
-            class="phs-row-btn"
-            class:phs-row-btn--edited={entry.editReason}
-            type="button"
-            disabled={!onEntryTap}
-            onclick={() => onEntryTap?.(entry)}
-            title={entry.rawResult || ''}
-          >
-            {#if entry.timeLabel}
-              <span class="phs-time">{entry.timeLabel}</span>
-            {/if}
-            <span class="phs-glyph" aria-label={entry.rawResult || entry.kind}>
-              {entry.glyph}
-            </span>
-            <span class="phs-side">{entry.sideLabel}</span>
-            {#if entry.scoreValue > 1}
-              <span class="phs-score">+{entry.scoreValue}</span>
-            {/if}
-            {#if entry.kind === 'penalty' && entry.penaltyAgainstParticipantName}
-              <span class="phs-against">vs {entry.penaltyAgainstParticipantName}</span>
-            {/if}
-            {#if entry.rallyLength !== undefined}
-              <span class="phs-rally">R{entry.rallyLength}</span>
-            {/if}
-            {#if entry.wonOnServe && (entry.kind === 'winner' || entry.kind === 'ace')}
-              <span class="phs-serve" title="Won on serve">↑</span>
-            {/if}
-            {#if entry.editReason === 'scorekeepingError'}
-              <span
-                class="phs-edit-badge phs-edit-badge--scorekeeping"
-                title="Edited — scorekeeping error, serve order recalculated"
-              >✎</span>
-            {:else if entry.editReason === 'reviewCorrection'}
-              <span
-                class="phs-edit-badge phs-edit-badge--review"
-                title="Post-review correction — serve order retained as played"
-              >⚖</span>
-            {/if}
-          </button>
-        </li>
+      {#each rows as entry, idx (`${entry.entryType}-${entry.pointIndex}-${idx}`)}
+        {#if entry.entryType === 'boltBoundary'}
+          <li class="phs-row phs-row--boundary">
+            <div class="phs-boundary">
+              {#if entry.timeLabel}<span class="phs-time">{entry.timeLabel}</span>{/if}
+              <span class="phs-boundary-label">{entry.boundaryLabel ?? 'Bolt ended'}</span>
+            </div>
+          </li>
+        {:else if entry.entryType === 'substitution'}
+          <li class="phs-row phs-row--substitution">
+            <div class="phs-sub-row">
+              {#if entry.timeLabel}<span class="phs-time">{entry.timeLabel}</span>{/if}
+              <span class="phs-glyph phs-glyph--sub">↔</span>
+              <span class="phs-sub-detail">
+                {entry.subOutName ?? '?'} → {entry.subInName ?? '?'}
+              </span>
+            </div>
+          </li>
+        {:else}
+          <li class="phs-row phs-row--side{entry.winningSide} phs-row--{entry.kind}">
+            <button
+              class="phs-row-btn"
+              class:phs-row-btn--edited={entry.editReason}
+              type="button"
+              disabled={!onEntryTap}
+              onclick={() => onEntryTap?.(entry)}
+              title={entry.rawResult || ''}
+            >
+              {#if entry.timeLabel}
+                <span class="phs-time">{entry.timeLabel}</span>
+              {/if}
+              <span class="phs-glyph" aria-label={entry.rawResult || entry.kind}>
+                {entry.glyph}
+              </span>
+              <span class="phs-side">{entry.sideLabel}</span>
+              {#if entry.scoreValue > 1}
+                <span class="phs-score">+{entry.scoreValue}</span>
+              {/if}
+              {#if entry.kind === 'penalty' && entry.penaltyAgainstParticipantName}
+                <span class="phs-against">vs {entry.penaltyAgainstParticipantName}</span>
+              {/if}
+              {#if entry.rallyLength !== undefined}
+                <span class="phs-rally">R{entry.rallyLength}</span>
+              {/if}
+              {#if entry.wonOnServe && (entry.kind === 'winner' || entry.kind === 'ace')}
+                <span class="phs-serve" title="Won on serve">↑</span>
+              {/if}
+              {#if entry.editReason === 'scorekeepingError'}
+                <span
+                  class="phs-edit-badge phs-edit-badge--scorekeeping"
+                  title="Edited — scorekeeping error, serve order recalculated"
+                >✎</span>
+              {:else if entry.editReason === 'reviewCorrection'}
+                <span
+                  class="phs-edit-badge phs-edit-badge--review"
+                  title="Post-review correction — serve order retained as played"
+                >⚖</span>
+              {/if}
+            </button>
+          </li>
+        {/if}
       {/each}
     </ol>
   {/if}
@@ -86,7 +109,11 @@
   .phs {
     display: flex;
     flex-direction: column;
+    /* Fill the parent slot (intennse-h-center-history or iv-history-drawer)
+     * so the scroll area uses all available vertical space. */
+    flex: 1 1 0;
     min-height: 0;
+    height: 100%;
     width: 100%;
     font-size: 0.7rem;
     color: var(--intennse-text, #e0e0e0);
@@ -106,6 +133,8 @@
     margin: 0;
     padding: 0;
     overflow-y: auto;
+    flex: 1 1 0;
+    min-height: 0;
     max-height: 100%;
   }
   .phs-row {
@@ -199,6 +228,54 @@
   .phs-serve {
     color: var(--intennse-serving, #00d4aa);
     font-size: 0.75rem;
+  }
+
+  /* ── Bolt boundary divider ─────────────────────────────── */
+  .phs-row--boundary {
+    border-bottom: none;
+  }
+  .phs-boundary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.6rem;
+    color: var(--intennse-text-muted, #8892b0);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .phs-boundary::before,
+  .phs-boundary::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--intennse-accent, #0f3460);
+  }
+  .phs-boundary-label { white-space: nowrap; }
+
+  /* ── Substitution row ────────────────────────────────── */
+  .phs-row--substitution {
+    border-bottom-color: rgba(255, 255, 255, 0.02);
+  }
+  .phs-sub-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.65rem;
+    color: var(--intennse-touch, #4fc3f7);
+  }
+  .phs-glyph--sub {
+    background: var(--intennse-touch, #4fc3f7) !important;
+    color: #000 !important;
+  }
+  .phs-sub-detail {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
   }
 
   /* Edit badge — small glyph next to the row indicating the point has
