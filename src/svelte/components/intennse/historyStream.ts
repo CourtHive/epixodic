@@ -104,6 +104,12 @@ export interface BuildHistoryStreamOptions extends HistoryStreamSides {
    * stream as non-point visual separators.
    */
   entries?: any[];
+  /**
+   * Maps participantId → display name. Used to resolve substitution
+   * entries (which only carry IDs) into human-readable names.
+   * Typically sourced from the playerTime store's registered players.
+   */
+  participantNames?: Record<string, string>;
 }
 
 /**
@@ -300,10 +306,15 @@ export function parseRallyLengthInput(
 
 /**
  * Build a substitution display entry from an engine `substitution`
- * history entry.
+ * history entry. Resolves participantIds to names via `nameMap`.
  */
-function buildSubstitutionEntry(entry: any): PointHistoryEntry {
+function buildSubstitutionEntry(
+  entry: any,
+  nameMap?: Record<string, string>,
+): PointHistoryEntry {
   const sideNumber = entry?.data?.sideNumber as 1 | 2 | undefined;
+  const outId = entry?.data?.outParticipantId ?? '';
+  const inId = entry?.data?.inParticipantId ?? '';
   return {
     entryType: 'substitution',
     pointIndex: -1,
@@ -315,8 +326,8 @@ function buildSubstitutionEntry(entry: any): PointHistoryEntry {
     glyph: '↔',
     scoreValue: 0,
     wonOnServe: false,
-    subOutName: entry?.data?.outParticipantId,
-    subInName: entry?.data?.inParticipantId,
+    subOutName: nameMap?.[outId] ?? outId,
+    subInName: nameMap?.[inId] ?? inId,
     subSideNumber: sideNumber,
   };
 }
@@ -389,7 +400,7 @@ export function buildHistoryStream(
         pointCursor++;
       }
     } else if (entry.type === 'substitution') {
-      unified.push(buildSubstitutionEntry(entry));
+      unified.push(buildSubstitutionEntry(entry, options.participantNames));
     } else if (entry.type === 'endSegment') {
       unified.push(buildBoltBoundaryEntry(entry, boltNumber));
       boltNumber++;

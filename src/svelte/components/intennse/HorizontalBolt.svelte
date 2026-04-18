@@ -65,6 +65,7 @@
     onSubmitScore,
     historyPoints = [],
     historyEntries,
+    participantNames,
     onHistoryEntryTap,
     compactFooter = false,
   }: {
@@ -125,6 +126,8 @@
     historyPoints?: any[];
     /** Reactive `engine.history.entries` — interleaves subs + bolt boundaries. */
     historyEntries?: any[];
+    /** participantId → name for substitution display. */
+    participantNames?: Record<string, string>;
     /** Phase 3: open the point-detail modal for a history row. */
     onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
     /** When true, collapses the footer to [⋯ 1] [⋯ 2] action-sheet triggers (phone landscape). */
@@ -195,6 +198,7 @@
         <PointHistoryStream
           points={historyPoints}
           entries={historyEntries}
+          {participantNames}
           {side1Name}
           {side2Name}
           onEntryTap={onHistoryEntryTap}

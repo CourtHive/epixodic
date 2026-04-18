@@ -11,6 +11,7 @@
   let {
     points = [],
     entries,
+    participantNames,
     side1Name = '',
     side2Name = '',
     maxRows,
@@ -21,6 +22,8 @@
     /** Engine `history.entries` — when provided, substitution and
      *  bolt-boundary events are interleaved into the stream. */
     entries?: any[];
+    /** participantId → name map for resolving substitution entries. */
+    participantNames?: Record<string, string>;
     side1Name?: string;
     side2Name?: string;
     /** Cap rows displayed in the scroll area. */
@@ -30,19 +33,34 @@
   } = $props();
 
   const rows = $derived.by<PointHistoryEntry[]>(() => {
-    const stream = buildHistoryStream(points, { side1Name, side2Name, entries });
+    const stream = buildHistoryStream(points, { side1Name, side2Name, entries, participantNames });
     return maxRows ? stream.slice(0, maxRows) : stream;
   });
 
   /** Ref to the scrollable list — used for auto-scroll-to-bottom. */
   let listEl: HTMLOListElement | undefined = $state();
+  let prevRowCount = 0;
 
-  // Auto-scroll to the bottom whenever the row count changes.
+  // Auto-scroll to bottom ONLY when new rows are appended AND the user
+  // was already at (or near) the bottom. This prevents the list from
+  // jumping back to the end while the user is scrolling up to review
+  // older events. Clock-tick re-renders don't change row count, so
+  // they won't trigger a scroll.
   $effect(() => {
-    void rows.length;
-    tick().then(() => {
-      if (listEl) listEl.scrollTop = listEl.scrollHeight;
-    });
+    const count = rows.length;
+    if (count > prevRowCount) {
+      tick().then(() => {
+        if (!listEl) return;
+        // "Near the bottom" = within 80px of the end. Accounts for
+        // the height of 2-3 rows so a freshly-appended row is always
+        // visible even if the user hasn't scrolled to the pixel-exact
+        // bottom.
+        const nearBottom =
+          listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 80;
+        if (nearBottom) listEl.scrollTop = listEl.scrollHeight;
+      });
+    }
+    prevRowCount = count;
   });
 </script>
 

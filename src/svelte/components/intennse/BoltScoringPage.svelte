@@ -365,6 +365,17 @@
     return getEngineState()?.history?.entries ?? [];
   });
 
+  /** participantId → name lookup for resolving substitution entries
+   *  in the history viewer (engine entries only carry IDs). */
+  const participantNames = $derived.by<Record<string, string>>(() => {
+    void playerTime.version;
+    const map: Record<string, string> = {};
+    for (const [id, entry] of Object.entries(playerTime.players)) {
+      map[id] = entry.participantName;
+    }
+    return map;
+  });
+
   // ── Clock command executor ──
 
   function executeClockCommands(commands: ClockCommand[]) {
@@ -1470,6 +1481,7 @@
     onSubmitScore: handleManualSubmit,
     historyPoints,
     historyEntries,
+    participantNames,
     compactFooter: isMobile,
     onHistoryEntryTap: (entry: PointHistoryEntry) => { pointDetailEntry = entry; },
   });
