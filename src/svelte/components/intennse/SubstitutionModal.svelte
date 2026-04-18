@@ -36,13 +36,34 @@
     activePlayers.find((p) => p.participantId === selectedOut)?.gender,
   );
 
+  /** Eligible bench players given a specific outgoing player's gender. */
+  function getEligibleBench(outGender?: string) {
+    return benchPlayers.filter((p) => {
+      if (isTimeExhausted(p.participantId)) return false;
+      if (isMixedBolt && outGender && p.gender && p.gender !== outGender) return false;
+      return true;
+    });
+  }
+
+  /** Auto-complete the sub when exactly one eligible bench player exists. */
+  function tryAutoComplete() {
+    if (!selectedOut) return;
+    const outGender = activePlayers.find((p) => p.participantId === selectedOut)?.gender;
+    const eligible = getEligibleBench(outGender);
+    if (eligible.length === 1) {
+      onSubstitute(selectedOut, eligible[0].participantId);
+      selectedOut = null;
+    }
+  }
+
   function selectOut(participantId: string) {
     if (participantId === preSelectedOut) return;
     if (activePlayers.length === 1) {
       selectedOut = participantId;
-      return;
+    } else {
+      selectedOut = selectedOut === participantId ? null : participantId;
     }
-    selectedOut = selectedOut === participantId ? null : participantId;
+    tryAutoComplete();
   }
 
   /** True when a bench player may NOT be tapped because their gender
@@ -60,6 +81,13 @@
     onSubstitute(selectedOut, participantId);
     selectedOut = null;
   }
+
+  // If the out player is already selected (pre-assigned from penalty or
+  // singles auto-select) and there's only one eligible bench player,
+  // auto-complete immediately on mount — no extra tap needed.
+  $effect(() => {
+    tryAutoComplete();
+  });
 
   /** CSS color for participant name based on gender. */
   function genderColor(gender?: string): string {
