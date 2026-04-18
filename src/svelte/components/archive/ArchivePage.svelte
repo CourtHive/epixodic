@@ -17,12 +17,19 @@
   let activeTab = $state<'my' | 'tournaments'>('my');
   let showIntennseConfig = $state(false);
 
-  function createIntennseDemo(config: { team1Name: string; team2Name: string; boltMinutes: number; assignParticipants: boolean }) {
+  function createIntennseDemo(config: {
+    team1Name: string;
+    team2Name: string;
+    boltMinutes: number;
+    breakSeconds: number;
+    assignParticipants: boolean;
+  }) {
     showIntennseConfig = false;
     const matchUp = createIntennseDemoMatchUp({
       team1Name: config.team1Name,
       team2Name: config.team2Name,
       boltDurationMinutes: config.boltMinutes,
+      breakDurationSeconds: config.breakSeconds,
       assignParticipants: config.assignParticipants,
     });
     setTeamMatchUp(matchUp as any);

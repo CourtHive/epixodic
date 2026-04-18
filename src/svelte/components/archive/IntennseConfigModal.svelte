@@ -3,13 +3,20 @@
     onConfirm,
     onClose,
   }: {
-    onConfirm: (config: { team1Name: string; team2Name: string; boltMinutes: number; assignParticipants: boolean }) => void;
+    onConfirm: (config: {
+      team1Name: string;
+      team2Name: string;
+      boltMinutes: number;
+      breakSeconds: number;
+      assignParticipants: boolean;
+    }) => void;
     onClose: () => void;
   } = $props();
 
   let team1Name = $state('The Authentics');
   let team2Name = $state('Cauldron');
   let boltMinutes = $state(10);
+  let breakSeconds = $state(120);
   let assignParticipants = $state(true);
 
   function handleConfirm() {
@@ -18,6 +25,7 @@
       team1Name: team1Name.trim(),
       team2Name: team2Name.trim(),
       boltMinutes,
+      breakSeconds,
       assignParticipants,
     });
   }
@@ -50,6 +58,15 @@
         <option value={3}>3 min (exhibition)</option>
         <option value={5}>5 min</option>
         <option value={10}>10 min (standard)</option>
+      </select>
+    </div>
+
+    <div class="icm-field">
+      <label class="icm-label" for="icm-break">Break duration</label>
+      <select class="icm-input" id="icm-break" bind:value={breakSeconds}>
+        <option value={30}>0:30 (testing)</option>
+        <option value={60}>1:00 (testing)</option>
+        <option value={120}>2:00 (official)</option>
       </select>
     </div>
 
