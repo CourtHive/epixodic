@@ -205,8 +205,35 @@ socket.on('intennse', (data) => {
 
 socket.on('score', (data) => {
   logPacket('score', data, CYAN, (d) => {
-    const scoreStr = d.score?.scoreStringSide1;
-    return scoreStr ? `  ${scoreStr}` : '';
+    const parts: string[] = [];
+    // Score string
+    const s1 = d.score?.scoreStringSide1;
+    const s2 = d.score?.scoreStringSide2;
+    if (s1 !== undefined || s2 !== undefined) {
+      parts.push(`${coloured(BOLD, `${s1 ?? '?'}–${s2 ?? '?'}`)}`);
+    }
+    // Sets detail
+    const sets = d.score?.sets;
+    if (Array.isArray(sets) && sets.length) {
+      const last = sets[sets.length - 1];
+      parts.push(`Set ${sets.length}: ${last.side1Score ?? 0}–${last.side2Score ?? 0}`);
+    }
+    // Last point
+    if (d.point) {
+      const winner = d.point.winner === 0 ? 'Side 1' : 'Side 2';
+      const result = d.point.result ?? '';
+      const value = d.point.scoreValue && d.point.scoreValue > 1 ? ` (+${d.point.scoreValue})` : '';
+      parts.push(`${coloured(GREEN, winner)} ${result}${value}`);
+    }
+    // Match status
+    if (d.matchUpStatus && d.matchUpStatus !== 'IN_PROGRESS') {
+      parts.push(coloured(YELLOW, d.matchUpStatus));
+    }
+    // Match ID (short)
+    if (d.matchUpId) {
+      parts.push(coloured(DIM, d.matchUpId.slice(0, 12) + '…'));
+    }
+    return parts.length ? `  ${parts.join('  ')}` : `  ${coloured(DIM, JSON.stringify(d).slice(0, 120))}`;
   });
 });
 
@@ -232,6 +259,15 @@ socket.on('scorebug-tick', (data) => {
 
 socket.on('videoboard', (data) => {
   logPacket('videoboard', data, MAGENTA);
+});
+
+// Catch-all: log any event we don't have a specific handler for so
+// nothing is silently dropped during integration testing.
+socket.onAny((eventName, data) => {
+  const handled = ['intennse', 'score', 'history', 'active', 'scorebug-event', 'scorebug-tick', 'videoboard'];
+  if (!handled.includes(eventName)) {
+    logPacket(eventName, data, DIM, (d) => `  ${coloured(DIM, JSON.stringify(d).slice(0, 200))}`);
+  }
 });
 
 // ── Graceful shutdown ───────────────────────────────────────
