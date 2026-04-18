@@ -135,6 +135,11 @@ export function sendClockSync(data: {
   tournamentId?: string;
   boltTimerRemainingMs: number;
   serveClockRemainingMs: number;
+  /** Which clock is the active countdown: bolt (normal play),
+   *  timeout (60s team timeout), break (between-bolts), or none. */
+  activeClock?: 'bolt' | 'timeout' | 'break' | 'none';
+  /** Remaining ms on the active secondary clock (timeout or break). */
+  activeClockRemainingMs?: number;
   /** 'running' | 'paused' | 'completed' */
   clockState: string;
 }): void {

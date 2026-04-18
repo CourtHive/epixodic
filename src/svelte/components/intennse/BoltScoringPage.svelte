@@ -711,9 +711,6 @@
     breakActive = true;
     breakPaused = false;
     destroyClock('breakTimer');
-    // Freeze penalty-box timers for the duration of the between-bolts break
-    // — a penalised player's remaining time must not tick down while play
-    // is halted. Resumed at the start of the next bolt.
     pauseAllPenaltyClocks();
     createClock({
       id: 'breakTimer',
@@ -723,6 +720,8 @@
       tickIntervalMs: 1000,
       onExpire: handleBreakExpired,
     });
+    // Tell the relay to tick the BREAK countdown for the scorebug.
+    emitClockSync('running', 'break');
   }
 
   function handleBreakExpired() {
@@ -904,7 +903,9 @@
     serveClockWasRunning = serveSnapshot?.state === 'running';
     executeClockCommands(onTimeoutStart(serveClockWasRunning));
     pauseAllPenaltyClocks();
-    emitClockSync('paused');
+    // Bolt is paused but the TIMEOUT clock is now running — tell
+    // the relay to tick the timeout countdown for the scorebug.
+    emitClockSync('running', 'timeout');
   }
 
   function handleDismissTimeout() {
@@ -915,7 +916,8 @@
     resumePenaltyClocksForBolt(getCurrentBoltContext());
     timeoutTeamName = '';
     timeoutSide = null;
-    emitClockSync('running');
+    // Bolt clock resumes — switch back to bolt ticks.
+    emitClockSync('running', 'bolt');
   }
 
   function handleCancelTimeout() {
@@ -925,7 +927,7 @@
     resumePenaltyClocksForBolt(getCurrentBoltContext());
     timeoutTeamName = '';
     timeoutSide = null;
-    emitClockSync('running');
+    emitClockSync('running', 'bolt');
   }
 
   function handleBoltExpired() {
@@ -1331,14 +1333,34 @@
    * The relay uses this to stop/start its ticker so the scorebug
    * display stays in sync.
    */
-  function emitClockSync(clockState: 'running' | 'paused' | 'completed') {
+  function emitClockSync(
+    clockState: 'running' | 'paused' | 'completed',
+    activeClock?: 'bolt' | 'timeout' | 'break' | 'none',
+  ) {
     const boltSnap = getClockSnapshot('boltTimer');
     const serveSnap = getClockSnapshot('serveClock');
+    const timeoutSnap = getClockSnapshot('timeoutTimer');
+    const breakSnap = getClockSnapshot('breakTimer');
+
+    // Derive which clock is the active countdown if caller didn't specify
+    const resolved = activeClock
+      ?? (timeoutSnap?.state === 'running' ? 'timeout'
+        : breakSnap?.state === 'running' ? 'break'
+        : clockState === 'running' ? 'bolt'
+        : 'none');
+
+    const activeClockRemainingMs =
+      resolved === 'timeout' ? (timeoutSnap?.remainingMs ?? 0)
+      : resolved === 'break' ? (breakSnap?.remainingMs ?? 0)
+      : undefined;
+
     sendClockSync({
       matchUpId,
       tournamentId: (getTeamMatchUpState().teamMatchUp as any)?.tournamentId,
       boltTimerRemainingMs: boltSnap?.remainingMs ?? 0,
       serveClockRemainingMs: serveSnap?.remainingMs ?? 0,
+      activeClock: resolved,
+      activeClockRemainingMs,
       clockState,
     });
   }

@@ -77,6 +77,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
           serveRemainingMs: serveMs ?? 0,
           anchoredAt: Date.now(),
           running,
+          activeClock: running ? 'bolt' : 'none',
           tournamentId: data.tournamentId,
         });
         if (running) {
@@ -120,6 +121,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
         serveRemainingMs: serveMs,
         anchoredAt: Date.now(),
         running,
+        activeClock: running ? 'bolt' : 'none',
         tournamentId: data.tournamentId,
       });
 
@@ -144,13 +146,16 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       const boltMs = typeof data.boltTimerRemainingMs === 'number' ? data.boltTimerRemainingMs : 0;
       const serveMs = typeof data.serveClockRemainingMs === 'number' ? data.serveClockRemainingMs : 0;
-      const running = data.clockState === 'running' && boltMs > 0;
+      const activeClock = data.activeClock ?? (data.clockState === 'running' ? 'bolt' : 'none');
+      const running = data.clockState === 'running';
 
       setClockAnchor(data.matchUpId, {
         boltRemainingMs: boltMs,
         serveRemainingMs: serveMs,
         anchoredAt: Date.now(),
         running,
+        activeClock,
+        activeClockRemainingMs: typeof data.activeClockRemainingMs === 'number' ? data.activeClockRemainingMs : undefined,
         tournamentId: data.tournamentId,
       });
 
@@ -279,26 +284,39 @@ export function createRelay(io: Server, config: RelayConfig): void {
       const boltMs = Math.max(0, anchor.boltRemainingMs - elapsed);
       const serveMs = Math.max(0, anchor.serveRemainingMs - elapsed);
 
+      // For timeout/break clocks, extrapolate the secondary countdown.
+      const activeClockMs = anchor.activeClockRemainingMs !== undefined
+        ? Math.max(0, anchor.activeClockRemainingMs - elapsed)
+        : undefined;
+
       const tickPayload = {
         kind: 'tick' as const,
         matchUpId,
+        activeClock: anchor.activeClock,
         boltTimerRemainingMs: boltMs,
         serveClockRemainingMs: serveMs,
+        // Only include the secondary clock when it's the active one.
+        ...(anchor.activeClock === 'timeout' && activeClockMs !== undefined
+          ? { timeoutRemainingMs: activeClockMs } : {}),
+        ...(anchor.activeClock === 'break' && activeClockMs !== undefined
+          ? { breakRemainingMs: activeClockMs } : {}),
         generatedAt: new Date().toISOString(),
       };
 
-      // Fan out to match room, tournament room, and "all" room —
-      // mirrors the intennse event fan-out so every subscriber type
-      // (match-level, tournament-level, dashboard) receives ticks.
       ns.to(matchUpId).emit('scorebug-tick', tickPayload);
       if (anchor.tournamentId) {
         ns.to(`tournament:${anchor.tournamentId}`).emit('scorebug-tick', tickPayload);
       }
       ns.to('all').emit('scorebug-tick', tickPayload);
 
-      // Auto-stop when the bolt clock reaches zero — the next
-      // intennse event (bolt-expired) will formally signal completion.
-      if (boltMs <= 0) {
+      // Auto-stop when the active clock reaches zero. The next event
+      // from epixodic (clockSync or score) will re-anchor if play
+      // continues (e.g. bolt-expired → break starts).
+      const activeDone =
+        (anchor.activeClock === 'bolt' && boltMs <= 0) ||
+        (anchor.activeClock === 'timeout' && (activeClockMs ?? 0) <= 0) ||
+        (anchor.activeClock === 'break' && (activeClockMs ?? 0) <= 0);
+      if (activeDone) {
         clearClockTimer(matchUpId);
       }
     }, 100); // 10 Hz

@@ -11,9 +11,14 @@ export interface ClockAnchor {
   serveRemainingMs: number;
   /** Date.now() when the anchor was captured from the intennse event. */
   anchoredAt: number;
-  /** True when the bolt clock is running (play); false during break,
-   *  timeout, officialPause, or bolt-complete. */
+  /** True when ANY clock should be ticking (bolt, timeout, or break). */
   running: boolean;
+  /** Which countdown is active: bolt (normal play), timeout (team
+   *  timeout), break (between bolts), or none (paused/complete). */
+  activeClock: 'bolt' | 'timeout' | 'break' | 'none';
+  /** Remaining ms on the active secondary clock (timeout or break).
+   *  Only set when activeClock is 'timeout' or 'break'. */
+  activeClockRemainingMs?: number;
   /** Stored so the ticker can fan out to the tournament room. */
   tournamentId?: string;
 }
