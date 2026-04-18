@@ -141,6 +141,25 @@
   const side1Label = $derived(compactSideLabel(side1Players));
   const side2Label = $derived(compactSideLabel(side2Players));
 
+  /** Score-pop animation: a brief scale+glow when the score digit changes. */
+  let side1Pop = $state(false);
+  let side2Pop = $state(false);
+  let prevSide1Score = boltScore.side1;
+  let prevSide2Score = boltScore.side2;
+
+  $effect(() => {
+    if (boltScore.side1 !== prevSide1Score) {
+      prevSide1Score = boltScore.side1;
+      side1Pop = true;
+      setTimeout(() => (side1Pop = false), 400);
+    }
+    if (boltScore.side2 !== prevSide2Score) {
+      prevSide2Score = boltScore.side2;
+      side2Pop = true;
+      setTimeout(() => (side2Pop = false), 400);
+    }
+  });
+
   const timeoutSnapshot = $derived(getClockSnapshot('timeoutTimer'));
   const timeoutActive = $derived(timeoutSnapshot?.state === 'running');
 </script>
@@ -224,7 +243,7 @@
       class:iv-score-side--needs-select={!boltStarted && side1Players.length === 0}
     >
       <span class="iv-team-name">{side1Name}</span>
-      <span class="iv-score-value">{boltScore.side1}</span>
+      <span class="iv-score-value" class:iv-score-value--pop={side1Pop}>{boltScore.side1}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 0}>{side1Label}</span>
     </div>
 
@@ -235,7 +254,7 @@
       class:iv-score-side--needs-select={!boltStarted && side2Players.length === 0}
     >
       <span class="iv-team-name">{side2Name}</span>
-      <span class="iv-score-value">{boltScore.side2}</span>
+      <span class="iv-score-value" class:iv-score-value--pop={side2Pop}>{boltScore.side2}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 1}>{side2Label}</span>
     </div>
   </div>
@@ -492,6 +511,17 @@
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     line-height: 1;
+    transition: transform 0.1s ease-out;
+  }
+
+  .iv-score-value--pop {
+    animation: iv-score-pop 0.35s ease-out;
+  }
+
+  @keyframes iv-score-pop {
+    0% { transform: scale(1); color: var(--intennse-text); }
+    30% { transform: scale(1.35); color: var(--intennse-serving, #00d4aa); }
+    100% { transform: scale(1); color: var(--intennse-text); }
   }
 
   .iv-score-divider {
