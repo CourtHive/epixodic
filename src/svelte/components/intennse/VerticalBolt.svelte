@@ -15,6 +15,7 @@
     boltScore,
     aggregateScore,
     server,
+    serveSide,
     canUndo,
     canRedo,
     side1Players = [],
@@ -73,6 +74,7 @@
     boltScore: { side1: number; side2: number };
     aggregateScore: { side1: number; side2: number };
     server: number;
+    serveSide?: string;
     canUndo: boolean;
     canRedo: boolean;
     side1Players?: PlayerSlot[];
@@ -221,6 +223,9 @@
     {:else}
       <ClockDisplay clockId="boltTimer" label="BOLT" size="compact" urgentAt={60000} criticalAt={30000} />
       <span class="iv-bolt-label">{boltLabel}</span>
+      {#if serveSide}
+        <span class="iv-serve-side">{serveSide === 'AD' ? 'AD' : 'DEUCE'}</span>
+      {/if}
       <button
         class="intennse-ctrl-btn iv-history-toggle"
         class:iv-history-toggle--active={showPointHistory}
@@ -469,6 +474,15 @@
     flex: 1;
   }
 
+  .iv-serve-side {
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--intennse-serving, #00d4aa);
+    white-space: nowrap;
+  }
+
   .iv-score {
     display: flex;
     align-items: center;
@@ -699,13 +713,16 @@
    * Constrained in height so the score/action-panel flex layout still
    * has room; the internal list scrolls. */
   .iv-history-drawer {
-    flex: 0 0 auto;
+    /* Take available flex space between the header and the score/actions,
+     * capped at 35vh so it doesn't swallow the whole screen. The child
+     * PointHistoryStream handles its own internal scrolling. */
+    flex: 1 1 0;
     max-height: 35vh;
-    min-height: 0;
+    min-height: 6rem;
     padding: 0.3rem 0.5rem;
     border-bottom: 1px solid var(--intennse-accent);
     display: flex;
-    overflow: hidden;
+    overflow: visible;
   }
   /* The drawer renders <PointHistoryStream> (a child component) as its
    * only child, so this selector targets that child's root element.
