@@ -6,6 +6,10 @@ import {
   getActiveMatchIds,
   getMatchUpsByTournament,
   pruneStaleMatches,
+  setClockAnchor,
+  getClockAnchor,
+  setClockTimer,
+  clearClockTimer,
 } from './matchUpStore.js';
 import { persistMatchHistory } from './persistence.js';
 import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
@@ -59,7 +63,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
       listeners.to('all').emit('score', data);
     });
 
-    // INTENNSE enriched snapshots: fan out to listeners without storing
+    // INTENNSE enriched snapshots: fan out to listeners + anchor clocks
+    // for relay-native tick generation.
     socket.on('intennse', (data: any) => {
       if (!data?.matchUpId) {
         socket.emit('error', { message: 'matchUpId required' });
@@ -68,11 +73,36 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       socket.emit('ack', { matchUpId: data.matchUpId, received: true });
 
+      // Fan out the event payload (full stats, score, penalty box, etc.)
       listeners.to(data.matchUpId).emit('intennse', data);
       if (data.tournamentId) {
         listeners.to(`tournament:${data.tournamentId}`).emit('intennse', data);
       }
       listeners.to('all').emit('intennse', data);
+
+      // Anchor clocks for relay-native tick generation.
+      // The intennse event carries boltTimerRemainingMs and
+      // serveClockRemainingMs — snapshot values at the moment the
+      // tracker emitted. Between events, the relay extrapolates by
+      // subtracting wall-clock elapsed time from the anchor.
+      const matchUpId = data.matchUpId;
+      const boltMs = typeof data.boltTimerRemainingMs === 'number' ? data.boltTimerRemainingMs : 0;
+      const serveMs = typeof data.serveClockRemainingMs === 'number' ? data.serveClockRemainingMs : 0;
+      const status = (data.matchUpStatus ?? '').toUpperCase();
+      const running = boltMs > 0 && status !== 'COMPLETED';
+
+      setClockAnchor(matchUpId, {
+        boltRemainingMs: boltMs,
+        serveRemainingMs: serveMs,
+        anchoredAt: Date.now(),
+        running,
+      });
+
+      if (running) {
+        startClockTicker(matchUpId, listeners);
+      } else {
+        clearClockTimer(matchUpId);
+      }
     });
 
     socket.on('history', async (data: MatchHistory) => {
@@ -153,7 +183,48 @@ export function createRelay(io: Server, config: RelayConfig): void {
     });
   });
 
-  // Periodically prune stale matches
+  // ── Relay-native clock ticker ─────────────────────────────
+  //
+  // Instead of the competition-factory-server generating 10Hz HTTP
+  // POSTs, the relay itself extrapolates from the last-received
+  // intennse event's clock values. Each event re-anchors the
+  // countdown (corrects any drift). Pause/break/complete signals
+  // clear the timer.
+
+  function startClockTicker(matchUpId: string, ns: typeof listeners): void {
+    // Idempotent — clears any existing timer for this match first.
+    clearClockTimer(matchUpId);
+
+    const timer = setInterval(() => {
+      const anchor = getClockAnchor(matchUpId);
+      if (!anchor?.running) {
+        clearClockTimer(matchUpId);
+        return;
+      }
+
+      const elapsed = Date.now() - anchor.anchoredAt;
+      const boltMs = Math.max(0, anchor.boltRemainingMs - elapsed);
+      const serveMs = Math.max(0, anchor.serveRemainingMs - elapsed);
+
+      ns.to(matchUpId).emit('scorebug-tick', {
+        kind: 'tick',
+        matchUpId,
+        boltTimerRemainingMs: boltMs,
+        serveClockRemainingMs: serveMs,
+        generatedAt: new Date().toISOString(),
+      });
+
+      // Auto-stop when the bolt clock reaches zero — the next
+      // intennse event (bolt-expired) will formally signal completion.
+      if (boltMs <= 0) {
+        clearClockTimer(matchUpId);
+      }
+    }, 100); // 10 Hz
+
+    setClockTimer(matchUpId, timer);
+  }
+
+  // Periodically prune stale matches (also clears any orphaned timers)
   setInterval(() => {
     const pruned = pruneStaleMatches(staleMatchAgeMs);
     if (pruned > 0) {
