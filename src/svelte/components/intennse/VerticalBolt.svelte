@@ -129,6 +129,9 @@
   /** Portrait history-stream drawer toggle — hidden by default. */
   let showPointHistory = $state(false);
 
+  /** Compact per-side action menu — replaces the 4-row footer grid. */
+  let actionMenuSide = $state<1 | 2 | null>(null);
+
   /** Compact player label per side: last names joined for doubles, full name for singles. */
   function compactSideLabel(players: PlayerSlot[]): string {
     if (players.length === 0) return 'TAP TO SELECT';
@@ -326,56 +329,81 @@
     </div>
   {/if}
 
-  <!-- Footer: 3-column grid (side 1 | controls | side 2) -->
-  <div class="iv-footer">
+  <!-- Footer: compact single-row with per-side action selectors -->
+  <div class="iv-footer iv-footer--compact">
     <button
-      class="intennse-footer-btn intennse-footer-btn--info"
-      class:intennse-footer-btn--active={playerTimeSide === 1}
-      onclick={() => onTogglePlayerTimeSide?.(1)}
+      class="iv-footer-actions-trigger"
+      class:iv-footer-actions-trigger--open={actionMenuSide === 1}
+      onclick={() => (actionMenuSide = actionMenuSide === 1 ? null : 1)}
+      aria-label="Side 1 actions"
     >
-      <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 1
-    </button>
-    <span></span>
-    <button
-      class="intennse-footer-btn intennse-footer-btn--info"
-      class:intennse-footer-btn--active={playerTimeSide === 2}
-      onclick={() => onTogglePlayerTimeSide?.(2)}
-    >
-      <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 2
+      ⋯ 1
     </button>
 
-    <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(1)}>
-      <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 1
-    </button>
-    <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
-    <button class="intennse-footer-btn intennse-footer-btn--sub" onclick={() => onSubstitute(2)}>
-      <span class="footer-label-full">Sub</span><span class="footer-label-short">SUB</span> 2
-    </button>
+    <div class="iv-footer-center">
+      <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
+      <button
+        class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
+        class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
+        class:intennse-ctrl-btn--paused={officialPause}
+        onclick={onPointStart}
+        disabled={boltComplete || breakActive}
+      >
+        {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
+      </button>
+      <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
+    </div>
 
-    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(1)} disabled={isTimeoutButtonDisabled({ breakActive, timeoutsRemaining: timeoutsRemaining[1] })}>
-      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[1]})
-    </button>
-    <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
-    <button class="intennse-footer-btn intennse-footer-btn--timeout" onclick={() => onTimeout(2)} disabled={isTimeoutButtonDisabled({ breakActive, timeoutsRemaining: timeoutsRemaining[2] })}>
-      <span class="footer-label-full">Timeout</span><span class="footer-label-short">TO</span> ({timeoutsRemaining[2]})
-    </button>
-
-    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(1)}>
-      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 1
-    </button>
     <button
-      class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
-      class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
-      class:intennse-ctrl-btn--paused={officialPause}
-      onclick={onPointStart}
-      disabled={boltComplete || breakActive}
+      class="iv-footer-actions-trigger"
+      class:iv-footer-actions-trigger--open={actionMenuSide === 2}
+      onclick={() => (actionMenuSide = actionMenuSide === 2 ? null : 2)}
+      aria-label="Side 2 actions"
     >
-      {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
-    </button>
-    <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)}>
-      <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span> 2
+      ⋯ 2
     </button>
   </div>
+
+  <!-- Slide-up action sheet for per-side controls -->
+  {#if actionMenuSide}
+    {@const s = actionMenuSide}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="iv-action-sheet-backdrop" onclick={() => (actionMenuSide = null)}>
+      <div class="iv-action-sheet" onclick={(e) => e.stopPropagation()}>
+        <div class="iv-action-sheet-header">
+          Side {s} actions
+          <button class="iv-action-sheet-close" onclick={() => (actionMenuSide = null)}>✕</button>
+        </div>
+        <button
+          class="iv-action-sheet-item iv-action-sheet-item--info"
+          class:iv-action-sheet-item--active={playerTimeSide === s}
+          onclick={() => { onTogglePlayerTimeSide?.(s); actionMenuSide = null; }}
+        >
+          Player Time
+        </button>
+        <button
+          class="iv-action-sheet-item iv-action-sheet-item--sub"
+          onclick={() => { onSubstitute(s); actionMenuSide = null; }}
+        >
+          Substitute
+        </button>
+        <button
+          class="iv-action-sheet-item iv-action-sheet-item--timeout"
+          onclick={() => { onTimeout(s); actionMenuSide = null; }}
+          disabled={isTimeoutButtonDisabled({ breakActive, timeoutsRemaining: timeoutsRemaining[s] })}
+        >
+          Timeout ({timeoutsRemaining[s]})
+        </button>
+        <button
+          class="iv-action-sheet-item iv-action-sheet-item--penalty"
+          onclick={() => { onPenalty(s); actionMenuSide = null; }}
+        >
+          Penalty
+        </button>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -388,6 +416,16 @@
     color: var(--intennse-text);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
+    /* iPhone notch / Dynamic Island / home indicator: the dark intennse
+     * background extends behind the status bar; content (header buttons,
+     * footer controls) starts inside the safe area. Applied here rather
+     * than on body so the background colour is continuous — body's
+     * light-mode --ep-bg-primary would otherwise bleed through as a
+     * strip above/below the scoring surface. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
 
   .iv-header {
@@ -650,10 +688,120 @@
     background: var(--intennse-surface);
   }
 
+  /* Compact single-row footer: [⋯ 1] [↩ ▶ ↪] [⋯ 2] */
+  .iv-footer--compact {
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+
+  .iv-footer-actions-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--intennse-accent, #0f3460);
+    border-radius: 8px;
+    background: var(--intennse-surface, #16213e);
+    color: var(--intennse-text, #e0e0e0);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+    min-height: 2.5rem;
+    letter-spacing: 0.15em;
+  }
+  .iv-footer-actions-trigger:active { opacity: 0.7; transform: scale(0.97); }
+  .iv-footer-actions-trigger--open {
+    border-color: var(--intennse-serving, #00d4aa);
+    color: var(--intennse-serving, #00d4aa);
+  }
+
+  .iv-footer-center {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 0.3rem;
+  }
+
   .iv-footer :global(.intennse-ctrl-btn) {
     min-height: 2.2rem;
     font-size: 1.1rem;
   }
+
+  /* ── Side action sheet (slide-up from bottom) ────────────── */
+  .iv-action-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .iv-action-sheet {
+    width: 100%;
+    max-width: 400px;
+    background: var(--intennse-surface, #16213e);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    padding: 0.75rem 1rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    animation: iv-sheet-slide-up 0.15s ease-out;
+  }
+
+  @keyframes iv-sheet-slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .iv-action-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--intennse-text-muted, #8892b0);
+    margin-bottom: 0.2rem;
+  }
+
+  .iv-action-sheet-close {
+    background: none;
+    border: none;
+    color: var(--intennse-text-muted, #8892b0);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.2rem;
+  }
+
+  .iv-action-sheet-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--intennse-accent, #0f3460);
+    border-radius: 10px;
+    background: var(--intennse-bg, #1a1a2e);
+    color: var(--intennse-text, #e0e0e0);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .iv-action-sheet-item:active { opacity: 0.7; transform: scale(0.98); }
+  .iv-action-sheet-item:disabled { opacity: 0.3; cursor: default; }
+
+  .iv-action-sheet-item--info { border-color: var(--intennse-text-muted, #8892b0); color: var(--intennse-text-muted); }
+  .iv-action-sheet-item--active { border-color: var(--intennse-serving, #00d4aa); color: var(--intennse-serving); }
+  .iv-action-sheet-item--sub { border-color: var(--intennse-touch, #4fc3f7); color: var(--intennse-touch); }
+  .iv-action-sheet-item--timeout { border-color: var(--intennse-ace, #ffd740); color: var(--intennse-ace); }
+  .iv-action-sheet-item--penalty { border-color: var(--intennse-error, #ef5350); color: var(--intennse-error); }
 
   .iv-score-side--needs-select .iv-player-name {
     color: var(--intennse-urgent, #ff9800);

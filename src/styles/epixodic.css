@@ -122,9 +122,9 @@ body {
   background-color: var(--ep-bg-primary);
   /* Prevent iOS rubber-band scrolling from exposing white space behind the app. */
   overflow: hidden;
-  /* Respect notch / home-indicator / status-bar safe areas when installed. */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+  /* Safe-area insets are handled per-screen (e.g. .intennse-vertical)
+   * so each screen's background extends behind the notch / status bar
+   * instead of body's light-mode --ep-bg-primary bleeding through. */
 }
 
 #scoring-container > * {
