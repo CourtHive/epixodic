@@ -155,11 +155,21 @@
 </script>
 
 <div class="intennse-horizontal">
-  <!-- Top header: back button + bolt label (spans all columns) -->
+  <!-- Top header: back button + clocks + bolt label (spans all columns) -->
   <div class="intennse-h-header">
     <button class="intennse-ctrl-btn intennse-h-back" onclick={onBack} title="Back to Arc">← Arc</button>
+    {#if compactFooter}
+      {#if breakActive}
+        <ClockDisplay clockId="breakTimer" label="BREAK" size="compact" urgentAt={30000} criticalAt={10000} />
+      {:else}
+        <ClockDisplay clockId="boltTimer" label="BOLT" size="compact" urgentAt={60000} criticalAt={30000} />
+      {/if}
+    {/if}
     <span class="intennse-bolt-label">{boltLabel}</span>
     <span class="intennse-h-serve-side">{serveSide === 'AD' ? 'AD' : serveSide ? 'DEUCE' : ''}</span>
+    {#if compactFooter && !breakActive}
+      <ClockDisplay clockId="serveClock" label="SERVE" size="compact" urgentAt={5000} criticalAt={3000} />
+    {/if}
   </div>
 
   <!-- Left side: Side 1 player + actions + penalty box -->
@@ -185,10 +195,12 @@
 
   <!-- Center column -->
   <div class="intennse-h-center">
-    {#if breakActive}
-      <ClockDisplay clockId="breakTimer" label="BREAK" size="xlarge" urgentAt={30000} criticalAt={10000} />
-    {:else}
-      <ClockDisplay clockId="boltTimer" label={categoryLabel || 'BOLT'} size="xlarge" urgentAt={60000} criticalAt={30000} />
+    {#if !compactFooter}
+      {#if breakActive}
+        <ClockDisplay clockId="breakTimer" label="BREAK" size="xlarge" urgentAt={30000} criticalAt={10000} />
+      {:else}
+        <ClockDisplay clockId="boltTimer" label={categoryLabel || 'BOLT'} size="xlarge" urgentAt={60000} criticalAt={30000} />
+      {/if}
     {/if}
     <ScoreDisplay
       side1Score={aggregateScore.side1}
