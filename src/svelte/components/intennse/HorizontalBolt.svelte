@@ -191,18 +191,18 @@
       <ClockDisplay clockId="boltTimer" label={categoryLabel || 'BOLT'} size="xlarge" urgentAt={60000} criticalAt={30000} />
     {/if}
     <ScoreDisplay
-      side1Score={boltScore.side1}
-      side2Score={boltScore.side2}
+      side1Score={aggregateScore.side1}
+      side2Score={aggregateScore.side2}
       {server}
     />
     <div class="intennse-h-arc-row">
       <PenaltyBoxIndicator sideNumber={1} onTap={onPenaltyBoxTap} />
       <div class="intennse-arc-compact intennse-arc-compact--large">
-        <div class="intennse-arc-compact-label">ARC</div>
+        <div class="intennse-arc-compact-label">BOLT</div>
         <div class="intennse-arc-compact-score">
-          <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
+          <span class:intennse-arc-leading={boltScore.side1 > boltScore.side2}>{boltScore.side1}</span>
           <span class="intennse-arc-compact-divider">–</span>
-          <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
+          <span class:intennse-arc-leading={boltScore.side2 > boltScore.side1}>{boltScore.side2}</span>
         </div>
       </div>
       <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />

@@ -171,18 +171,18 @@
   // svelte-ignore state_referenced_locally — intentional: these are
   // non-reactive previous-value trackers; the $effect below reads the
   // live prop and compares against the stale snapshot.
-  let prevSide1Score = boltScore.side1;
+  let prevSide1Score = aggregateScore.side1;
   // svelte-ignore state_referenced_locally
-  let prevSide2Score = boltScore.side2;
+  let prevSide2Score = aggregateScore.side2;
 
   $effect(() => {
-    if (boltScore.side1 !== prevSide1Score) {
-      prevSide1Score = boltScore.side1;
+    if (aggregateScore.side1 !== prevSide1Score) {
+      prevSide1Score = aggregateScore.side1;
       side1Pop = true;
       setTimeout(() => (side1Pop = false), 400);
     }
-    if (boltScore.side2 !== prevSide2Score) {
-      prevSide2Score = boltScore.side2;
+    if (aggregateScore.side2 !== prevSide2Score) {
+      prevSide2Score = aggregateScore.side2;
       side2Pop = true;
       setTimeout(() => (side2Pop = false), 400);
     }
@@ -275,7 +275,7 @@
       class:iv-score-side--needs-select={!boltStarted && side1Players.length === 0}
     >
       <span class="iv-team-name">{side1Name}</span>
-      <span class="iv-score-value" class:iv-score-value--pop={side1Pop}>{boltScore.side1}</span>
+      <span class="iv-score-value" class:iv-score-value--pop={side1Pop}>{aggregateScore.side1}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 0}>{side1Label}</span>
     </div>
 
@@ -286,7 +286,7 @@
       class:iv-score-side--needs-select={!boltStarted && side2Players.length === 0}
     >
       <span class="iv-team-name">{side2Name}</span>
-      <span class="iv-score-value" class:iv-score-value--pop={side2Pop}>{boltScore.side2}</span>
+      <span class="iv-score-value" class:iv-score-value--pop={side2Pop}>{aggregateScore.side2}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 1}>{side2Label}</span>
     </div>
   </div>
@@ -306,11 +306,11 @@
   <div class="iv-arc-row">
     <PenaltyBoxIndicator sideNumber={1} onTap={onPenaltyBoxTap} />
     <div class="intennse-arc-compact iv-arc-wrapper">
-      <div class="intennse-arc-compact-label">ARC</div>
+      <div class="intennse-arc-compact-label">BOLT</div>
       <div class="intennse-arc-compact-score">
-        <span class:intennse-arc-leading={aggregateScore.side1 > aggregateScore.side2}>{aggregateScore.side1}</span>
+        <span class:intennse-arc-leading={boltScore.side1 > boltScore.side2}>{boltScore.side1}</span>
         <span class="intennse-arc-compact-divider">–</span>
-        <span class:intennse-arc-leading={aggregateScore.side2 > aggregateScore.side1}>{aggregateScore.side2}</span>
+        <span class:intennse-arc-leading={boltScore.side2 > boltScore.side1}>{boltScore.side2}</span>
       </div>
     </div>
     <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />

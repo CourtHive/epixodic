@@ -504,7 +504,7 @@
 }
 
 .intennse-score-value {
-  font-size: 3rem;
+  font-size: 3.5rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -994,7 +994,7 @@
 }
 
 .intennse-arc-compact--large .intennse-arc-compact-score {
-  font-size: 3rem;
+  font-size: 2.4rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -1032,14 +1032,14 @@
   .intennse-h-center .clock--xlarge .clock-label { font-size: 0.55rem; }
   .intennse-h-center .clock--normal .clock-time { font-size: 0.9rem; }
 
-  /* Score display: much smaller */
-  .intennse-h-center .intennse-score-value { font-size: 1.6rem; }
+  /* Score display (Arc — primary): slightly larger */
+  .intennse-h-center .intennse-score-value { font-size: 1.8rem; }
   .intennse-h-center .intennse-score-divider { font-size: 0.9rem; }
   .intennse-h-center .intennse-score-name { font-size: 0.5rem; }
 
-  /* ARC compact score */
-  .intennse-arc-compact--large .intennse-arc-compact-score { font-size: 1.4rem; }
-  .intennse-arc-compact--large .intennse-arc-compact-label { font-size: 0.55rem; }
+  /* Bolt compact score (secondary): smaller */
+  .intennse-arc-compact--large .intennse-arc-compact-score { font-size: 1.2rem; }
+  .intennse-arc-compact--large .intennse-arc-compact-label { font-size: 0.5rem; }
 
   /* Center column: tighter padding */
   .intennse-h-center { padding: 0.25rem 0.5rem; }
