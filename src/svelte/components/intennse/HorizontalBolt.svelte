@@ -156,7 +156,7 @@
 
 <div class="intennse-horizontal">
   <!-- Top header: back button + clocks + bolt label (spans all columns) -->
-  <div class="intennse-h-header">
+  <div class="intennse-h-header" class:intennse-h-header--clocks={compactFooter}>
     <button class="intennse-ctrl-btn intennse-h-back" onclick={onBack} title="Back to Arc">← Arc</button>
     {#if compactFooter}
       {#if breakActive}
@@ -165,7 +165,7 @@
         <ClockDisplay clockId="boltTimer" label="BOLT" size="compact" urgentAt={60000} criticalAt={30000} />
       {/if}
     {/if}
-    <span class="intennse-bolt-label">{boltLabel}</span>
+    <span class="intennse-bolt-label" class:intennse-bolt-label--grow={compactFooter}>{boltLabel}</span>
     <span class="intennse-h-serve-side">{serveSide === 'AD' ? 'AD' : serveSide ? 'DEUCE' : ''}</span>
     {#if compactFooter && !breakActive}
       <ClockDisplay clockId="serveClock" label="SERVE" size="compact" urgentAt={5000} criticalAt={3000} />

@@ -283,6 +283,14 @@
   border-bottom: 1px solid var(--intennse-accent);
   position: relative;
 }
+/* When clocks are in the header (phone landscape), spread edge-to-edge */
+.intennse-h-header--clocks {
+  justify-content: flex-start;
+}
+.intennse-bolt-label--grow {
+  flex: 1;
+  text-align: center;
+}
 
 .intennse-h-back {
   position: absolute;
