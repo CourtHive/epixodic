@@ -1,5 +1,5 @@
 import { showGameFish } from '../display/configureViz';
-import { supportsGameVisualizations } from '@tennisvisuals/scoring-visualizations';
+import { supportsGameVisualizations } from '../display/vizSupport';
 import { env, settings } from '../state/env';
 
 export function checkMatchEnd(action?: any) {

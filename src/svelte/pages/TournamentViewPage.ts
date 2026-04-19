@@ -3,6 +3,7 @@ import TournamentPage from '../components/tournament/TournamentPage.svelte';
 import type { Component } from 'svelte';
 
 export class TournamentViewPage extends SvelteViewPage {
+  protected hasTopNav = true;
   private tournamentId: string = '';
   private eventId: string | undefined = undefined;
 

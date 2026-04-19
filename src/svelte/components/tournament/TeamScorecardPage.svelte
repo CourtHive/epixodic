@@ -7,16 +7,21 @@
     getTeamMatchUpState,
     setActiveTieMatchUp,
     restoreTeamMatchUp,
+    recalculateTeamScore,
+    setStartingGender,
   } from '../../stores/teamMatchUp.svelte';
-  import { browserStorage } from '../../../state/browserStorage';
+  import { toggleSidesSwapped, getScoringPrefs } from '../../stores/scoringPrefs.svelte';
+  import { getNavigationState, setArchiveContext } from '../../stores/navigation.svelte';
   import { onMount } from 'svelte';
-  import type { HydratedMatchUp } from '../../types';
+  import type { HydratedMatchUp, NavAction } from '../../types';
 
   let { matchUpId }: { matchUpId: string } = $props();
 
   const teamState = getTeamMatchUpState();
   let loaded = $state(false);
   let loadError = $state<string | undefined>(undefined);
+
+  const nav = getNavigationState();
 
   onMount(() => {
     if (!teamState.teamMatchUp) {
@@ -25,55 +30,49 @@
         loadError = 'Team matchUp not found. Navigate from the event page to load.';
       }
     }
+    // Ensure breadcrumbs are populated (lost on page refresh)
+    if (!nav.breadcrumbs.length) {
+      setArchiveContext();
+    }
+    // Ensure aggregate score is fresh on every mount
+    recalculateTeamScore();
     loaded = true;
   });
 
   function isIntennseFormat(matchUp: HydratedMatchUp): boolean {
     const format = (matchUp as any).competitionFormat;
-    return format?.sport === 'INTENNSE' || (matchUp.matchUpFormat || '').includes('XA-S:T');
+    if (format?.sport === 'INTENNSE') return true;
+    if ((matchUp.matchUpFormat || '').includes('XA-S:T')) return true;
+    // Team matchUps don't carry a matchUpFormat and the server doesn't inline
+    // competitionFormat onto them. Detect an INTENNSE team by checking whether
+    // any of its tieMatchUps uses an INTENNSE format — this lets doubles
+    // tieMatchUps (whose own matchUpFormat is a normal doubles format) still
+    // route to the bolt page via the parent fallback in handleTieMatchUpClick.
+    if (matchUp.tieMatchUps?.length) {
+      return matchUp.tieMatchUps.some((tm) => (tm.matchUpFormat || '').includes('XA-S:T'));
+    }
+    return false;
   }
 
   function handleTieMatchUpClick(tieMatchUp: HydratedMatchUp) {
-    // Save tieMatchUp data for the scoring interface to load
     const parentMatchUp = teamState.teamMatchUp;
-    const matchData: any = {
-      matchUpId: tieMatchUp.matchUpId,
-      matchUpFormat: tieMatchUp.matchUpFormat || parentMatchUp?.matchUpFormat || 'SET3-S:6/TB7',
-      matchUpType: tieMatchUp.matchUpType,
-      sides: tieMatchUp.sides,
-      score: tieMatchUp.score,
-      match: {
-        matchUpId: tieMatchUp.matchUpId,
-        tournamentId: parentMatchUp?.tournamentId,
-      },
-      tournament: {
-        tournamentId: parentMatchUp?.tournamentId,
-      },
-    };
-
-    // Team rosters from the parent TEAM matchUp for substitution support
-    if (parentMatchUp?.sides) {
-      matchData.teamRosters = parentMatchUp.sides.map((s: any) => ({
-        sideNumber: s.sideNumber,
-        participants: s.participant?.individualParticipants?.map((p: any) => ({
-          participantId: p.participantId,
-          participantName: p.participantName,
-          gender: p.person?.sex || p.person?.gender,
-        })) ?? [],
-        lineUp: s.lineUp,
-      }));
-    }
-
-    // Pass competitionFormat through for INTENNSE detection
-    if ((parentMatchUp as any)?.competitionFormat) {
-      matchData.competitionFormat = (parentMatchUp as any).competitionFormat;
-    }
-    if ((tieMatchUp as any)?.competitionFormat) {
-      matchData.competitionFormat = (tieMatchUp as any).competitionFormat;
-    }
-
-    browserStorage.set(tieMatchUp.matchUpId, JSON.stringify(matchData));
     setActiveTieMatchUp(tieMatchUp.matchUpId);
+
+    // Set starting gender on first click (no-op if already set)
+    const collectionDef = (parentMatchUp as any)?.tieFormat?.collectionDefinitions?.find(
+      (cd: any) => cd.collectionId === (tieMatchUp as any).collectionId,
+    );
+    if (collectionDef?.gender === 'MALE' || collectionDef?.gender === 'FEMALE') {
+      setStartingGender(collectionDef.gender);
+    }
+
+    console.log('[scorecard→bolt]', {
+      matchUpId: tieMatchUp.matchUpId,
+      hasEngineState: !!(tieMatchUp as any).engineState,
+      sets: (tieMatchUp as any).engineState?.score?.sets ?? tieMatchUp.score?.sets ?? [],
+      boltStarted: (tieMatchUp as any).boltStarted,
+      boltComplete: (tieMatchUp as any).boltComplete,
+    });
 
     const router = (window as any).appRouter;
     if (isIntennseFormat(tieMatchUp) || (parentMatchUp && isIntennseFormat(parentMatchUp))) {
@@ -82,6 +81,11 @@
       router?.navigate(`/match/${tieMatchUp.matchUpId}/scoring`);
     }
   }
+
+  const scoringPrefs = getScoringPrefs();
+  const navActions = $derived<NavAction[]>([
+    { label: scoringPrefs.sidesSwapped ? '⇄ Swapped' : '⇄ Sides', action: toggleSidesSwapped },
+  ]);
 
   function navigateBack() {
     const router = (window as any).appRouter;
@@ -95,12 +99,9 @@
 </script>
 
 <div class="team-scorecard-page">
-  <TopNav />
+  <TopNav backAction={navigateBack} actions={navActions} />
 
   <div class="scorecard-content">
-    <button class="back-button" onclick={navigateBack}>
-      &larr; Back to matchUps
-    </button>
 
     {#if !loaded}
       <LoadingSpinner />
@@ -110,6 +111,7 @@
       <TeamScorecard
         matchUp={teamState.teamMatchUp}
         scoreVersion={teamState.scoreVersion}
+        swapSides={scoringPrefs.sidesSwapped}
         onTieMatchUpClick={handleTieMatchUpClick}
       />
     {:else}
@@ -128,17 +130,5 @@
   .scorecard-content {
     flex: 1;
     padding: 0.5rem;
-  }
-  .back-button {
-    background: none;
-    border: none;
-    color: var(--chc-text-primary, #333);
-    font-size: 0.9rem;
-    cursor: pointer;
-    padding: 0.5rem 0;
-    margin-bottom: 0.5rem;
-  }
-  .back-button:hover {
-    text-decoration: underline;
   }
 </style>

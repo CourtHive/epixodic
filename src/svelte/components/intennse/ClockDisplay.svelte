@@ -6,7 +6,7 @@
   let { clockId, label = '', size = 'normal', urgentAt = 5000, criticalAt = 3000 }: {
     clockId: string;
     label?: string;
-    size?: 'compact' | 'normal' | 'large';
+    size?: 'compact' | 'normal' | 'large' | 'xlarge';
     urgentAt?: number;
     criticalAt?: number;
   } = $props();
@@ -57,9 +57,9 @@
       <span class="clock-label">{label}</span>
     {/if}
     <div class="clock-edit">
-      <button class="clock-edit-btn" onclick={() => step('up')}>+</button>
-      <span class="clock-time">{editDisplay}</span>
       <button class="clock-edit-btn" onclick={() => step('down')}>−</button>
+      <span class="clock-time">{editDisplay}</span>
+      <button class="clock-edit-btn" onclick={() => step('up')}>+</button>
     </div>
     <div class="clock-edit-actions">
       <button class="clock-edit-confirm" onclick={confirmEdit}>✓</button>

@@ -2,9 +2,10 @@
   import { renderScorecard } from 'courthive-components';
   import type { HydratedMatchUp } from '../../types';
 
-  let { matchUp, scoreVersion = 0, onTieMatchUpClick }: {
+  let { matchUp, scoreVersion = 0, swapSides = false, onTieMatchUpClick }: {
     matchUp: HydratedMatchUp;
     scoreVersion?: number;
+    swapSides?: boolean;
     onTieMatchUpClick?: (tieMatchUp: HydratedMatchUp) => void;
   } = $props();
 
@@ -19,6 +20,7 @@
     const element = renderScorecard({
       matchUp: matchUp as any,
       composition,
+      swapSides,
       eventHandlers: {
         matchUpClick: ({ matchUp: tieMatchUp }: { matchUp: any }) => {
           onTieMatchUpClick?.(tieMatchUp as HydratedMatchUp);
@@ -35,7 +37,7 @@
   }
 </script>
 
-{#key scoreVersion}
+{#key `${scoreVersion}-${swapSides}`}
   <div class="team-scorecard" use:mountScorecard></div>
 {/key}
 

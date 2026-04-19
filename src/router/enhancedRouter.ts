@@ -431,7 +431,7 @@ export class EnhancedRouter {
    * Re-activate the current page (e.g. after orientation change)
    */
   async refreshCurrentView() {
-    if (this.currentPage) {
+    if (this.currentPage && this.currentPage.refreshOnOrientationChange) {
       await this.currentPage.unmount();
       await this.currentPage.mount();
     }

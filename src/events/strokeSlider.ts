@@ -14,7 +14,10 @@ function showOverlay(): void {
   const createdAt = Date.now();
   overlay = document.createElement('div');
   overlay.id = 'stroke_slider_overlay';
-  overlay.addEventListener('click', () => {
+  overlay.addEventListener('click', (evt: MouseEvent) => {
+    // Don't dismiss when clicking inside the stroke slider
+    const slider = document.getElementById('stroke_slider');
+    if (slider && slider.contains(evt.target as Node)) return;
     // Ignore the ghost click synthesized ~300ms after the touchstart that opened the slider
     if (Date.now() - createdAt < 400) return;
     const cb = onDismissCallback;

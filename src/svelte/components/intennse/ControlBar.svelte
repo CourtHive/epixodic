@@ -8,28 +8,53 @@
     onUndo,
     onRedo,
     onPointStart,
-    onTimeout,
-    onSubstitute,
-    onPenalty,
     timeoutTeamName = '',
     onDismissTimeout,
+    onCancelTimeout,
+    onTimeoutSubstitute,
+    side1Name = '',
+    side2Name = '',
     onBack,
+    serveClock = false,
     rallyInProgress = false,
+    officialPause = false,
     boltStarted = false,
+    boltComplete = false,
+    matchComplete = false,
+    currentBoltNumber = 1,
+    breakActive = false,
+    breakPaused = false,
+    isLastBoltBreak = false,
+    onPauseBreak,
+    onStartNextBolt,
+    onNextBolt,
   }: {
     canUndo?: boolean;
     canRedo?: boolean;
-    onUndo: () => void;
-    onRedo: () => void;
+    onUndo?: () => void;
+    onRedo?: () => void;
     onPointStart: () => void;
-    onTimeout: (side: 1 | 2) => void;
-    onSubstitute: (side: 1 | 2) => void;
-    onPenalty: (side: 1 | 2) => void;
     timeoutTeamName?: string;
     onDismissTimeout: () => void;
+    onCancelTimeout?: () => void;
+    /** Open the Substitution modal from inside the timeout overlay. */
+    onTimeoutSubstitute?: (side: 1 | 2) => void;
+    side1Name?: string;
+    side2Name?: string;
     onBack?: () => void;
+    serveClock?: boolean;
     rallyInProgress?: boolean;
+    officialPause?: boolean;
     boltStarted?: boolean;
+    boltComplete?: boolean;
+    matchComplete?: boolean;
+    currentBoltNumber?: number;
+    breakActive?: boolean;
+    breakPaused?: boolean;
+    isLastBoltBreak?: boolean;
+    onPauseBreak?: () => void;
+    onStartNextBolt?: () => void;
+    onNextBolt?: () => void;
   } = $props();
 
   const timeoutSnapshot = $derived(getClockSnapshot('timeoutTimer'));
@@ -44,45 +69,72 @@
         <div class="intennse-timeout-team">{timeoutTeamName}</div>
       {/if}
       <ClockDisplay clockId="timeoutTimer" label="" urgentAtMs={30000} criticalAtMs={10000} />
+      {#if onTimeoutSubstitute}
+        <div class="intennse-timeout-sub-row">
+          <button class="intennse-ctrl-btn intennse-timeout-sub" onclick={() => onTimeoutSubstitute(1)}>
+            Sub {side1Name || 'Side 1'}
+          </button>
+          <button class="intennse-ctrl-btn intennse-timeout-sub" onclick={() => onTimeoutSubstitute(2)}>
+            Sub {side2Name || 'Side 2'}
+          </button>
+        </div>
+      {/if}
       <button class="intennse-ctrl-btn intennse-timeout-dismiss" onclick={onDismissTimeout}>
         END TIMEOUT
       </button>
+      {#if onCancelTimeout}
+        <button class="intennse-ctrl-btn intennse-timeout-cancel" onclick={onCancelTimeout}>
+          CANCEL (doesn't count)
+        </button>
+      {/if}
     </div>
   </div>
 {/if}
 
 <div class="intennse-control-bar">
-  <!-- Row 1: Penalty -->
+  {#if serveClock}
+    <ClockDisplay clockId="serveClock" label="SERVE" size="xlarge" urgentAt={5000} criticalAt={3000} />
+  {/if}
+
+  <!-- Undo / Redo — full width row -->
   <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--penalty" onclick={() => onPenalty(1)} title="Penalty Side 1">PEN 1</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--penalty" onclick={() => onPenalty(2)} title="Penalty Side 2">PEN 2</button>
+    <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onUndo} disabled={!canUndo} title="Undo">↩ UNDO</button>
+    <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
   </div>
 
-  <!-- Row 2: Timeout -->
-  <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={() => onTimeout(1)} title="Timeout Side 1">TO 1</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={() => onTimeout(2)} title="Timeout Side 2">TO 2</button>
-  </div>
-
-  <!-- Row 3: Substitution -->
-  <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={() => onSubstitute(1)} title="Sub Side 1">SUB 1</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={() => onSubstitute(2)} title="Sub Side 2">SUB 2</button>
-  </div>
-
-  <!-- Row 4: Undo / Redo -->
-  <div class="intennse-controls-row">
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onUndo} disabled={!canUndo} title="Undo">↩ UNDO</button>
-    <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
-  </div>
-
-  <!-- Row 5: Start/Play/Rally — full width -->
-  <button
-    class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
-    class:intennse-ctrl-btn--active={rallyInProgress}
-    onclick={onPointStart}
-    title="Point Start"
-  >
-    {!boltStarted ? '▶ START' : rallyInProgress ? '⏵ RALLY' : '⏯ PLAY'}
-  </button>
+  <!-- Start/Pause/Resume — full width -->
+  {#if breakActive && breakPaused}
+    <button
+      class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
+      onclick={onStartNextBolt}
+      title="Start next bolt"
+    >
+      ▶ START BOLT {currentBoltNumber}
+    </button>
+  {:else if breakActive}
+    <div class="intennse-controls-row">
+      <span class="intennse-break-label">{isLastBoltBreak ? 'Next match starting...' : 'Next bolt starting...'}</span>
+      <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onPauseBreak} title="Pause break">
+        ⏸ PAUSE
+      </button>
+    </div>
+  {:else}
+    <button
+      class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
+      class:intennse-ctrl-btn--paused={officialPause}
+      onclick={onPointStart}
+      disabled={boltComplete}
+      title="Start / Pause"
+    >
+      {#if matchComplete}
+        MATCH COMPLETE
+      {:else if !boltStarted}
+        ▶ START BOLT {currentBoltNumber}
+      {:else if officialPause}
+        ▶ RESUME
+      {:else}
+        ⏸ PAUSE
+      {/if}
+    </button>
+  {/if}
 </div>

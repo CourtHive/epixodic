@@ -24,7 +24,7 @@
 
 .intennse-horizontal {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr 2fr 1fr;
   grid-template-rows: auto 1fr auto;
   height: 100%;
   width: 100%;
@@ -32,6 +32,245 @@
   color: var(--intennse-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
+}
+
+/* ── Footer (Sub / Timeout / Penalty) ────────────────────── */
+
+.intennse-h-footer {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--intennse-accent);
+  background: var(--intennse-surface);
+}
+
+.intennse-h-footer-col {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+  justify-content: center;
+}
+
+/* Compact horizontal footer for phone landscape. Mirrors the
+ * VerticalBolt iv-footer--compact pattern: [⋯ 1] [↩ ▶ ↪] [⋯ 2]. */
+.intennse-h-footer--compact {
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.ih-actions-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--intennse-accent, #0f3460);
+  border-radius: 8px;
+  background: var(--intennse-surface, #16213e);
+  color: var(--intennse-text, #e0e0e0);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 2rem;
+  letter-spacing: 0.15em;
+}
+.ih-actions-trigger:active { opacity: 0.7; }
+.ih-actions-trigger--open {
+  border-color: var(--intennse-serving, #00d4aa);
+  color: var(--intennse-serving, #00d4aa);
+}
+
+.ih-compact-center {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 0.2rem;
+}
+
+/* Action sheet — same design as the VerticalBolt version but
+ * positioned for landscape (fixed bottom, respects safe area). */
+.ih-action-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ih-action-sheet {
+  width: 100%;
+  max-width: 400px;
+  background: var(--intennse-surface, #16213e);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  padding: 0.6rem 0.8rem;
+  padding-bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  animation: ih-sheet-slide-up 0.15s ease-out;
+}
+
+@keyframes ih-sheet-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.ih-action-sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--intennse-text-muted, #8892b0);
+  margin-bottom: 0.15rem;
+}
+
+.ih-action-sheet-close {
+  background: none;
+  border: none;
+  color: var(--intennse-text-muted, #8892b0);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0.2rem;
+}
+
+.ih-action-sheet-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--intennse-accent, #0f3460);
+  border-radius: 10px;
+  background: var(--intennse-bg, #1a1a2e);
+  color: var(--intennse-text, #e0e0e0);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ih-action-sheet-item:active { opacity: 0.7; }
+.ih-action-sheet-item:disabled { opacity: 0.3; cursor: default; }
+
+.ih-action-sheet-item--info { border-color: var(--intennse-text-muted, #8892b0); color: var(--intennse-text-muted); }
+.ih-action-sheet-item--active { border-color: var(--intennse-serving, #00d4aa); color: var(--intennse-serving); }
+.ih-action-sheet-item--sub { border-color: var(--intennse-touch, #4fc3f7); color: var(--intennse-touch); }
+.ih-action-sheet-item--timeout { border-color: var(--intennse-ace, #ffd740); color: var(--intennse-ace); }
+.ih-action-sheet-item--penalty { border-color: var(--intennse-error, #ef5350); color: var(--intennse-error); }
+.ih-action-sheet-item--challenge { border-color: var(--intennse-winner, #ff6b35); color: var(--intennse-winner, #ff6b35); }
+
+.intennse-h-time-row {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.intennse-h-time-row .intennse-footer-btn {
+  flex: 1;
+}
+
+.intennse-footer-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--intennse-accent);
+  border-radius: 8px;
+  background: var(--intennse-surface);
+  color: var(--intennse-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: opacity 0.1s;
+}
+
+.intennse-footer-btn:active { opacity: 0.7; transform: scale(0.97); }
+.intennse-footer-btn:disabled { opacity: 0.3; cursor: default; }
+
+.intennse-footer-btn--sub {
+  border-color: var(--intennse-touch);
+  color: var(--intennse-touch);
+}
+
+.intennse-footer-btn--timeout {
+  border-color: var(--intennse-ace);
+  color: var(--intennse-ace);
+}
+
+.intennse-footer-btn--info {
+  border-color: var(--intennse-text-muted);
+  color: var(--intennse-text-muted);
+}
+
+.intennse-footer-btn--active {
+  border-color: var(--intennse-serving);
+  color: var(--intennse-serving);
+}
+
+.intennse-footer-btn--penalty {
+  border-color: var(--intennse-error);
+  color: var(--intennse-error);
+}
+
+.intennse-h-center-info {
+  width: 100%;
+  margin: auto 0;
+  padding: 0.5rem 0;
+}
+
+/* Score-stream viewer slot in the Horizontal layout's central column.
+ * Fills the empty space between the ARC score and the ControlBar, with
+ * the stream itself scrolling internally so the outer flex row never
+ * grows beyond what's available. */
+.intennse-h-center-history {
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0.4rem 0;
+  display: flex;
+  overflow: hidden;
+}
+.intennse-h-center-history > * { flex: 1; min-height: 0; }
+
+.intennse-h-center-info .pti-panel {
+  font-size: 24px !important;
+  gap: 1rem !important;
+  padding: 0.75rem !important;
+}
+
+.intennse-h-center-info .pti-row {
+  gap: 0.5rem !important;
+  padding: 0.3rem 0.4rem !important;
+}
+
+.intennse-h-center-info .pti-jersey {
+  min-width: 2rem !important;
+  height: 2rem !important;
+  font-size: 1rem !important;
+  border-radius: 5px !important;
+}
+
+.intennse-h-center-info .pti-court-indicator {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+.intennse-h-center-info .pti-name {
+  font-weight: 400 !important;
+}
+
+.intennse-h-center-info .pti-time {
+  font-weight: 500 !important;
 }
 
 .intennse-h-header {
@@ -63,11 +302,63 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
   padding: 0.5rem 1rem;
-  min-width: 280px;
   border-left: 1px solid var(--intennse-accent);
   border-right: 1px solid var(--intennse-accent);
+  /* Ensure the center column scrolls internally on short viewports
+   * (phone landscape) rather than pushing the footer off-screen. */
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ih-submit-btn {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.3rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--intennse-serving, #00d4aa);
+  color: var(--intennse-surface, #16213e);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.ih-submit-btn:active { opacity: 0.7; }
+.ih-submit-btn:disabled { opacity: 0.4; cursor: default; }
+
+.intennse-h-arc-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  width: 100%;
+}
+
+.intennse-h-arc-row > :first-child {
+  justify-self: start;
+}
+
+.intennse-h-arc-row > :last-child {
+  justify-self: end;
+}
+
+/* `.pbi` + `.pbi-jersey` come from the PenaltyBoxIndicator component.
+ * Because `intennse.css` is a plain (unscoped) global stylesheet,
+ * every class here is already globally scoped — `:global(...)` is a
+ * Svelte-scope construct and would be invalid CSS if it survived into
+ * the bundle. Use the bare descendant selector. */
+.intennse-h-arc-row .pbi {
+  height: 100%;
+  border-radius: 0;
+  font-size: 1rem;
+  padding: 0.4rem 0.8rem;
+  gap: 0.4rem;
+}
+
+.intennse-h-arc-row .pbi-jersey {
+  min-width: 1.8rem;
+  height: 1.8rem;
+  font-size: 0.9rem;
 }
 
 /* ── Score Header (Timers + Bolt Label) ────────────────────── */
@@ -114,9 +405,12 @@
 .clock--compact .clock-time { font-size: 1rem; }
 .clock--normal .clock-time { font-size: 1.4rem; }
 .clock--large .clock-time { font-size: 2rem; }
+.clock--xlarge .clock-time { font-size: 6rem; }
+.clock--xlarge .clock-label { font-size: 1rem; }
 
 .clock--urgent .clock-time { color: var(--intennse-urgent); }
 .clock--critical .clock-time { color: var(--intennse-critical); animation: clock-flash 0.5s infinite; }
+.clock--critical.clock--paused .clock-time { animation: none; }
 .clock--expired .clock-time { color: var(--intennse-expired); }
 .clock--paused .clock-time { opacity: 0.5; }
 .clock--editable { cursor: pointer; }
@@ -210,7 +504,7 @@
 }
 
 .intennse-score-value {
-  font-size: 3rem;
+  font-size: 3.5rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -301,12 +595,85 @@
   color: var(--intennse-serving);
 }
 
+.intennse-h-serve-side {
+  position: absolute;
+  right: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--intennse-serving);
+  min-width: 3.5rem;
+  text-align: right;
+}
+
+/* ── Deciding Point + ARC Result (horizontal) ─────────────── */
+
+.ih-deciding-banner {
+  position: absolute;
+  top: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--intennse-ace, #ffd740);
+  color: var(--intennse-surface, #16213e);
+  padding: 0.4rem 2rem;
+  border-radius: 8px;
+  text-align: center;
+  z-index: 20;
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  box-shadow: 0 4px 20px rgba(255, 215, 64, 0.4);
+}
+.ih-deciding-label { font-size: 1rem; font-weight: 800; letter-spacing: 0.08em; }
+.ih-deciding-sub { font-size: 0.65rem; font-weight: 600; opacity: 0.8; }
+
+.ih-arc-result-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 50;
+}
+.ih-arc-result-card {
+  text-align: center;
+  padding: 3rem 5rem;
+  border-radius: 16px;
+  background: var(--intennse-surface, #16213e);
+  border: 2px solid var(--intennse-serving, #00d4aa);
+  box-shadow: 0 0 40px rgba(0, 212, 170, 0.3);
+}
+.ih-arc-result-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--intennse-text-muted, #8892b0);
+  margin-bottom: 0.75rem;
+}
+.ih-arc-result-winner {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--intennse-serving, #00d4aa);
+  margin-bottom: 0.5rem;
+}
+.ih-arc-result-score {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--intennse-text, #e0e0e0);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Action Panel (Buttons) ────────────────────────────────── */
 
 .intennse-action-panel {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  flex: 1;
+}
+
+.intennse-action-panel .intennse-btn {
   flex: 1;
 }
 
@@ -317,8 +684,8 @@
   padding: 0.6rem 0.8rem;
   border: none;
   border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 1.75rem;
+  font-weight: 700;
   cursor: pointer;
   transition: opacity 0.1s;
   min-height: 44px;
@@ -327,20 +694,69 @@
 
 .intennse-btn:active { opacity: 0.7; transform: scale(0.97); }
 
-.intennse-btn-label { flex: 1; text-align: left; }
+.intennse-btn-label { flex: 1; text-align: center; }
 .intennse-btn-value {
-  font-size: 1.1rem;
+  font-size: 2rem;
   font-weight: 800;
-  min-width: 1.5rem;
+  min-width: 2rem;
   text-align: center;
 }
 
 .intennse-btn--winner { background: var(--intennse-winner); color: #000; }
 .intennse-btn--touch { background: var(--intennse-touch); color: #000; }
-.intennse-btn--ace { background: var(--intennse-ace); color: #000; }
+.intennse-btn--ace { background: var(--intennse-winner); color: #000; }
 .intennse-btn--forced { background: var(--intennse-error); color: #fff; }
 .intennse-btn--unforced { background: #c62828; color: #fff; }
 .intennse-btn--fault { background: var(--intennse-fault); color: #000; }
+
+.intennse-btn--rally {
+  background: var(--intennse-accent);
+  color: var(--intennse-text);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  justify-content: center;
+}
+
+.intennse-btn-placeholder {
+  flex: 1;
+  visibility: hidden;
+}
+
+/* On short viewports (phones in portrait without PWA install, or with the
+ * browser URL bar visible) the outcome buttons must still all fit without
+ * scrolling. Tighten padding and scale the font down so each of the 5-6
+ * buttons per column can squeeze into the available flex space. */
+@media (max-height: 780px) {
+  .intennse-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 1.25rem;
+    min-height: 0;
+  }
+  .intennse-btn-value {
+    font-size: 1.4rem;
+    min-width: 1.5rem;
+  }
+  .intennse-btn--rally {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-height: 620px) {
+  .intennse-btn {
+    padding: 0.2rem 0.5rem;
+    font-size: 1rem;
+    border-radius: 6px;
+  }
+  .intennse-btn-value {
+    font-size: 1.1rem;
+    min-width: 1.25rem;
+  }
+  .intennse-btn--rally {
+    font-size: 0.8rem;
+  }
+}
 
 /* ── Control Bar ───────────────────────────────────────────── */
 
@@ -351,6 +767,7 @@
   gap: 0.3rem;
   padding: 0.4rem;
   width: 100%;
+  margin-top: auto;
 }
 
 .intennse-controls-row {
@@ -373,6 +790,20 @@
 .intennse-ctrl-btn--full-width {
   width: 100%;
   min-width: unset;
+}
+
+.intennse-ctrl-btn--undo-redo {
+  min-height: 56px;
+  font-size: 1.1rem;
+  border-color: var(--intennse-text-muted);
+}
+
+.intennse-break-label {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--intennse-urgent, #ff9800);
+  text-align: center;
 }
 
 /* ── Timeout Overlay ──────────────────────────────────────── */
@@ -410,12 +841,41 @@
   color: var(--intennse-accent, #4a90d9);
 }
 
+.intennse-timeout-sub-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.intennse-timeout-sub {
+  flex: 1;
+  font-size: 0.7rem !important;
+  min-width: 0 !important;
+  padding: 0.4rem 0.6rem !important;
+  background: var(--intennse-surface, #1a1a2e) !important;
+  border-color: var(--intennse-serving, #00d4aa) !important;
+  color: var(--intennse-serving, #00d4aa) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .intennse-timeout-dismiss {
   font-size: 0.8rem !important;
   min-width: 120px !important;
   padding: 0.5rem 1rem !important;
   background: var(--intennse-accent, #4a90d9) !important;
   color: #fff !important;
+}
+
+.intennse-timeout-cancel {
+  font-size: 0.7rem !important;
+  min-width: 120px !important;
+  padding: 0.4rem 1rem !important;
+  background: transparent !important;
+  border-color: var(--intennse-text-muted) !important;
+  color: var(--intennse-text-muted) !important;
 }
 
 .intennse-ctrl-btn {
@@ -451,6 +911,12 @@
   animation: pulse-glow 1.5s infinite;
 }
 
+.intennse-ctrl-btn--paused {
+  background: var(--intennse-urgent);
+  color: #000;
+  animation: pulse-glow 1.5s infinite;
+}
+
 .intennse-ctrl-btn--penalty { border-color: var(--intennse-error); }
 
 .intennse-ctrl-btn--back {
@@ -468,14 +934,11 @@
 /* ── Aggregate Bar ─────────────────────────────────────────── */
 
 .intennse-aggregate-bar {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1.5rem;
   padding: 0.4rem 1rem;
-  background: var(--intennse-surface);
-  border-top: 1px solid var(--intennse-accent);
   font-size: 0.8rem;
 }
 
@@ -498,4 +961,107 @@
 
 .intennse-aggregate-side--leading strong {
   color: var(--intennse-leading);
+}
+
+/* ── Compact ARC Score (center column) ───────────────────── */
+
+.intennse-arc-compact {
+  text-align: center;
+  padding: 0.2rem 0;
+}
+
+.intennse-arc-compact-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--intennse-text-muted);
+}
+
+.intennse-arc-compact-score {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--intennse-text);
+}
+
+.intennse-arc-compact-divider {
+  margin: 0 0.3rem;
+  color: var(--intennse-text-muted);
+}
+
+.intennse-arc-compact--large .intennse-arc-compact-label {
+  font-size: 0.8rem;
+}
+
+.intennse-arc-compact--large .intennse-arc-compact-score {
+  font-size: 2.4rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.intennse-arc-leading {
+  color: var(--intennse-leading);
+}
+
+/* ── Footer Responsive Labels ────────────────────────────── */
+
+.footer-label-short { display: none; }
+.footer-label-full { display: inline; }
+
+@media (max-width: 768px), (pointer: coarse) {
+  .footer-label-short { display: inline; }
+  .footer-label-full { display: none; }
+}
+
+/* ── Phone landscape — short viewport ──────────────────────
+ * Phone screens in landscape are typically 350-430px tall. The
+ * horizontal layout's center column (clock, score, ARC, history,
+ * control bar) needs to compress aggressively so the footer stays
+ * on screen and the side action panels are usable. */
+
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Header: tighter padding, smaller text */
+  .intennse-h-header {
+    padding: 0.2rem 0.5rem;
+    gap: 0.5rem;
+  }
+  .intennse-h-back { font-size: 0.55rem; }
+
+  /* Clocks: scale down from xlarge/normal to compact */
+  .intennse-h-center .clock--xlarge .clock-time { font-size: 1.6rem; }
+  .intennse-h-center .clock--xlarge .clock-label { font-size: 0.55rem; }
+  .intennse-h-center .clock--normal .clock-time { font-size: 0.9rem; }
+
+  /* Score display (Arc — primary): slightly larger */
+  .intennse-h-center .intennse-score-value { font-size: 1.8rem; }
+  .intennse-h-center .intennse-score-divider { font-size: 0.9rem; }
+  .intennse-h-center .intennse-score-name { font-size: 0.5rem; }
+
+  /* Bolt compact score (secondary): smaller */
+  .intennse-arc-compact--large .intennse-arc-compact-score { font-size: 1.2rem; }
+  .intennse-arc-compact--large .intennse-arc-compact-label { font-size: 0.5rem; }
+
+  /* Center column: tighter padding */
+  .intennse-h-center { padding: 0.25rem 0.5rem; }
+
+  /* Side panels (action buttons): shrink */
+  .intennse-h-side { padding: 0.25rem; gap: 0.25rem; }
+
+  /* Footer: tighter */
+  .intennse-h-footer { padding: 0.3rem; gap: 0.25rem; }
+  .intennse-footer-btn {
+    min-height: 36px;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  /* Player panels: smaller names */
+  .intennse-team-name { font-size: 0.8rem; }
+  .intennse-player-name { font-size: 0.6rem; }
+  .intennse-player-time { font-size: 0.55rem; }
+
+  /* Action buttons: tighter in landscape */
+  .intennse-btn { padding: 0.3rem 0.5rem; font-size: 1rem; min-height: 0; }
+  .intennse-btn-value { font-size: 1.1rem; min-width: 1.25rem; }
+  .intennse-btn--rally { font-size: 0.75rem; }
 }

@@ -92,11 +92,13 @@ export function getScoringState() {
 export function initScoringEngine(config: {
   matchUpFormat: string;
   competitionFormat?: any;
+  isDoubles?: boolean;
   eventHandlers?: any;
 }) {
   engine = new ScoringEngine({
     matchUpFormat: config.matchUpFormat,
     competitionFormat: config.competitionFormat,
+    isDoubles: config.isDoubles,
     eventHandlers: {
       onPoint: (ctx: any) => {
         bump();
@@ -132,10 +134,17 @@ export function initScoringEngine(config: {
   return engine;
 }
 
-export function addPoint(winner: 0 | 1, options?: { result?: string; server?: 0 | 1 }) {
-  if (!engine) return;
-  engine.addPoint({ winner, result: options?.result, server: options?.server });
+export function addPoint(
+  winner: 0 | 1,
+  options?: { result?: string; server?: 0 | 1; [key: string]: any },
+): number | undefined {
+  if (!engine) return undefined;
+  engine.addPoint({ winner, ...options });
   bump();
+  // Index of the point we just appended, so callers (e.g. the penalty box)
+  // can decorate it with lifecycle metadata (servedMs, releasedAt, ...).
+  const points = engine.getState()?.history?.points;
+  return points ? points.length - 1 : undefined;
 }
 
 export function undo(): boolean {
@@ -164,21 +173,104 @@ export function substitute(sideNumber: 1 | 2, outParticipantId: string, inPartic
   bump();
 }
 
+export function recordChallengeEntry(sideNumber: 1 | 2) {
+  if (!engine) return;
+  const state = engine.getState();
+  if (state?.history?.entries) {
+    state.history.entries.push({
+      type: 'challenge',
+      data: { sideNumber },
+      timestamp: new Date().toISOString(),
+    });
+    bump();
+  }
+}
+
+export function removeChallengeEntry(entryIndex: number) {
+  if (!engine) return;
+  const state = engine.getState();
+  if (state?.history?.entries && state.history.entries[entryIndex]?.type === 'challenge') {
+    state.history.entries.splice(entryIndex, 1);
+    bump();
+  }
+}
+
 export function setLineUp(sideNumber: 1 | 2, lineUp: any[]) {
   if (!engine) return;
   engine.setLineUp(sideNumber, lineUp);
   bump();
 }
 
-export function setServer(side: 0 | 1) {
+export function setServer(side: 0 | 1, options?: { recordEntry?: boolean }) {
   if (!engine) return;
-  engine.setServer(side);
+  engine.setServer(side, options);
   bump();
 }
 
 export function decoratePoint(pointIndex: number, metadata: Record<string, any>) {
   if (!engine) return;
   engine.decoratePoint(pointIndex, metadata);
+  bump();
+}
+
+/**
+ * Overwrite attributes on a specific past point and recalculate
+ * downstream state. Used by the point-history detail modal (Phase 3)
+ * for non-LIFO edits.
+ */
+export function editPoint(
+  pointIndex: number,
+  newData: Record<string, any>,
+  options?: { recalculate?: boolean },
+) {
+  if (!engine) return;
+  engine.editPoint(pointIndex, newData, options);
+  bump();
+}
+
+/**
+ * Remove a specific past point and recalculate downstream state.
+ * Used by the point-history detail modal (Phase 3) for non-LIFO
+ * corrections where the user wants the record gone entirely (e.g.
+ * a mis-entered penalty or an accidentally-logged point).
+ */
+export function removePoint(pointIndex: number, options?: { recalculate?: boolean }) {
+  if (!engine) return;
+  engine.removePoint(pointIndex, options);
+  bump();
+}
+
+/**
+ * Snapshot each point's currently-stored `server` field into its matching
+ * `history.entries` entry so that a subsequent `editPoint(recalculate:
+ * true)` rebuild honours the actual-observed serve order rather than
+ * re-deriving servers from the new winner chain.
+ *
+ * Used by the point-history detail modal (Phase 3) when the scorekeeper
+ * flips a winner as a **post-review correction**: play continued
+ * based on the original (incorrect) call, so subsequent points keep
+ * the servers they were actually played with. For ordinary
+ * scorekeeping-error corrections — where the on-court winner was right
+ * but got mis-recorded — this function is not called, and the rebuild
+ * re-derives servers naturally.
+ *
+ * Safe to call before any rebuild; no-op when there is no engine.
+ */
+export function pinEntryServersToPoints() {
+  if (!engine) return;
+  const state = engine.getState();
+  const points: any[] = state?.history?.points ?? [];
+  const entries: any[] = state?.history?.entries ?? [];
+  for (const entry of entries) {
+    if (entry?.type !== 'point') continue;
+    const idx = entry.pointIndex;
+    if (typeof idx !== 'number') continue;
+    const point = points[idx];
+    if (point && typeof point.server === 'number') {
+      entry.data = entry.data ?? {};
+      entry.data.server = point.server;
+    }
+  }
   bump();
 }
 

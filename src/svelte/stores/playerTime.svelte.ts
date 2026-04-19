@@ -13,6 +13,7 @@ interface PlayerTimeEntry {
   participantId: string;
   participantName: string;
   gender?: string;
+  jerseyNumber?: string;
   clock: Clock;
   isOnCourt: boolean;
 }
@@ -35,11 +36,12 @@ export function setMaxCourtTime(ms: number) {
   maxCourtTimeMs = ms;
 }
 
-export function registerPlayer(participantId: string, participantName: string, gender?: string) {
+export function registerPlayer(participantId: string, participantName: string, gender?: string, jerseyNumber?: string) {
   if (players[participantId]) return;
   players[participantId] = {
     participantId,
     participantName,
+    jerseyNumber,
     gender,
     clock: new Clock({
       id: `playerTime-${participantId}`,
@@ -52,9 +54,9 @@ export function registerPlayer(participantId: string, participantName: string, g
   };
 }
 
-export function registerPlayers(roster: { participantId: string; participantName: string; gender?: string }[]) {
+export function registerPlayers(roster: { participantId: string; participantName: string; gender?: string; jerseyNumber?: string }[]) {
   for (const p of roster) {
-    registerPlayer(p.participantId, p.participantName, p.gender);
+    registerPlayer(p.participantId, p.participantName, p.gender, p.jerseyNumber);
   }
 }
 
@@ -71,6 +73,67 @@ export function stopTracking(participantId: string) {
   if (!entry || !entry.isOnCourt) return;
   entry.isOnCourt = false;
   entry.clock.pause();
+  bump();
+}
+
+/** Mark player as on court without starting their clock (used when bolt hasn't started) */
+export function setOnCourt(participantId: string) {
+  const entry = players[participantId];
+  if (!entry || entry.isOnCourt) return;
+  entry.isOnCourt = true;
+  bump();
+}
+
+/** Pause clocks for all on-court players without changing isOnCourt status */
+export function pauseAllOnCourtClocks() {
+  for (const entry of Object.values(players)) {
+    if (entry.isOnCourt) entry.clock.pause();
+  }
+  bump();
+}
+
+/** Resume clocks for all on-court players */
+export function resumeAllOnCourtClocks() {
+  for (const entry of Object.values(players)) {
+    if (entry.isOnCourt) entry.clock.start();
+  }
+  bump();
+}
+
+/** Snapshot of all player elapsed times — used for cross-navigation persistence */
+export function getPlayerTimeSnapshots(): Record<string, { elapsedMs: number; isOnCourt: boolean }> {
+  const result: Record<string, { elapsedMs: number; isOnCourt: boolean }> = {};
+  for (const [id, entry] of Object.entries(players)) {
+    result[id] = {
+      elapsedMs: entry.clock.getElapsedMs(),
+      isOnCourt: entry.isOnCourt,
+    };
+  }
+  return result;
+}
+
+/** Restore player elapsed times from a previous snapshot. Clocks are left paused.
+ *
+ * NOTE: `isOnCourt` is deliberately **not** restored from the snapshot. The
+ * authoritative source of who is active is the tieMatchUp's side participant
+ * IDs (applied via `setOnCourt` in `initTeamRosters`). Restoring `isOnCourt`
+ * from the snapshot would re-introduce any historical corruption (e.g. a
+ * prior cross-tieMatchUp state bleed that left >2 players flagged as on
+ * court) into a freshly mounted bolt. Time accounting still flows through.
+ */
+export function restorePlayerTimeSnapshots(
+  snapshots: Record<string, { elapsedMs: number; isOnCourt?: boolean }>,
+) {
+  for (const [id, snap] of Object.entries(snapshots)) {
+    const entry = players[id];
+    if (!entry) continue;
+    // Transition idle → running → paused so the clock is in paused state
+    // (Clock.pause() is a no-op from idle, and setRemainingMs requires non-running)
+    entry.clock.start();
+    entry.clock.pause();
+    // For count-up clocks: remaining = maxSafe - elapsed
+    entry.clock.setRemainingMs(Number.MAX_SAFE_INTEGER - snap.elapsedMs);
+  }
   bump();
 }
 

@@ -27,6 +27,7 @@ export interface IntennseSnapshot {
   boltTimerRemainingMs?: number;
   serveClockRemainingMs?: number;
   server: number;
+  serveSide?: string;
   matchUpStatus?: string;
 }
 
@@ -121,9 +122,17 @@ export function buildIntennseSnapshot(options: {
   aggregateScore: { side1: number; side2: number };
   activePlayers: { side1: string[]; side2: string[] };
   server: number;
+  serveSide?: string;
   boltTimerRemainingMs?: number;
   serveClockRemainingMs?: number;
   matchUpStatus?: string;
+  /** Live rally count (increments each press, 0 when no rally in progress). */
+  rallyCount?: number;
+  /** The most recently scored point (result, winner, rallyLength, etc.).
+   *  Consumers can use this to trigger arena effects (flash for Ace, etc.). */
+  lastPoint?: Record<string, any>;
+  /** Category label (e.g. "Men's Singles", "Mixed Doubles") for scorebug/video boards. */
+  categoryLabel?: string;
 }): IntennseSnapshot {
   return {
     ...options,

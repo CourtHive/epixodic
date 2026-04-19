@@ -1,6 +1,26 @@
 import { io, Socket } from 'socket.io-client';
 
-const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'http://localhost:8384';
+/**
+ * Determine the relay server origin and Socket.IO path.
+ *
+ * Local dev: relay runs on a separate port (8384), default `/socket.io/` path.
+ * Deployed: same origin, nginx proxies `/relay/` to the relay server,
+ *   so Socket.IO path must be `/relay/socket.io/` for the proxy to route it.
+ */
+function getRelayConfig(): { origin: string; path: string } {
+  if (import.meta.env.VITE_RELAY_URL) {
+    return { origin: import.meta.env.VITE_RELAY_URL, path: '/socket.io/' };
+  }
+
+  const hostname = globalThis.location?.hostname;
+  if (!hostname || hostname === 'localhost' || hostname === '127.0.0.1') {
+    return { origin: 'http://localhost:8384', path: '/socket.io/' };
+  }
+
+  return { origin: globalThis.location.origin, path: '/relay/socket.io/' };
+}
+
+const relayConfig = getRelayConfig();
 
 let trackerSocket: Socket | null = null;
 let listenerSocket: Socket | null = null;
@@ -29,6 +49,14 @@ export function onRelayStatusChange(fn: (status: RelayStatus) => void): () => vo
 
 // Suppress repeated error logging — log once per disconnect cycle
 let errorLogged = false;
+
+// ── Toggleable logging ──
+let logAck = false;
+let logEmit = false;
+
+export function setRelayLogAck(on: boolean) { logAck = on; }
+export function setRelayLogEmit(on: boolean) { logEmit = on; }
+export function getRelayLogFlags() { return { logAck, logEmit }; }
 
 function attachStatusHandlers(socket: Socket, label: string) {
   socket.on('connect', () => {
@@ -60,7 +88,8 @@ function attachStatusHandlers(socket: Socket, label: string) {
 export function connectTracker(): Socket {
   if (trackerSocket?.connected) return trackerSocket;
 
-  trackerSocket = io(`${RELAY_URL}/tracker`, {
+  trackerSocket = io(`${relayConfig.origin}/tracker`, {
+    path: relayConfig.path,
     transports: ['websocket'],
     autoConnect: true,
   });
@@ -68,7 +97,7 @@ export function connectTracker(): Socket {
   attachStatusHandlers(trackerSocket, 'tracker');
 
   trackerSocket.on('ack', (data: any) => {
-    console.log('[scoreRelay] ack:', data);
+    if (logAck) console.log('[scoreRelay] ack:', data);
   });
 
   return trackerSocket;
@@ -85,6 +114,7 @@ export function sendScore(update: {
   if (!trackerSocket?.connected) {
     connectTracker();
   }
+  if (logEmit) console.log('[scoreRelay] emit score:', update);
   trackerSocket?.emit('score', update);
 }
 
@@ -100,7 +130,37 @@ export function sendHistory(history: {
   if (!trackerSocket?.connected) {
     connectTracker();
   }
+  if (logEmit) console.log('[scoreRelay] emit history:', history);
   trackerSocket?.emit('history', history);
+}
+
+/**
+ * Send a lightweight clock-state sync to the relay so it can pause,
+ * resume, or re-anchor its ticker without waiting for the next score
+ * event. Fired on officialPause, timeout, break, navigation away —
+ * any transition that changes the bolt clock state without scoring.
+ */
+export function sendClockSync(data: {
+  matchUpId: string;
+  tournamentId?: string;
+  boltTimerRemainingMs: number;
+  serveClockRemainingMs: number;
+  /** Which clock is the active countdown: bolt (normal play),
+   *  timeout (60s team timeout), break (between-bolts), or none. */
+  activeClock?: 'bolt' | 'timeout' | 'break' | 'none';
+  /** Remaining ms on the active secondary clock (timeout or break). */
+  activeClockRemainingMs?: number;
+  /** Whether the serve clock is actively counting down.
+   *  False during a rally (serve clock paused, bolt still running). */
+  serveClockRunning?: boolean;
+  /** 'running' | 'paused' | 'completed' */
+  clockState: string;
+}): void {
+  if (!trackerSocket?.connected) {
+    connectTracker();
+  }
+  if (logEmit) console.log('[scoreRelay] emit clockSync:', data);
+  trackerSocket?.emit('clockSync', data);
 }
 
 /**
@@ -112,6 +172,7 @@ export function sendIntennseUpdate(snapshot: any): void {
   if (!trackerSocket?.connected) {
     connectTracker();
   }
+  if (logEmit) console.log('[scoreRelay] emit intennse:', snapshot);
   trackerSocket?.emit('intennse', snapshot);
 }
 
@@ -120,7 +181,8 @@ export function sendIntennseUpdate(snapshot: any): void {
 export function connectListener(): Socket {
   if (listenerSocket?.connected) return listenerSocket;
 
-  listenerSocket = io(`${RELAY_URL}/live`, {
+  listenerSocket = io(`${relayConfig.origin}/live`, {
+    path: relayConfig.path,
     transports: ['websocket'],
     autoConnect: true,
   });

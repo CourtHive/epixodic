@@ -60,3 +60,37 @@ export function getServingState(
     serveSide: getServeSide(aggregateScore),
   };
 }
+
+/**
+ * Within-side server rotation for doubles.
+ *
+ * In standard tennis doubles partners alternate as servers across their
+ * side's service "tours". INTENNSE has no traditional games — a serve tour
+ * is simply a run of consecutive points on which the same side serves.
+ * Each new tour the alternate partner serves.
+ *
+ * Rule: when the serving side LOSES a point (the receiver wins), flip the
+ * losing side's serverIndex so the next time they regain the serve their
+ * partner is up. The receiving side's index is unchanged — they'll keep
+ * serving with whichever player was already cued up for their next tour.
+ *
+ * Faults are not point outcomes and never rotate.
+ *
+ * Pure function — no side effects, easy to test.
+ */
+export function updateSideServerIndices(args: {
+  pointWinner: Side | null;
+  previousServer: Side;
+  side1ServerIndex: 0 | 1;
+  side2ServerIndex: 0 | 1;
+}): { side1ServerIndex: 0 | 1; side2ServerIndex: 0 | 1 } {
+  const { pointWinner, previousServer, side1ServerIndex, side2ServerIndex } = args;
+  if (pointWinner === null) return { side1ServerIndex, side2ServerIndex };
+  // No rotation if the serving side held serve
+  if (pointWinner === previousServer) return { side1ServerIndex, side2ServerIndex };
+  // Serving side lost: flip THEIR index for the next tour
+  if (previousServer === 0) {
+    return { side1ServerIndex: (1 - side1ServerIndex) as 0 | 1, side2ServerIndex };
+  }
+  return { side1ServerIndex, side2ServerIndex: (1 - side2ServerIndex) as 0 | 1 };
+}

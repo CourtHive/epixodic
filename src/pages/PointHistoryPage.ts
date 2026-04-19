@@ -1,7 +1,7 @@
 import { ViewPage } from './ViewPage';
 import { displayPointHistory } from '../display/displayPointHistory';
 import { touchManager } from '../events/touchManager';
-import { supportsGameVisualizations } from '@tennisvisuals/scoring-visualizations';
+import { supportsGameVisualizations } from '../display/vizSupport';
 import { mountViewHeader, unmountViewHeader } from '../svelte/bridge/viewHeaderMount';
 import { viewStats, viewGameTree, viewMomentum, outcomeEntry } from '../events/clickActions';
 import { env } from '../state/env';

@@ -34,6 +34,10 @@ export interface RelayConfig {
     corsOrigin: string | string[];
     staleMatchHours: number;
     pruneIntervalMinutes: number;
+    /** Max seconds a ticker runs without a new intennse event re-anchoring
+     *  it. After this, the ticker auto-stops (the match is presumed
+     *  abandoned or the tracker disconnected). Default: 1800 (30 min). */
+    tickerIdleTimeoutSeconds?: number;
 }
 export interface RelayMetrics {
     trackers: number;

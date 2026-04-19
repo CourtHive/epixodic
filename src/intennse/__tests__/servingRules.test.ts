@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getNextServer, getServeSide, getServingState } from '../servingRules';
+import { getNextServer, getServeSide, getServingState, updateSideServerIndices } from '../servingRules';
 
 describe('getNextServer', () => {
   it('point winner serves next', () => {
@@ -51,5 +51,51 @@ describe('getServingState', () => {
     const state = getServingState(0, 0, { side1: 0, side2: 0 });
     expect(state.server).toBe(0);
     expect(state.serveSide).toBe('DEUCE');
+  });
+});
+
+describe('updateSideServerIndices (within-side rotation)', () => {
+  const start = { side1ServerIndex: 0 as 0 | 1, side2ServerIndex: 0 as 0 | 1 };
+
+  it('hold serve does not rotate', () => {
+    expect(
+      updateSideServerIndices({ pointWinner: 0, previousServer: 0, ...start }),
+    ).toEqual({ side1ServerIndex: 0, side2ServerIndex: 0 });
+  });
+
+  it('serving side loses → losing side flips, receiver unchanged', () => {
+    // Side 0 was serving, side 1 wins → side 0's next tour uses partner
+    expect(
+      updateSideServerIndices({ pointWinner: 1, previousServer: 0, ...start }),
+    ).toEqual({ side1ServerIndex: 1, side2ServerIndex: 0 });
+
+    // Symmetric: side 1 was serving, side 0 wins → side 1 flips
+    expect(
+      updateSideServerIndices({ pointWinner: 0, previousServer: 1, ...start }),
+    ).toEqual({ side1ServerIndex: 0, side2ServerIndex: 1 });
+  });
+
+  it('faults never rotate', () => {
+    expect(
+      updateSideServerIndices({ pointWinner: null, previousServer: 0, ...start }),
+    ).toEqual(start);
+  });
+
+  it('alternating tours rotate the same side back and forth', () => {
+    // Tour 1: side 0 serves with index 0, loses → side 0 flips to 1
+    let s = updateSideServerIndices({ pointWinner: 1, previousServer: 0, side1ServerIndex: 0, side2ServerIndex: 0 });
+    expect(s).toEqual({ side1ServerIndex: 1, side2ServerIndex: 0 });
+
+    // Tour 2: side 1 serves with index 0, loses → side 1 flips to 1
+    s = updateSideServerIndices({ pointWinner: 0, previousServer: 1, ...s });
+    expect(s).toEqual({ side1ServerIndex: 1, side2ServerIndex: 1 });
+
+    // Tour 3: side 0 serves with index 1, loses → side 0 flips back to 0
+    s = updateSideServerIndices({ pointWinner: 1, previousServer: 0, ...s });
+    expect(s).toEqual({ side1ServerIndex: 0, side2ServerIndex: 1 });
+
+    // Tour 4: side 1 serves with index 1, loses → side 1 flips back to 0
+    s = updateSideServerIndices({ pointWinner: 0, previousServer: 1, ...s });
+    expect(s).toEqual({ side1ServerIndex: 0, side2ServerIndex: 0 });
   });
 });

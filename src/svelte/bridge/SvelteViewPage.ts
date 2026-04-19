@@ -11,6 +11,12 @@ import type { Component } from 'svelte';
 export abstract class SvelteViewPage extends ViewPage {
   private svelteInstance: Record<string, any> | null = null;
 
+  // Svelte components handle their own reactivity on resize; don't remount
+  refreshOnOrientationChange = false;
+
+  // Pages with TopNav set this true to hide the global fixed relay indicator
+  protected hasTopNav = false;
+
   protected abstract getComponent(): Component<any>;
   protected abstract getContainerId(): string;
   protected getProps(): Record<string, any> {
@@ -39,6 +45,11 @@ export abstract class SvelteViewPage extends ViewPage {
     container.style.top = '0';
     container.style.left = '0';
 
+    if (this.hasTopNav) {
+      const globalRelay = document.getElementById('relay-indicator');
+      if (globalRelay) globalRelay.style.display = 'none';
+    }
+
     this.svelteInstance = mount(this.getComponent(), {
       target: container,
       props: this.getProps(),
@@ -55,6 +66,11 @@ export abstract class SvelteViewPage extends ViewPage {
     if (container) {
       container.style.display = 'none';
       container.innerHTML = '';
+    }
+
+    if (this.hasTopNav) {
+      const globalRelay = document.getElementById('relay-indicator');
+      if (globalRelay) globalRelay.style.display = '';
     }
   }
 }

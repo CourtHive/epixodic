@@ -9,7 +9,7 @@
  * - Winner/Ace: pressing side wins, 2 points
  * - Touch: pressing side lost the rally but touched the ball — opponent gets 1 point
  * - Forced/Unforced Error: pressing side committed the error — opponent gets the point
- * - Fault: loss of serve, no point awarded (returns null winner)
+ * - Fault: pressing side faulted on serve — opponent gets the point
  */
 
 export type Side = 0 | 1;
@@ -43,8 +43,8 @@ export function resolvePointAttribution(action: string, side: Side): PointAttrib
     case 'unforcedError':
       return { winner: opponent(side), result: 'Unforced Error' };
     case 'fault':
-      // Loss of serve only — no point awarded
-      return { winner: null, result: 'Fault' };
+      // Pressing side faulted — opponent gets the point
+      return { winner: opponent(side), result: 'Fault' };
     default:
       return { winner: side, result: action };
   }

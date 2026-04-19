@@ -3,6 +3,7 @@ import TeamScorecardPage from '../components/tournament/TeamScorecardPage.svelte
 import type { Component } from 'svelte';
 
 export class TeamScorecardViewPage extends SvelteViewPage {
+  protected hasTopNav = true;
   private matchUpId: string = '';
 
   setParams(matchUpId: string) {

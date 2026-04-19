@@ -6,6 +6,10 @@ import {
   getActiveMatchIds,
   getMatchUpsByTournament,
   pruneStaleMatches,
+  setClockAnchor,
+  getClockAnchor,
+  setClockTimer,
+  clearClockTimer,
 } from './matchUpStore.js';
 import { persistMatchHistory } from './persistence.js';
 import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
@@ -29,6 +33,7 @@ export function getMetrics(): RelayMetrics {
 export function createRelay(io: Server, config: RelayConfig): void {
   const staleMatchAgeMs = config.staleMatchHours * 60 * 60 * 1000;
   const pruneIntervalMs = config.pruneIntervalMinutes * 60 * 1000;
+  const tickerIdleMs = (config.tickerIdleTimeoutSeconds ?? 1800) * 1000;
 
   // --- Tracker namespace: mobile trackers push scores here ---
   const tracker = io.of('/tracker');
@@ -57,6 +62,122 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Also emit to the "all" room for dashboards
       listeners.to('all').emit('score', data);
+
+      // Anchor clock ticks from the score event if it carries clock
+      // fields. This is the reliable baseline — the intennse event
+      // has richer data but may not always be sent.
+      const anyData = data as any;
+      const boltMs = typeof anyData.boltTimerRemainingMs === 'number' ? anyData.boltTimerRemainingMs : undefined;
+      const serveMs = typeof anyData.serveClockRemainingMs === 'number' ? anyData.serveClockRemainingMs : undefined;
+      if (boltMs !== undefined) {
+        const status = ((data as any).matchUpStatus ?? '').toUpperCase();
+        const running = boltMs > 0 && status !== 'COMPLETED';
+        setClockAnchor(data.matchUpId, {
+          boltRemainingMs: boltMs,
+          serveRemainingMs: serveMs ?? 0,
+          anchoredAt: Date.now(),
+          running,
+          activeClock: running ? 'bolt' : 'none',
+          serveClockRunning: true,
+          tournamentId: data.tournamentId,
+        });
+        if (running) {
+          startClockTicker(data.matchUpId, listeners);
+        } else {
+          clearClockTimer(data.matchUpId);
+        }
+      }
+    });
+
+    // INTENNSE enriched snapshots: fan out to listeners + anchor clocks
+    // for relay-native tick generation.
+    socket.on('intennse', (data: any) => {
+      if (!data?.matchUpId) {
+        socket.emit('error', { message: 'matchUpId required' });
+        return;
+      }
+
+      socket.emit('ack', { matchUpId: data.matchUpId, received: true });
+
+      // Fan out the event payload (full stats, score, penalty box, etc.)
+      listeners.to(data.matchUpId).emit('intennse', data);
+      if (data.tournamentId) {
+        listeners.to(`tournament:${data.tournamentId}`).emit('intennse', data);
+      }
+      listeners.to('all').emit('intennse', data);
+
+      // Anchor clocks for relay-native tick generation.
+      // The intennse event carries boltTimerRemainingMs and
+      // serveClockRemainingMs — snapshot values at the moment the
+      // tracker emitted. Between events, the relay extrapolates by
+      // subtracting wall-clock elapsed time from the anchor.
+      const matchUpId = data.matchUpId;
+      const boltMs = typeof data.boltTimerRemainingMs === 'number' ? data.boltTimerRemainingMs : 0;
+      const serveMs = typeof data.serveClockRemainingMs === 'number' ? data.serveClockRemainingMs : 0;
+      const status = (data.matchUpStatus ?? '').toUpperCase();
+      const running = boltMs > 0 && status !== 'COMPLETED';
+
+      setClockAnchor(matchUpId, {
+        boltRemainingMs: boltMs,
+        serveRemainingMs: serveMs,
+        anchoredAt: Date.now(),
+        running,
+        activeClock: running ? 'bolt' : 'none',
+        serveClockRunning: true,
+        tournamentId: data.tournamentId,
+      });
+
+      if (running) {
+        startClockTicker(matchUpId, listeners);
+      } else {
+        clearClockTimer(matchUpId);
+      }
+    });
+
+    // Clock state sync — lightweight event fired when the bolt clock
+    // pauses/resumes/completes WITHOUT a point being scored (official
+    // pause, timeout, break, navigation away). Re-anchors or stops
+    // the relay's ticker so the scorebug display matches reality.
+    socket.on('clockSync', (data: any) => {
+      if (!data?.matchUpId) {
+        socket.emit('error', { message: 'matchUpId required' });
+        return;
+      }
+
+      socket.emit('ack', { matchUpId: data.matchUpId, received: true });
+
+      const boltMs = typeof data.boltTimerRemainingMs === 'number' ? data.boltTimerRemainingMs : 0;
+      const serveMs = typeof data.serveClockRemainingMs === 'number' ? data.serveClockRemainingMs : 0;
+      const activeClock = data.activeClock ?? (data.clockState === 'running' ? 'bolt' : 'none');
+      const running = data.clockState === 'running';
+
+      // serveClockRunning defaults to true unless explicitly false
+      // (rally in progress → serve clock paused while bolt keeps running)
+      const serveClockRunning = data.serveClockRunning !== false;
+
+      setClockAnchor(data.matchUpId, {
+        boltRemainingMs: boltMs,
+        serveRemainingMs: serveMs,
+        anchoredAt: Date.now(),
+        running,
+        activeClock,
+        serveClockRunning,
+        activeClockRemainingMs: typeof data.activeClockRemainingMs === 'number' ? data.activeClockRemainingMs : undefined,
+        tournamentId: data.tournamentId,
+      });
+
+      if (running) {
+        startClockTicker(data.matchUpId, listeners);
+      } else {
+        clearClockTimer(data.matchUpId);
+      }
+
+      // Fan out to listeners so display clients know the clock state changed
+      listeners.to(data.matchUpId).emit('clockSync', data);
+      if (data.tournamentId) {
+        listeners.to(`tournament:${data.tournamentId}`).emit('clockSync', data);
+      }
+      listeners.to('all').emit('clockSync', data);
     });
 
     socket.on('history', async (data: MatchHistory) => {
@@ -137,7 +258,83 @@ export function createRelay(io: Server, config: RelayConfig): void {
     });
   });
 
-  // Periodically prune stale matches
+  // ── Relay-native clock ticker ─────────────────────────────
+  //
+  // Instead of the competition-factory-server generating 10Hz HTTP
+  // POSTs, the relay itself extrapolates from the last-received
+  // intennse event's clock values. Each event re-anchors the
+  // countdown (corrects any drift). Pause/break/complete signals
+  // clear the timer.
+
+  function startClockTicker(matchUpId: string, ns: typeof listeners): void {
+    // Idempotent — clears any existing timer for this match first.
+    clearClockTimer(matchUpId);
+
+    const timer = setInterval(() => {
+      const anchor = getClockAnchor(matchUpId);
+      if (!anchor?.running) {
+        clearClockTimer(matchUpId);
+        return;
+      }
+
+      const elapsed = Date.now() - anchor.anchoredAt;
+
+      // Idle timeout: if no intennse event has re-anchored this match
+      // for longer than the configured threshold, the tracker is
+      // presumed disconnected or the match abandoned. Stop ticking.
+      if (elapsed > tickerIdleMs) {
+        console.log(`[relay] ticker idle timeout for ${matchUpId} (${Math.round(elapsed / 1000)}s since last anchor)`);
+        clearClockTimer(matchUpId);
+        return;
+      }
+
+      const boltMs = Math.max(0, anchor.boltRemainingMs - elapsed);
+      // Freeze serve clock when it's not running (e.g. rally in progress)
+      const serveMs = anchor.serveClockRunning
+        ? Math.max(0, anchor.serveRemainingMs - elapsed)
+        : anchor.serveRemainingMs;
+
+      // For timeout/break clocks, extrapolate the secondary countdown.
+      const activeClockMs = anchor.activeClockRemainingMs !== undefined
+        ? Math.max(0, anchor.activeClockRemainingMs - elapsed)
+        : undefined;
+
+      const tickPayload = {
+        kind: 'tick' as const,
+        matchUpId,
+        activeClock: anchor.activeClock,
+        boltTimerRemainingMs: boltMs,
+        serveClockRemainingMs: serveMs,
+        // Only include the secondary clock when it's the active one.
+        ...(anchor.activeClock === 'timeout' && activeClockMs !== undefined
+          ? { timeoutRemainingMs: activeClockMs } : {}),
+        ...(anchor.activeClock === 'break' && activeClockMs !== undefined
+          ? { breakRemainingMs: activeClockMs } : {}),
+        generatedAt: new Date().toISOString(),
+      };
+
+      ns.to(matchUpId).emit('scorebug-tick', tickPayload);
+      if (anchor.tournamentId) {
+        ns.to(`tournament:${anchor.tournamentId}`).emit('scorebug-tick', tickPayload);
+      }
+      ns.to('all').emit('scorebug-tick', tickPayload);
+
+      // Auto-stop when the active clock reaches zero. The next event
+      // from epixodic (clockSync or score) will re-anchor if play
+      // continues (e.g. bolt-expired → break starts).
+      const activeDone =
+        (anchor.activeClock === 'bolt' && boltMs <= 0) ||
+        (anchor.activeClock === 'timeout' && (activeClockMs ?? 0) <= 0) ||
+        (anchor.activeClock === 'break' && (activeClockMs ?? 0) <= 0);
+      if (activeDone) {
+        clearClockTimer(matchUpId);
+      }
+    }, 100); // 10 Hz
+
+    setClockTimer(matchUpId, timer);
+  }
+
+  // Periodically prune stale matches (also clears any orphaned timers)
   setInterval(() => {
     const pruned = pruneStaleMatches(staleMatchAgeMs);
     if (pruned > 0) {

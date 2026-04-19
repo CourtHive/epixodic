@@ -12,6 +12,9 @@ export default ({ mode }) => {
     build: { sourcemap: true },
     plugins: [svelte()],
     base: BASE_URL,
+    test: {
+      exclude: ['e2e/**', '**/node_modules/**', 'score-relay/**'],
+    },
     resolve: {
       tsconfigPaths: true,
       // Ensure all imports of tods-competition-factory resolve to the local

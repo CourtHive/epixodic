@@ -9,5 +9,4 @@ export {
   ptsHorizon,
   rallyTree,
   statView,
-  matchUpDashboard,
 } from '@tennisvisuals/scoring-visualizations';
