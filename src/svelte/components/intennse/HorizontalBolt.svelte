@@ -224,14 +224,16 @@
         />
       </div>
     {/if}
-    <ControlBar
-      serveClock={!breakActive}
-      {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
-      {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
-      {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
-      {side1Name} {side2Name}
-      onTimeoutSubstitute={onSubstitute}
-    />
+    {#if !compactFooter}
+      <ControlBar
+        serveClock={!breakActive}
+        {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
+        {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
+        {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
+        {side1Name} {side2Name}
+        onTimeoutSubstitute={onSubstitute}
+      />
+    {/if}
     {#if canSubmitScore && (breakActive || (matchComplete && !breakActive))}
       <button
         class="ih-submit-btn"
@@ -276,7 +278,7 @@
         ⋯ 1
       </button>
       <div class="ih-compact-center">
-        <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
+        <button class="intennse-ctrl-btn intennse-ctrl-btn--undo-redo" onclick={onUndo} disabled={!canUndo}>UNDO</button>
         <button
           class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
           class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
@@ -286,7 +288,7 @@
         >
           {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
         </button>
-        <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
+        <button class="intennse-ctrl-btn intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo}>REDO</button>
       </div>
       <button
         class="ih-actions-trigger"
