@@ -283,9 +283,18 @@
   border-bottom: 1px solid var(--intennse-accent);
   position: relative;
 }
-/* When clocks are in the header (phone landscape), spread edge-to-edge */
+/* When clocks are in the header (phone landscape), switch to flow layout.
+ * The default header uses position:absolute on back + serve-side so the
+ * bolt label stays centered. With clocks in the flow we need everything
+ * in the flex stream. */
 .intennse-h-header--clocks {
   justify-content: flex-start;
+}
+.intennse-h-header--clocks .intennse-h-back {
+  position: static;
+}
+.intennse-h-header--clocks .intennse-h-serve-side {
+  position: static;
 }
 .intennse-bolt-label--grow {
   flex: 1;

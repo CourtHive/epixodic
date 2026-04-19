@@ -75,6 +75,7 @@
     participantNames,
     onHistoryEntryTap,
     onDeleteChallengeEntry,
+    sidesSwapped = false,
     compactFooter = false,
   }: {
     side1Name: string;
@@ -146,6 +147,8 @@
     /** Phase 3: open the point-detail modal for a history row. */
     onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
     onDeleteChallengeEntry?: (entry: import('./historyStream').PointHistoryEntry) => void;
+    /** When true, penalty box indicators show flipped side numbers. */
+    sidesSwapped?: boolean;
     /** When true, collapses the footer to [⋯ 1] [⋯ 2] action-sheet triggers (phone landscape). */
     compactFooter?: boolean;
   } = $props();
@@ -208,7 +211,7 @@
       {server}
     />
     <div class="intennse-h-arc-row">
-      <PenaltyBoxIndicator sideNumber={1} onTap={onPenaltyBoxTap} />
+      <PenaltyBoxIndicator sideNumber={sidesSwapped ? 2 : 1} onTap={onPenaltyBoxTap} />
       <div class="intennse-arc-compact intennse-arc-compact--large">
         <div class="intennse-arc-compact-label">BOLT</div>
         <div class="intennse-arc-compact-score">
@@ -217,7 +220,7 @@
           <span class:intennse-arc-leading={boltScore.side2 > boltScore.side1}>{boltScore.side2}</span>
         </div>
       </div>
-      <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />
+      <PenaltyBoxIndicator sideNumber={sidesSwapped ? 1 : 2} onTap={onPenaltyBoxTap} />
     </div>
     {#if playerTimePanelOpen && playerTimeSide}
       <div class="intennse-h-center-info">

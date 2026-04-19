@@ -1740,6 +1740,7 @@
     historyPoints,
     historyEntries,
     participantNames,
+    sidesSwapped: swapped,
     compactFooter: isMobile,
     onHistoryEntryTap: (entry: PointHistoryEntry) => { pointDetailEntry = entry; },
     onDeleteChallengeEntry: (entry: PointHistoryEntry) => {
