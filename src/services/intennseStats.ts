@@ -131,6 +131,8 @@ export function buildIntennseSnapshot(options: {
   /** The most recently scored point (result, winner, rallyLength, etc.).
    *  Consumers can use this to trigger arena effects (flash for Ace, etc.). */
   lastPoint?: Record<string, any>;
+  /** Category label (e.g. "Men's Singles", "Mixed Doubles") for scorebug/video boards. */
+  categoryLabel?: string;
 }): IntennseSnapshot {
   return {
     ...options,

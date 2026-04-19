@@ -28,6 +28,9 @@
     boltComplete = false,
     boltExpired = false,
     matchComplete = false,
+    decidingPoint = false,
+    showArcResult = false,
+    arcWinnerName = '',
     currentBoltNumber = 1,
     onNextBolt,
     onWinner,
@@ -50,6 +53,8 @@
     timeoutTeamName = '',
     timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
+    onChallenge,
+    challengesRemaining = { 1: 1, 2: 1 },
     playerTimePanelOpen = false,
     sideRoster = {},
     playerTimeSide = null,
@@ -69,6 +74,7 @@
     historyEntries,
     participantNames,
     onHistoryEntryTap,
+    onDeleteChallengeEntry,
     compactFooter = false,
   }: {
     side1Name: string;
@@ -89,6 +95,9 @@
     boltComplete?: boolean;
     boltExpired?: boolean;
     matchComplete?: boolean;
+    decidingPoint?: boolean;
+    showArcResult?: boolean;
+    arcWinnerName?: string;
     currentBoltNumber?: number;
     onNextBolt?: () => void;
     onWinner: (side: 0 | 1) => void;
@@ -111,6 +120,8 @@
     timeoutTeamName?: string;
     timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
+    onChallenge?: (side: 1 | 2) => void;
+    challengesRemaining?: { 1: number; 2: number };
     playerTimePanelOpen?: boolean;
     sideRoster?: Record<string, 1 | 2>;
     playerTimeSide?: 1 | 2 | null;
@@ -134,6 +145,7 @@
     participantNames?: Record<string, string>;
     /** Phase 3: open the point-detail modal for a history row. */
     onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
+    onDeleteChallengeEntry?: (entry: import('./historyStream').PointHistoryEntry) => void;
     /** When true, collapses the footer to [⋯ 1] [⋯ 2] action-sheet triggers (phone landscape). */
     compactFooter?: boolean;
   } = $props();
@@ -208,6 +220,7 @@
           {side1Name}
           {side2Name}
           onEntryTap={onHistoryEntryTap}
+          {onDeleteChallengeEntry}
         />
       </div>
     {/if}
@@ -321,6 +334,13 @@
           >
             Penalty
           </button>
+          <button
+            class="ih-action-sheet-item ih-action-sheet-item--challenge"
+            onclick={() => { onChallenge?.(s); actionMenuSide = null; }}
+            disabled={!challengesRemaining[s]}
+          >
+            Challenge ({challengesRemaining[s]})
+          </button>
         </div>
       </div>
     {/if}
@@ -368,6 +388,23 @@
         <button class="intennse-footer-btn intennse-footer-btn--penalty" onclick={() => onPenalty(2)} disabled={!boltStarted} title="Penalty Side 2">
           <span class="footer-label-full">Penalty</span><span class="footer-label-short">PEN</span>
         </button>
+      </div>
+    </div>
+  {/if}
+
+  {#if decidingPoint}
+    <div class="ih-deciding-banner">
+      <span class="ih-deciding-label">DECIDING POINT</span>
+      <span class="ih-deciding-sub">Aggregate tied — next point wins the ARC</span>
+    </div>
+  {/if}
+
+  {#if showArcResult}
+    <div class="ih-arc-result-overlay">
+      <div class="ih-arc-result-card">
+        <div class="ih-arc-result-title">ARC COMPLETE</div>
+        <div class="ih-arc-result-winner">{arcWinnerName}</div>
+        <div class="ih-arc-result-score">{aggregateScore.side1} – {aggregateScore.side2}</div>
       </div>
     </div>
   {/if}

@@ -9,13 +9,20 @@
   }: {
     side: 1 | 2;
     teamName?: string;
-    activePlayers: { participantId: string; participantName: string; jerseyNumber?: string }[];
-    benchPlayers: { participantId: string; participantName: string; jerseyNumber?: string }[];
+    activePlayers: { participantId: string; participantName: string; jerseyNumber?: string; gender?: string }[];
+    benchPlayers: { participantId: string; participantName: string; jerseyNumber?: string; gender?: string }[];
     onConfirm: (participantId: string, participantName: string, points: number) => void;
     onClose: () => void;
   } = $props();
 
   const allPlayers = $derived([...activePlayers, ...benchPlayers]);
+
+  function genderColor(gender?: string): string | undefined {
+    const g = (gender ?? '').toUpperCase();
+    if (g === 'MALE' || g === 'M') return 'var(--chc-gender-male, #2E86C1)';
+    if (g === 'FEMALE' || g === 'F') return 'var(--chc-gender-female, #E07BAF)';
+    return undefined;
+  }
   // svelte-ignore state_referenced_locally — initial selection only; the modal
   // is mounted per open with a stable activePlayers list and the user mutates
   // selectedPlayer directly.
@@ -50,7 +57,7 @@
           class:pen-player--selected={selectedPlayer === player.participantId}
           onclick={() => (selectedPlayer = player.participantId)}
         >
-          {#if player.jerseyNumber}<span class="pen-jersey">{player.jerseyNumber}</span>{/if}{player.participantName}
+          {#if player.jerseyNumber}<span class="pen-jersey">{player.jerseyNumber}</span>{/if}<span style:color={genderColor(player.gender)}>{player.participantName}</span>
         </button>
       {/each}
     </div>

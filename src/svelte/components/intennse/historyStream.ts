@@ -10,7 +10,7 @@
  */
 
 /** An entry in the unified stream — either a scored point, a bolt boundary, or a substitution. */
-export type StreamEntryType = 'point' | 'boltBoundary' | 'substitution';
+export type StreamEntryType = 'point' | 'boltBoundary' | 'substitution' | 'challenge';
 
 export type PointResultKind =
   | 'winner'
@@ -75,6 +75,12 @@ export interface PointHistoryEntry {
   subSideNumber?: 1 | 2;
   /** Bolt boundary: label for the divider (e.g. "BOLT 1 → 2"). */
   boundaryLabel?: string;
+  /** Challenge: side that used their challenge. */
+  challengeSideNumber?: 1 | 2;
+  /** Challenge: team name of the challenging side. */
+  challengeTeamName?: string;
+  /** Index into the engine's history.entries array (for deletion). */
+  entryIndex?: number;
 
   // ── Audit fields — present only if the point has been corrected ────
   /** ISO timestamp of the most recent winner flip. */
@@ -333,6 +339,33 @@ function buildSubstitutionEntry(
 }
 
 /**
+ * Build a coach-challenge display entry.
+ */
+function buildChallengeEntry(
+  entry: any,
+  entryIndex: number,
+  options?: BuildHistoryStreamOptions,
+): PointHistoryEntry {
+  const sideNumber = entry?.data?.sideNumber as 1 | 2;
+  const teamName = sideNumber === 1 ? (options?.side1Name ?? 'Side 1') : (options?.side2Name ?? 'Side 2');
+  return {
+    entryType: 'challenge',
+    pointIndex: -1,
+    timestamp: entry?.timestamp,
+    timeLabel: formatTimeLabel(entry?.timestamp),
+    winningSide: sideNumber,
+    sideLabel: teamName,
+    kind: 'other',
+    glyph: '⚑',
+    scoreValue: 0,
+    wonOnServe: false,
+    challengeSideNumber: sideNumber,
+    challengeTeamName: teamName,
+    entryIndex,
+  };
+}
+
+/**
  * Build a bolt-boundary (segment end) display entry.
  */
 function buildBoltBoundaryEntry(entry: any, boltNumber: number): PointHistoryEntry {
@@ -388,7 +421,8 @@ export function buildHistoryStream(
   let pointCursor = 0;
   let boltNumber = 1;
 
-  for (const entry of options.entries) {
+  for (let entryIdx = 0; entryIdx < options.entries.length; entryIdx++) {
+    const entry = options.entries[entryIdx];
     if (!entry) continue;
     if (entry.type === 'point') {
       // Advance the point cursor — the corresponding pointRow is at
@@ -404,6 +438,8 @@ export function buildHistoryStream(
     } else if (entry.type === 'endSegment') {
       unified.push(buildBoltBoundaryEntry(entry, boltNumber));
       boltNumber++;
+    } else if (entry.type === 'challenge') {
+      unified.push(buildChallengeEntry(entry, entryIdx, options));
     }
     // Other entry types (setServer, setInitialScore, etc.) are skipped
     // — they're internal bookkeeping, not user-visible events.

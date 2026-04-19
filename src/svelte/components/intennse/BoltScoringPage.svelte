@@ -30,6 +30,8 @@
     editPoint,
     removePoint,
     pinEntryServersToPoints,
+    recordChallengeEntry,
+    removeChallengeEntry,
   } from '../../stores/scoringEngine.svelte';
   import {
     getPlayerTimeState,
@@ -92,7 +94,7 @@
     type ClockCommand,
   } from '../../../intennse/clockOrchestration';
   import { getCurrentBoltScore, getAggregateScore } from '../../../intennse/scoreComputation';
-  import { getServingState, updateSideServerIndices, type ServeSide } from '../../../intennse/servingRules';
+  import { getServingState, getServeSide, updateSideServerIndices, type ServeSide } from '../../../intennse/servingRules';
   import { getScoringPrefs } from '../../stores/scoringPrefs.svelte';
 
   let { matchUpId = '', boltLabel = '', side1Name: propSide1Name = '', side2Name: propSide2Name = '' }: {
@@ -111,6 +113,7 @@
   const playerTime = getPlayerTimeState();
 
   let BREAK_DURATION_MS = 2 * 60 * 1000; // 2 minutes between bolts, configurable
+  const CATEGORY_BREAK_DURATION_MS = 5 * 60 * 1000; // 5 minutes between categories (§2.5)
 
   let rallyInProgress = $state(false);
   let rallyCount = $state(0);
@@ -133,6 +136,12 @@
   const maxTimeoutsPerTieMatchUp = (INTENNSE_STANDARD as any).timeoutRules?.maxPerTieMatchUp ?? 2;
   let serveSide = $state<ServeSide>('DEUCE');
   let categoryLabel = $state('');
+  /** Side that initiated the current challenge (null = umpire review, no challenge consumed). */
+  let challengingSide = $state<1 | 2 | null>(null);
+  /** True when the ARC is complete and we're showing the result splash. */
+  let showArcResult = $state(false);
+  /** True when the final bolt ended in an aggregate tie — one deciding point must be played. */
+  let decidingPoint = $state(false);
   const isMobile = matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 768;
   let isLandscape = $state(window.innerWidth > window.innerHeight);
   const scoringPrefs = getScoringPrefs();
@@ -312,7 +321,7 @@
   let playerTimePanelOpen = $state(false);
   let playerTimeSide = $state<1 | 2 | null>(null);
   let timeWarning = $state<{ playerName: string; remainingMs: number } | null>(null);
-  let autoTimePenaltyTriggered = $state<Set<string>>(new Set());
+  let autoTimeSubTriggered = $state<Set<string>>(new Set());
 
   // ── Pre-bolt player selection ──
   // Required active players per side: 1 for singles, 2 for doubles. The user
@@ -337,6 +346,20 @@
       side1: arcBaseScore.side1 + local.side1,
       side2: arcBaseScore.side2 + local.side2,
     };
+  });
+
+  /** Challenges used in the current tieMatchUp, derived from history entries. */
+  const localChallengesUsed = $derived.by(() => {
+    void scoring.version;
+    const entries = getEngineState()?.history?.entries ?? [];
+    const result = { 1: 0, 2: 0 };
+    for (const e of entries) {
+      if (e?.type === 'challenge') {
+        const s = e.data?.sideNumber as 1 | 2;
+        if (s) result[s]++;
+      }
+    }
+    return result;
   });
 
   const matchComplete = $derived.by(() => {
@@ -571,7 +594,14 @@
 
       // Compute ARC base from other tieMatchUps in the team matchUp
       loadArcBaseScoreFromTeam(parentMatchUp, matchUpId);
+      // Recalculate serve side from the current aggregate (§1.4)
+      const localAgg = getAggregateScore(getEngineState());
+      serveSide = getServeSide({
+        side1: arcBaseScore.side1 + localAgg.side1,
+        side2: arcBaseScore.side2 + localAgg.side2,
+      });
       if (tieMatchUp.timeoutsUsed) timeoutsUsed = tieMatchUp.timeoutsUsed;
+      // challengesUsed is derived from history.entries — no separate restore needed
       if (tieMatchUp.side1ServerIndex === 0 || tieMatchUp.side1ServerIndex === 1) {
         side1ServerIndex = tieMatchUp.side1ServerIndex;
       }
@@ -703,12 +733,35 @@
   function afterPoint() {
     rallyInProgress = false;
     rallyCount = 0;
+    // Deciding point just resolved — show the ARC result
+    if (decidingPoint) {
+      decidingPoint = false;
+      broadcastState();
+      showArcResult = true;
+      return;
+    }
+
     if (boltExpired) {
       boltComplete = true;
       endSegment({ reason: 'bolt_expired' });
       broadcastState();
-      // Start break between bolts (same tieMatchUp) or between tieMatchUps (auto-advance)
-      if (!matchComplete || getNextTieMatchUpId(matchUpId)) {
+
+      const isFinalBolt = matchComplete && !getNextTieMatchUpId(matchUpId);
+      if (isFinalBolt) {
+        // Check for aggregate tie → deciding point (§1.3)
+        const freshLocal = getAggregateScore(getEngineState());
+        const agg = {
+          side1: arcBaseScore.side1 + freshLocal.side1,
+          side2: arcBaseScore.side2 + freshLocal.side2,
+        };
+        if (agg.side1 === agg.side2) {
+          decidingPoint = true;
+          boltComplete = false; // allow one more point to be scored
+          boltExpired = false;
+        } else {
+          showArcResult = true;
+        }
+      } else {
         startBreakClock();
       }
       return;
@@ -717,14 +770,28 @@
     broadcastState();
   }
 
+  /**
+   * Determine whether the next tieMatchUp is in a different category
+   * (different collectionId). Category transitions get a 5-minute break (§2.5).
+   */
+  function isCategoryTransition(): boolean {
+    if (!matchComplete) return false; // intra-tieMatchUp break, not category
+    const nextId = getNextTieMatchUpId(matchUpId);
+    if (!nextId) return false;
+    const current = getTieMatchUp(matchUpId) as any;
+    const next = getTieMatchUp(nextId) as any;
+    return !!(current?.collectionId && next?.collectionId && current.collectionId !== next.collectionId);
+  }
+
   function startBreakClock() {
     breakActive = true;
     breakPaused = false;
     destroyClock('breakTimer');
     pauseAllPenaltyClocks();
+    const duration = isCategoryTransition() ? CATEGORY_BREAK_DURATION_MS : BREAK_DURATION_MS;
     createClock({
       id: 'breakTimer',
-      durationMs: BREAK_DURATION_MS,
+      durationMs: duration,
       direction: 'down',
       autoStart: true,
       tickIntervalMs: 1000,
@@ -780,8 +847,14 @@
     rallyInProgress = false;
     rallyCount = 0;
     officialPause = false;
-    autoTimePenaltyTriggered = new Set();
+    autoTimeSubTriggered = new Set();
     serveClockExpired = false;
+    // Recalculate serve side from current aggregate (§1.4)
+    const localAgg = getAggregateScore(getEngineState());
+    serveSide = getServeSide({
+      side1: arcBaseScore.side1 + localAgg.side1,
+      side2: arcBaseScore.side2 + localAgg.side2,
+    });
     // Recreate clocks for the next bolt
     destroyClock('boltTimer');
     destroyClock('serveClock');
@@ -1199,6 +1272,7 @@
     removePoint(entry.pointIndex, { recalculate: true });
     rehydratePenaltyBox();
     broadcastState();
+    if (challengingSide) challengingSide = null;
     pointDetailEntry = null;
   }
 
@@ -1233,6 +1307,7 @@
     );
     rehydratePenaltyBox();
     broadcastState();
+    if (challengingSide) challengingSide = null;
     pointDetailEntry = null;
   }
 
@@ -1310,6 +1385,52 @@
    * `timeoutsUsed` state for the current tieMatchUp and the persisted
    * values for the others.
    */
+  /** Sum coach challenges used across all tieMatchUps in this ARC. */
+  function getArcChallengesUsed(): { 1: number; 2: number } {
+    const team = getTeamMatchUpState().teamMatchUp as any;
+    const result = { 1: 0, 2: 0 };
+    for (const tie of team?.tieMatchUps ?? []) {
+      if (tie.matchUpId === matchUpId) {
+        result[1] += localChallengesUsed[1];
+        result[2] += localChallengesUsed[2];
+      } else {
+        // Count challenge entries from persisted history
+        const entries = tie.history?.entries ?? tie.engineState?.history?.entries ?? [];
+        for (const e of entries) {
+          if (e?.type === 'challenge') {
+            const s = e.data?.sideNumber as 1 | 2;
+            if (s) result[s]++;
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  function hasChallengeRemaining(side: 1 | 2): boolean {
+    const arcUsed = getArcChallengesUsed();
+    return arcUsed[side] < 1;
+  }
+
+  function getArcWinnerName(): string {
+    const freshLocal = getAggregateScore(getEngineState());
+    const agg = {
+      side1: arcBaseScore.side1 + freshLocal.side1,
+      side2: arcBaseScore.side2 + freshLocal.side2,
+    };
+    if (agg.side1 > agg.side2) return side1Name;
+    if (agg.side2 > agg.side1) return side2Name;
+    return ''; // tied (shouldn't happen after deciding point)
+  }
+
+  function handleChallenge(side: 1 | 2) {
+    const dataSide = swapped ? (3 - side) as 1 | 2 : side;
+    if (!hasChallengeRemaining(dataSide)) return;
+    recordChallengeEntry(dataSide);
+    challengingSide = dataSide;
+    broadcastState();
+  }
+
   function getArcTimeoutsUsed(): { 1: number; 2: number } {
     const team = getTeamMatchUpState().teamMatchUp as any;
     const result = { 1: 0, 2: 0 };
@@ -1439,6 +1560,7 @@
 
     sendIntennseUpdate(buildIntennseSnapshot({
       matchUpId,
+      tournamentId: (getTeamMatchUpState().teamMatchUp as any)?.tournamentId,
       boltScore: currentBoltScore,
       aggregateScore: currentAggregateScore,
       activePlayers: scoring.activePlayers,
@@ -1449,6 +1571,7 @@
       matchUpStatus,
       rallyCount,
       lastPoint,
+      categoryLabel,
     }));
   }
 
@@ -1500,13 +1623,14 @@
       if (!entry.isOnCourt) continue;
       const check = checkTimeLimit(participantId);
 
-      // Auto-penalty when time is exhausted
-      if (check.exceeded && !autoTimePenaltyTriggered.has(participantId)) {
-        autoTimePenaltyTriggered = new Set([...autoTimePenaltyTriggered, participantId]);
+      // Player time exhausted — force substitution (§2.8: player becomes
+      // ineligible, not a conduct penalty). Opens the substitution modal
+      // for the affected side so the scorekeeper can swap them out.
+      if (check.exceeded && !autoTimeSubTriggered.has(participantId)) {
+        autoTimeSubTriggered = new Set([...autoTimeSubTriggered, participantId]);
         const side = sideRoster[participantId] as 1 | 2 | undefined;
         if (side) {
-          // Defer to avoid mutating state during effect
-          queueMicrotask(() => handlePenalty(side));
+          queueMicrotask(() => handleSubstitute(side));
         }
       }
 
@@ -1549,6 +1673,9 @@
     boltComplete,
     boltExpired,
     matchComplete,
+    decidingPoint,
+    showArcResult,
+    arcWinnerName: showArcResult ? getArcWinnerName() : '',
     currentBoltNumber: globalBoltNumber,
     onNextBolt: handleNextBolt,
     onWinner: (side: Side) => handleAction('winner', flipSide(side)),
@@ -1575,6 +1702,11 @@
       2: effectiveTimeoutsRemaining(2),
     },
     onDismissTimeout: handleDismissTimeout,
+    onChallenge: (side: 1 | 2) => handleChallenge(side),
+    challengesRemaining: {
+      1: hasChallengeRemaining(swapped ? 2 : 1) ? 1 : 0,
+      2: hasChallengeRemaining(swapped ? 1 : 2) ? 1 : 0,
+    },
     playerTimePanelOpen,
     playerTimeSide,
     onTogglePlayerTimeSide: (side: 1 | 2) => {
@@ -1610,6 +1742,12 @@
     participantNames,
     compactFooter: isMobile,
     onHistoryEntryTap: (entry: PointHistoryEntry) => { pointDetailEntry = entry; },
+    onDeleteChallengeEntry: (entry: PointHistoryEntry) => {
+      if (entry.entryType === 'challenge' && entry.entryIndex !== undefined) {
+        removeChallengeEntry(entry.entryIndex);
+        broadcastState();
+      }
+    },
   });
 </script>
 
@@ -1633,7 +1771,7 @@
       entry={pointDetailEntry}
       {side1Name}
       {side2Name}
-      onClose={() => (pointDetailEntry = null)}
+      onClose={() => { pointDetailEntry = null; challengingSide = null; }}
       onRemove={handleRemovePoint}
       onEditWinner={handleEditWinner}
       onEditRallyLength={handleEditRallyLength}
@@ -1674,12 +1812,12 @@
       activePlayers={
         Object.values(playerTime.players)
           .filter((p) => p.isOnCourt && sideRoster[p.participantId] === penaltyModalSide)
-          .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber }))
+          .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber, gender: p.gender }))
       }
       benchPlayers={
         getBenchPlayers(penaltyModalSide, sideRoster)
           .filter((p) => !isInBox(p.participantId))
-          .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber }))
+          .map((p) => ({ participantId: p.participantId, participantName: p.participantName, jerseyNumber: p.jerseyNumber, gender: p.gender }))
       }
       onConfirm={executePenalty}
       onClose={() => (penaltyModalSide = null)}

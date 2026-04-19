@@ -164,6 +164,7 @@
 .ih-action-sheet-item--sub { border-color: var(--intennse-touch, #4fc3f7); color: var(--intennse-touch); }
 .ih-action-sheet-item--timeout { border-color: var(--intennse-ace, #ffd740); color: var(--intennse-ace); }
 .ih-action-sheet-item--penalty { border-color: var(--intennse-error, #ef5350); color: var(--intennse-error); }
+.ih-action-sheet-item--challenge { border-color: var(--intennse-winner, #ff6b35); color: var(--intennse-winner, #ff6b35); }
 
 .intennse-h-time-row {
   display: flex;
@@ -603,6 +604,64 @@
   color: var(--intennse-serving);
   min-width: 3.5rem;
   text-align: right;
+}
+
+/* ── Deciding Point + ARC Result (horizontal) ─────────────── */
+
+.ih-deciding-banner {
+  position: absolute;
+  top: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--intennse-ace, #ffd740);
+  color: var(--intennse-surface, #16213e);
+  padding: 0.4rem 2rem;
+  border-radius: 8px;
+  text-align: center;
+  z-index: 20;
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  box-shadow: 0 4px 20px rgba(255, 215, 64, 0.4);
+}
+.ih-deciding-label { font-size: 1rem; font-weight: 800; letter-spacing: 0.08em; }
+.ih-deciding-sub { font-size: 0.65rem; font-weight: 600; opacity: 0.8; }
+
+.ih-arc-result-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 50;
+}
+.ih-arc-result-card {
+  text-align: center;
+  padding: 3rem 5rem;
+  border-radius: 16px;
+  background: var(--intennse-surface, #16213e);
+  border: 2px solid var(--intennse-serving, #00d4aa);
+  box-shadow: 0 0 40px rgba(0, 212, 170, 0.3);
+}
+.ih-arc-result-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--intennse-text-muted, #8892b0);
+  margin-bottom: 0.75rem;
+}
+.ih-arc-result-winner {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--intennse-serving, #00d4aa);
+  margin-bottom: 0.5rem;
+}
+.ih-arc-result-score {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--intennse-text, #e0e0e0);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Action Panel (Buttons) ────────────────────────────────── */

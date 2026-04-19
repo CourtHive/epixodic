@@ -47,6 +47,8 @@
     timeoutTeamName = '',
     timeoutsRemaining = { 1: 5, 2: 5 },
     onDismissTimeout,
+    onChallenge,
+    challengesRemaining = { 1: 1, 2: 1 },
     playerTimePanelOpen = false,
     sideRoster = {},
     breakActive = false,
@@ -62,6 +64,9 @@
     showForcedError = false,
     onReceiverRallyStart,
     rallyCount = 0,
+    decidingPoint = false,
+    showArcResult = false,
+    arcWinnerName = '',
     canSubmitScore = false,
     scoreSubmitting = false,
     onSubmitScore,
@@ -69,6 +74,7 @@
     historyEntries,
     participantNames,
     onHistoryEntryTap,
+    onDeleteChallengeEntry,
   }: {
     side1Name: string;
     side2Name: string;
@@ -108,6 +114,8 @@
     timeoutTeamName?: string;
     timeoutsRemaining?: { 1: number; 2: number };
     onDismissTimeout: () => void;
+    onChallenge?: (side: 1 | 2) => void;
+    challengesRemaining?: { 1: number; 2: number };
     playerTimePanelOpen?: boolean;
     sideRoster?: Record<string, 1 | 2>;
     playerTimeSide?: 1 | 2 | null;
@@ -125,6 +133,9 @@
     showForcedError?: boolean;
     onReceiverRallyStart?: () => void;
     rallyCount?: number;
+    decidingPoint?: boolean;
+    showArcResult?: boolean;
+    arcWinnerName?: string;
     canSubmitScore?: boolean;
     scoreSubmitting?: boolean;
     onSubmitScore?: () => void;
@@ -136,6 +147,7 @@
     participantNames?: Record<string, string>;
     /** Phase 3: open the point-detail modal for a history row. */
     onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
+    onDeleteChallengeEntry?: (entry: import('./historyStream').PointHistoryEntry) => void;
   } = $props();
 
   /** Portrait history-stream drawer toggle — hidden by default. */
@@ -251,6 +263,7 @@
         {side1Name}
         {side2Name}
         onEntryTap={onHistoryEntryTap}
+        {onDeleteChallengeEntry}
       />
     </div>
   {/if}
@@ -441,6 +454,30 @@
         >
           Penalty
         </button>
+        <button
+          class="iv-action-sheet-item iv-action-sheet-item--challenge"
+          onclick={() => { onChallenge?.(s); actionMenuSide = null; }}
+          disabled={!challengesRemaining[s]}
+        >
+          Challenge ({challengesRemaining[s]})
+        </button>
+      </div>
+    </div>
+  {/if}
+
+  {#if decidingPoint}
+    <div class="iv-deciding-banner">
+      <div class="iv-deciding-label">DECIDING POINT</div>
+      <div class="iv-deciding-sub">Aggregate tied — next point wins the ARC</div>
+    </div>
+  {/if}
+
+  {#if showArcResult}
+    <div class="iv-arc-result-overlay">
+      <div class="iv-arc-result-card">
+        <div class="iv-arc-result-title">ARC COMPLETE</div>
+        <div class="iv-arc-result-winner">{arcWinnerName}</div>
+        <div class="iv-arc-result-score">{aggregateScore.side1} – {aggregateScore.side2}</div>
       </div>
     </div>
   {/if}
@@ -864,6 +901,7 @@
   .iv-action-sheet-item--sub { border-color: var(--intennse-touch, #4fc3f7); color: var(--intennse-touch); }
   .iv-action-sheet-item--timeout { border-color: var(--intennse-ace, #ffd740); color: var(--intennse-ace); }
   .iv-action-sheet-item--penalty { border-color: var(--intennse-error, #ef5350); color: var(--intennse-error); }
+  .iv-action-sheet-item--challenge { border-color: var(--intennse-winner, #ff6b35); color: var(--intennse-winner, #ff6b35); }
 
   .iv-score-side--needs-select .iv-player-name {
     color: var(--intennse-urgent, #ff9800);
@@ -892,4 +930,68 @@
   }
   .iv-select-btn:active { opacity: 0.7; }
   .iv-select-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ── Deciding Point Banner ── */
+  .iv-deciding-banner {
+    position: absolute;
+    top: 3.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--intennse-ace, #ffd740);
+    color: var(--intennse-surface, #16213e);
+    padding: 0.5rem 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+    z-index: 20;
+    box-shadow: 0 4px 20px rgba(255, 215, 64, 0.4);
+  }
+  .iv-deciding-label {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+  .iv-deciding-sub {
+    font-size: 0.7rem;
+    font-weight: 600;
+    opacity: 0.8;
+    margin-top: 0.15rem;
+  }
+
+  /* ── ARC Result Overlay ── */
+  .iv-arc-result-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 50;
+  }
+  .iv-arc-result-card {
+    text-align: center;
+    padding: 2rem 3rem;
+    border-radius: 16px;
+    background: var(--intennse-surface, #16213e);
+    border: 2px solid var(--intennse-serving, #00d4aa);
+    box-shadow: 0 0 40px rgba(0, 212, 170, 0.3);
+  }
+  .iv-arc-result-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--intennse-text-muted, #8892b0);
+    margin-bottom: 0.5rem;
+  }
+  .iv-arc-result-winner {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--intennse-serving, #00d4aa);
+    margin-bottom: 0.3rem;
+  }
+  .iv-arc-result-score {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--intennse-text, #e0e0e0);
+    font-variant-numeric: tabular-nums;
+  }
 </style>

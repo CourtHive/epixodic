@@ -29,6 +29,7 @@
     /** Cap rows displayed in the scroll area. */
     maxRows?: number;
     onEntryTap?: (entry: PointHistoryEntry) => void;
+    onDeleteChallengeEntry?: (entry: PointHistoryEntry) => void;
     emptyLabel?: string;
   } = $props();
 
@@ -85,6 +86,21 @@
               <span class="phs-sub-detail">
                 {entry.subOutName ?? '?'} → {entry.subInName ?? '?'}
               </span>
+            </div>
+          </li>
+        {:else if entry.entryType === 'challenge'}
+          <li class="phs-row phs-row--challenge">
+            <div class="phs-challenge-row">
+              {#if entry.timeLabel}<span class="phs-time">{entry.timeLabel}</span>{/if}
+              <span class="phs-glyph phs-glyph--challenge">⚑</span>
+              <span class="phs-challenge-detail">Challenge — {entry.challengeTeamName}</span>
+              {#if onDeleteChallengeEntry}
+                <button
+                  class="phs-challenge-delete"
+                  title="Remove challenge"
+                  onclick={(e) => { e.stopPropagation(); onDeleteChallengeEntry?.(entry); }}
+                >✕</button>
+              {/if}
             </div>
           </li>
         {:else}
@@ -305,6 +321,39 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* ── Challenge row ── */
+  .phs-row--challenge {
+    border-bottom-color: rgba(255, 255, 255, 0.02);
+  }
+  .phs-challenge-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.65rem;
+    color: var(--intennse-winner, #ff6b35);
+  }
+  .phs-glyph--challenge {
+    background: var(--intennse-winner, #ff6b35) !important;
+    color: #000 !important;
+  }
+  .phs-challenge-detail {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .phs-challenge-delete {
+    background: none;
+    border: 1px solid var(--intennse-winner, #ff6b35);
+    border-radius: 4px;
+    color: var(--intennse-winner, #ff6b35);
+    font-size: 0.6rem;
+    padding: 0.1rem 0.3rem;
+    cursor: pointer;
+    flex-shrink: 0;
     font-weight: 600;
   }
 

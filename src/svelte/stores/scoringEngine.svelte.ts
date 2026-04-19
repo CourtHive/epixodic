@@ -173,6 +173,28 @@ export function substitute(sideNumber: 1 | 2, outParticipantId: string, inPartic
   bump();
 }
 
+export function recordChallengeEntry(sideNumber: 1 | 2) {
+  if (!engine) return;
+  const state = engine.getState();
+  if (state?.history?.entries) {
+    state.history.entries.push({
+      type: 'challenge',
+      data: { sideNumber },
+      timestamp: new Date().toISOString(),
+    });
+    bump();
+  }
+}
+
+export function removeChallengeEntry(entryIndex: number) {
+  if (!engine) return;
+  const state = engine.getState();
+  if (state?.history?.entries && state.history.entries[entryIndex]?.type === 'challenge') {
+    state.history.entries.splice(entryIndex, 1);
+    bump();
+  }
+}
+
 export function setLineUp(sideNumber: 1 | 2, lineUp: any[]) {
   if (!engine) return;
   engine.setLineUp(sideNumber, lineUp);
