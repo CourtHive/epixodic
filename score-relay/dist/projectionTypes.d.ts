@@ -39,6 +39,11 @@ export interface ScorebugClockTick {
         remainingMs: number;
         isOnCourt: boolean;
     }>;
+    penaltyBox?: Record<string, {
+        remainingMs: number;
+        sideNumber: 1 | 2;
+        participantName?: string;
+    }>;
     generatedAt: string;
 }
 /** Either an event payload or a tick payload — discriminated by `kind`. */

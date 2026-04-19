@@ -948,6 +948,111 @@ describe('Score Relay Integration', () => {
       listener.disconnect();
     });
 
+    it('should keep bolt ticking but freeze serve clock during rally', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-rally-1');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Start with both clocks running (pre-rally)
+      tracker.emit('score', {
+        matchUpId: 'mu-rally-1',
+        score: {},
+        boltTimerRemainingMs: 300000,
+        serveClockRemainingMs: 14000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'score');
+      await waitForEvent(listener, 'scorebug-tick', 500);
+
+      // Rally starts — serve clock paused, bolt still running
+      tracker.emit('clockSync', {
+        matchUpId: 'mu-rally-1',
+        boltTimerRemainingMs: 298000,
+        serveClockRemainingMs: 12000, // frozen at paused value
+        serveClockRunning: false,
+        activeClock: 'bolt',
+        clockState: 'running',
+      });
+      await waitForEvent(listener, 'clockSync');
+
+      // Wait for a tick and verify bolt counts down but serve stays frozen
+      const tick = await waitForEvent(listener, 'scorebug-tick', 500);
+      expect(tick.matchUpId).toBe('mu-rally-1');
+      expect(tick.activeClock).toBe('bolt');
+      expect(tick.boltTimerRemainingMs).toBeGreaterThan(0);
+      expect(tick.boltTimerRemainingMs).toBeLessThan(298000);
+      // Serve clock must hold its anchored value (not count down)
+      expect(tick.serveClockRemainingMs).toBe(12000);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should resume counting serve clock when serveClockRunning becomes true', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-rally-3');
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Rally in progress — serve frozen
+      tracker.emit('clockSync', {
+        matchUpId: 'mu-rally-3',
+        boltTimerRemainingMs: 290000,
+        serveClockRemainingMs: 10000,
+        serveClockRunning: false,
+        activeClock: 'bolt',
+        clockState: 'running',
+      });
+      await waitForEvent(listener, 'clockSync');
+      const tick1 = await waitForEvent(listener, 'scorebug-tick', 500);
+      expect(tick1.serveClockRemainingMs).toBe(10000);
+
+      // Point scored, serve clock restarts via new score event
+      tracker.emit('score', {
+        matchUpId: 'mu-rally-3',
+        score: {},
+        boltTimerRemainingMs: 288000,
+        serveClockRemainingMs: 14000,
+        matchUpStatus: 'IN_PROGRESS',
+      });
+      await waitForEvent(listener, 'score');
+      const tick2 = await waitForEvent(listener, 'scorebug-tick', 500);
+      // Serve clock should now be counting down from 14000
+      expect(tick2.serveClockRemainingMs).toBeLessThan(14000);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
+    it('should include activeClock and serveClockRunning in clockSync fan-out', async () => {
+      const tracker = await connectClient('/tracker');
+      const listener = await connectClient('/live');
+
+      listener.emit('subscribe', 'mu-rally-2');
+      await new Promise((r) => setTimeout(r, 50));
+
+      tracker.emit('clockSync', {
+        matchUpId: 'mu-rally-2',
+        boltTimerRemainingMs: 295000,
+        serveClockRemainingMs: 11000,
+        serveClockRunning: false,
+        activeClock: 'bolt',
+        clockState: 'running',
+      });
+
+      const sync = await waitForEvent(listener, 'clockSync');
+      expect(sync.activeClock).toBe('bolt');
+      expect(sync.clockState).toBe('running');
+      expect(sync.serveClockRunning).toBe(false);
+      expect(sync.serveClockRemainingMs).toBe(11000);
+
+      tracker.disconnect();
+      listener.disconnect();
+    });
+
     it('should fan out clockSync to all subscriber types', async () => {
       const tracker = await connectClient('/tracker');
       const matchListener = await connectClient('/live');

@@ -11,6 +11,7 @@
     onAce,
     onFault,
     onRallyStart,
+    rallyCount = 0,
     showForcedError = true,
   }: {
     side: 0 | 1;
@@ -25,6 +26,7 @@
     onAce: (side: 0 | 1) => void;
     onFault: (side: 0 | 1) => void;
     onRallyStart?: () => void;
+    rallyCount?: number;
   } = $props();
 </script>
 
@@ -61,9 +63,9 @@
     <button
       class="intennse-btn intennse-btn--rally"
       onclick={() => onRallyStart?.()}
-      disabled={disabled || rallyInProgress || !onRallyStart}
+      disabled={disabled || !onRallyStart}
     >
-      Rally
+      {rallyCount > 0 ? `Rally ${rallyCount}` : 'Rally'}
     </button>
   {/if}
 </div>

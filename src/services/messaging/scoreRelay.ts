@@ -50,6 +50,14 @@ export function onRelayStatusChange(fn: (status: RelayStatus) => void): () => vo
 // Suppress repeated error logging — log once per disconnect cycle
 let errorLogged = false;
 
+// ── Toggleable logging ──
+let logAck = false;
+let logEmit = false;
+
+export function setRelayLogAck(on: boolean) { logAck = on; }
+export function setRelayLogEmit(on: boolean) { logEmit = on; }
+export function getRelayLogFlags() { return { logAck, logEmit }; }
+
 function attachStatusHandlers(socket: Socket, label: string) {
   socket.on('connect', () => {
     errorLogged = false;
@@ -89,7 +97,7 @@ export function connectTracker(): Socket {
   attachStatusHandlers(trackerSocket, 'tracker');
 
   trackerSocket.on('ack', (data: any) => {
-    console.log('[scoreRelay] ack:', data);
+    if (logAck) console.log('[scoreRelay] ack:', data);
   });
 
   return trackerSocket;
@@ -106,6 +114,7 @@ export function sendScore(update: {
   if (!trackerSocket?.connected) {
     connectTracker();
   }
+  if (logEmit) console.log('[scoreRelay] emit score:', update);
   trackerSocket?.emit('score', update);
 }
 
@@ -121,6 +130,7 @@ export function sendHistory(history: {
   if (!trackerSocket?.connected) {
     connectTracker();
   }
+  if (logEmit) console.log('[scoreRelay] emit history:', history);
   trackerSocket?.emit('history', history);
 }
 
@@ -140,12 +150,16 @@ export function sendClockSync(data: {
   activeClock?: 'bolt' | 'timeout' | 'break' | 'none';
   /** Remaining ms on the active secondary clock (timeout or break). */
   activeClockRemainingMs?: number;
+  /** Whether the serve clock is actively counting down.
+   *  False during a rally (serve clock paused, bolt still running). */
+  serveClockRunning?: boolean;
   /** 'running' | 'paused' | 'completed' */
   clockState: string;
 }): void {
   if (!trackerSocket?.connected) {
     connectTracker();
   }
+  if (logEmit) console.log('[scoreRelay] emit clockSync:', data);
   trackerSocket?.emit('clockSync', data);
 }
 
@@ -158,6 +172,7 @@ export function sendIntennseUpdate(snapshot: any): void {
   if (!trackerSocket?.connected) {
     connectTracker();
   }
+  if (logEmit) console.log('[scoreRelay] emit intennse:', snapshot);
   trackerSocket?.emit('intennse', snapshot);
 }
 

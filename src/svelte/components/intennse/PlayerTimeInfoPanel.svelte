@@ -13,6 +13,7 @@
     participantId: string;
     participantName: string;
     jerseyNumber?: string;
+    gender?: string;
     remainingMs: number;
     isOnCourt: boolean;
   }
@@ -35,12 +36,20 @@
         participantId: id,
         participantName: entry.participantName,
         jerseyNumber: entry.jerseyNumber,
+        gender: entry.gender,
         remainingMs: getRemainingMs(id),
         isOnCourt: entry.isOnCourt,
       });
     }
     rows.sort((a, b) => a.remainingMs - b.remainingMs);
     return rows;
+  }
+
+  function genderColor(gender?: string): string | undefined {
+    const g = (gender ?? '').toUpperCase();
+    if (g === 'MALE' || g === 'M') return 'var(--chc-gender-male, #2E86C1)';
+    if (g === 'FEMALE' || g === 'F') return 'var(--chc-gender-female, #E07BAF)';
+    return undefined;
   }
 
   function urgencyClass(remaining: number): string {
@@ -63,7 +72,7 @@
           {#if player.jerseyNumber}
             <span class="pti-jersey">{player.jerseyNumber}</span>
           {/if}
-          <span class="pti-name">{player.participantName}</span>
+          <span class="pti-name" style:color={genderColor(player.gender)}>{player.participantName}</span>
           <span class="pti-time">{formatTime(player.remainingMs)}</span>
         </div>
       {/each}
@@ -80,7 +89,7 @@
           {#if player.jerseyNumber}
             <span class="pti-jersey">{player.jerseyNumber}</span>
           {/if}
-          <span class="pti-name">{player.participantName}</span>
+          <span class="pti-name" style:color={genderColor(player.gender)}>{player.participantName}</span>
           <span class="pti-time">{formatTime(player.remainingMs)}</span>
         </div>
       {/each}

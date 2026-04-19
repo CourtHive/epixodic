@@ -13,6 +13,7 @@
     side1Name = '',
     side2Name = '',
     boltLabel = '',
+    categoryLabel = '',
     boltScore,
     aggregateScore,
     server,
@@ -36,6 +37,7 @@
     onAce,
     onFault,
     onReceiverRallyStart,
+    rallyCount = 0,
     onUndo,
     onRedo,
     onPointStart,
@@ -72,6 +74,7 @@
     side1Name: string;
     side2Name: string;
     boltLabel: string;
+    categoryLabel?: string;
     boltScore: { side1: number; side2: number };
     aggregateScore: { side1: number; side2: number };
     server: number;
@@ -95,6 +98,7 @@
     onAce: (side: 0 | 1) => void;
     onFault: (side: 0 | 1) => void;
     onReceiverRallyStart?: () => void;
+    rallyCount?: number;
     onUndo: () => void;
     onRedo: () => void;
     onPointStart: () => void;
@@ -143,6 +147,7 @@
   <div class="intennse-h-header">
     <button class="intennse-ctrl-btn intennse-h-back" onclick={onBack} title="Back to Arc">← Arc</button>
     <span class="intennse-bolt-label">{boltLabel}</span>
+    <span class="intennse-h-serve-side">{serveSide === 'AD' ? 'AD' : serveSide ? 'DEUCE' : ''}</span>
   </div>
 
   <!-- Left side: Side 1 player + actions + penalty box -->
@@ -159,6 +164,7 @@
       side={0}
       isServing={server === 0}
       {rallyInProgress}
+      {rallyCount}
       disabled={!boltStarted || boltComplete || officialPause}
       onRallyStart={onReceiverRallyStart}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault} {showForcedError}
@@ -170,7 +176,7 @@
     {#if breakActive}
       <ClockDisplay clockId="breakTimer" label="BREAK" size="xlarge" urgentAt={30000} criticalAt={10000} />
     {:else}
-      <ClockDisplay clockId="boltTimer" label="BOLT" size="xlarge" urgentAt={60000} criticalAt={30000} />
+      <ClockDisplay clockId="boltTimer" label={categoryLabel || 'BOLT'} size="xlarge" urgentAt={60000} criticalAt={30000} />
     {/if}
     <ScoreDisplay
       side1Score={boltScore.side1}
@@ -238,6 +244,7 @@
       side={1}
       isServing={server === 1}
       {rallyInProgress}
+      {rallyCount}
       disabled={!boltStarted || boltComplete || officialPause}
       onRallyStart={onReceiverRallyStart}
       {onWinner} {onTouch} {onForcedError} {onUnforcedError} {onAce} {onFault} {showForcedError}

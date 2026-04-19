@@ -126,6 +126,11 @@ export function buildIntennseSnapshot(options: {
   boltTimerRemainingMs?: number;
   serveClockRemainingMs?: number;
   matchUpStatus?: string;
+  /** Live rally count (increments each press, 0 when no rally in progress). */
+  rallyCount?: number;
+  /** The most recently scored point (result, winner, rallyLength, etc.).
+   *  Consumers can use this to trigger arena effects (flash for Ace, etc.). */
+  lastPoint?: Record<string, any>;
 }): IntennseSnapshot {
   return {
     ...options,

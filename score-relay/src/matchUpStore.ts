@@ -16,6 +16,9 @@ export interface ClockAnchor {
   /** Which countdown is active: bolt (normal play), timeout (team
    *  timeout), break (between bolts), or none (paused/complete). */
   activeClock: 'bolt' | 'timeout' | 'break' | 'none';
+  /** Whether the serve clock is actively counting down.
+   *  False during a rally (serve clock paused, bolt still running). */
+  serveClockRunning: boolean;
   /** Remaining ms on the active secondary clock (timeout or break).
    *  Only set when activeClock is 'timeout' or 'break'. */
   activeClockRemainingMs?: number;

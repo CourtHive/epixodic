@@ -12,6 +12,7 @@
     side1Name = '',
     side2Name = '',
     boltLabel = '',
+    categoryLabel = '',
     boltScore,
     aggregateScore,
     server,
@@ -60,6 +61,7 @@
     onPenaltyBoxTap,
     showForcedError = false,
     onReceiverRallyStart,
+    rallyCount = 0,
     canSubmitScore = false,
     scoreSubmitting = false,
     onSubmitScore,
@@ -71,6 +73,7 @@
     side1Name: string;
     side2Name: string;
     boltLabel: string;
+    categoryLabel?: string;
     boltScore: { side1: number; side2: number };
     aggregateScore: { side1: number; side2: number };
     server: number;
@@ -121,6 +124,7 @@
     onPenaltyBoxTap?: () => void;
     showForcedError?: boolean;
     onReceiverRallyStart?: () => void;
+    rallyCount?: number;
     canSubmitScore?: boolean;
     scoreSubmitting?: boolean;
     onSubmitScore?: () => void;
@@ -329,6 +333,7 @@
           side={0}
           isServing={server === 0}
           {rallyInProgress}
+          {rallyCount}
           {showForcedError}
           disabled={!boltStarted || boltComplete || officialPause}
           onRallyStart={onReceiverRallyStart}
@@ -338,6 +343,7 @@
           side={1}
           isServing={server === 1}
           {rallyInProgress}
+          {rallyCount}
           {showForcedError}
           disabled={!boltStarted || boltComplete || officialPause}
           onRallyStart={onReceiverRallyStart}

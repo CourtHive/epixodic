@@ -594,6 +594,17 @@
   color: var(--intennse-serving);
 }
 
+.intennse-h-serve-side {
+  position: absolute;
+  right: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--intennse-serving);
+  min-width: 3.5rem;
+  text-align: right;
+}
+
 /* ── Action Panel (Buttons) ────────────────────────────────── */
 
 .intennse-action-panel {

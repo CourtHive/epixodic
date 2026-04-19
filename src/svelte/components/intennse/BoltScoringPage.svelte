@@ -113,6 +113,7 @@
   let BREAK_DURATION_MS = 2 * 60 * 1000; // 2 minutes between bolts, configurable
 
   let rallyInProgress = $state(false);
+  let rallyCount = $state(0);
   let officialPause = $state(false);
   let boltStarted = $state(false);
   let boltExpired = $state(false);
@@ -131,6 +132,7 @@
   /** Max timeouts per side within a single tieMatchUp (rulebook §2.8: 2). */
   const maxTimeoutsPerTieMatchUp = (INTENNSE_STANDARD as any).timeoutRules?.maxPerTieMatchUp ?? 2;
   let serveSide = $state<ServeSide>('DEUCE');
+  let categoryLabel = $state('');
   const isMobile = matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 768;
   let isLandscape = $state(window.innerWidth > window.innerHeight);
   const scoringPrefs = getScoringPrefs();
@@ -504,6 +506,13 @@
       const competitionFormat =
         tieMatchUp.competitionFormat || parentMatchUp?.competitionFormat || INTENNSE_STANDARD;
       isDoublesMatchUp = tieMatchUp.matchUpType === 'DOUBLES';
+
+      // Derive category label (e.g. "Men's Singles") from the collection definition
+      const collectionId = tieMatchUp.collectionId;
+      const defs = parentMatchUp?.tieFormat?.collectionDefinitions ?? [];
+      const colDef = defs.find((d: any) => d.collectionId === collectionId);
+      categoryLabel = colDef?.collectionName ?? '';
+
       initScoringEngine({ matchUpFormat: format, competitionFormat, isDoubles: isDoublesMatchUp });
 
       // Team names from the parent team matchUp's sides
@@ -693,6 +702,7 @@
 
   function afterPoint() {
     rallyInProgress = false;
+    rallyCount = 0;
     if (boltExpired) {
       boltComplete = true;
       endSegment({ reason: 'bolt_expired' });
@@ -768,6 +778,7 @@
     boltComplete = false;
     boltStarted = false;
     rallyInProgress = false;
+    rallyCount = 0;
     officialPause = false;
     autoTimePenaltyTriggered = new Set();
     serveClockExpired = false;
@@ -801,12 +812,20 @@
     addPoint(winner, {
       result,
       ...buildPointAttribution(winner),
+      ...(rallyCount > 0 ? { rallyLength: rallyCount } : {}),
     } as any);
 
     // Apply INTENNSE serving rules: winner serves, serve side from aggregate.
     // recordEntry: false — this is derived from the point, not a user action;
     // without this, undo pops the setServer instead of the point.
-    const serving = getServingState(winner, previousServer, currentAggregateScore);
+    // Read the aggregate directly from the engine (not $derived) to ensure
+    // it reflects the point we just added.
+    const freshLocal = getAggregateScore(getEngineState());
+    const freshAggregate = {
+      side1: arcBaseScore.side1 + freshLocal.side1,
+      side2: arcBaseScore.side2 + freshLocal.side2,
+    };
+    const serving = getServingState(winner, previousServer, freshAggregate);
     setServer(serving.server, { recordEntry: false });
     serveSide = serving.serveSide;
     rotateServerIndices(winner, previousServer);
@@ -887,9 +906,14 @@
   }
 
   function handleRallyStart() {
-    if (boltComplete || !boltStarted || rallyInProgress || officialPause) return;
-    rallyInProgress = true;
-    executeClockCommands(onRallyStart());
+    if (boltComplete || !boltStarted || officialPause) return;
+    rallyCount++;
+    if (!rallyInProgress) {
+      rallyInProgress = true;
+      executeClockCommands(onRallyStart());
+      // Tell the relay the serve clock stopped (bolt clock still running)
+      emitClockSync('running', 'bolt');
+    }
   }
 
   function handleTimeout(side: 1 | 2) {
@@ -952,7 +976,12 @@
       result: 'Serve Clock Violation',
       ...buildPointAttribution(receiver),
     });
-    const serving = getServingState(receiver, previousServer, currentAggregateScore);
+    const freshLocal = getAggregateScore(getEngineState());
+    const freshAggregate = {
+      side1: arcBaseScore.side1 + freshLocal.side1,
+      side2: arcBaseScore.side2 + freshLocal.side2,
+    };
+    const serving = getServingState(receiver, previousServer, freshAggregate);
     setServer(serving.server, { recordEntry: false });
     serveSide = serving.serveSide;
     rotateServerIndices(receiver, previousServer);
@@ -963,6 +992,7 @@
   function handleServeViolationDismiss() {
     serveClockExpired = false;
     rallyInProgress = true;
+    rallyCount = 1;
     executeClockCommands(onRallyStart());
   }
 
@@ -1361,6 +1391,7 @@
       serveClockRemainingMs: serveSnap?.remainingMs ?? 0,
       activeClock: resolved,
       activeClockRemainingMs,
+      serveClockRunning: serveSnap?.state === 'running',
       clockState,
     });
   }
@@ -1403,6 +1434,9 @@
       serveClockRemainingMs: serveClock?.remainingMs,
     });
 
+    const points = state?.history?.points;
+    const lastPoint = points?.length ? points[points.length - 1] : undefined;
+
     sendIntennseUpdate(buildIntennseSnapshot({
       matchUpId,
       boltScore: currentBoltScore,
@@ -1413,6 +1447,8 @@
       boltTimerRemainingMs: boltTimer?.remainingMs,
       serveClockRemainingMs: serveClock?.remainingMs,
       matchUpStatus,
+      rallyCount,
+      lastPoint,
     }));
   }
 
@@ -1494,6 +1530,7 @@
     side1Name: swapped ? side2Name : side1Name,
     side2Name: swapped ? side1Name : side2Name,
     boltLabel: boltLabel || `BOLT ${globalBoltNumber}`,
+    categoryLabel,
     boltScore: swapped
       ? { side1: currentBoltScore.side2, side2: currentBoltScore.side1 }
       : currentBoltScore,
@@ -1521,6 +1558,7 @@
     onAce: (side: Side) => handleAction('ace', flipSide(side)),
     onFault: (side: Side) => handleAction('fault', flipSide(side)),
     onReceiverRallyStart: handleRallyStart,
+    rallyCount,
     onUndo: () => undo(),
     onRedo: () => redo(),
     onPointStart: handlePointStart,

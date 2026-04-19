@@ -23,6 +23,7 @@ import {
   setBoltDuration,
 } from '../../intennse/clockOrchestration';
 import { getScoringPrefs, setShowForcedError, toggleSidesSwapped, setSidesSwapped } from '../../svelte/stores/scoringPrefs.svelte';
+import { setRelayLogAck, setRelayLogEmit, getRelayLogFlags } from '../messaging/scoreRelay';
 
 export function setDev() {
   window['dev'] = {
@@ -145,6 +146,15 @@ export function setDev() {
     /** Clear all localStorage (full state reset) */
     clearLocalStorage: () => localStorage.clear(),
 
+    // ── Relay logging ──
+
+    /** Toggle relay ack logging (true/false) */
+    setRelayLogAck,
+    /** Toggle relay emit logging — logs every score/intennse/clockSync/history payload (true/false) */
+    setRelayLogEmit,
+    /** Get current relay log flags */
+    get relayLogFlags() { return getRelayLogFlags(); },
+
     /** Print a summary of all dev object capabilities */
     help: () => {
       const sections = [
@@ -184,6 +194,11 @@ export function setDev() {
           ['dev.setTeamMatchUp(obj)', 'Load a team matchUp directly into the store'],
           ['dev.resetTeamMatchUps()', 'Clear all persisted team matchUps from storage'],
           ['dev.clearLocalStorage()', 'Clear all localStorage (full state reset)'],
+        ]],
+        ['Relay Logging', [
+          ['dev.setRelayLogAck(bool)',   'Toggle relay ack logging (default: off)'],
+          ['dev.setRelayLogEmit(bool)',  'Toggle relay emit logging — logs score/intennse/clockSync/history payloads (default: off)'],
+          ['dev.relayLogFlags',          'Current relay log flag values (getter)'],
         ]],
         ['App / Auth', [
           ['dev.version',            'App version string'],

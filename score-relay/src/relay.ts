@@ -78,6 +78,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
           anchoredAt: Date.now(),
           running,
           activeClock: running ? 'bolt' : 'none',
+          serveClockRunning: true,
           tournamentId: data.tournamentId,
         });
         if (running) {
@@ -122,6 +123,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
         anchoredAt: Date.now(),
         running,
         activeClock: running ? 'bolt' : 'none',
+        serveClockRunning: true,
         tournamentId: data.tournamentId,
       });
 
@@ -149,12 +151,17 @@ export function createRelay(io: Server, config: RelayConfig): void {
       const activeClock = data.activeClock ?? (data.clockState === 'running' ? 'bolt' : 'none');
       const running = data.clockState === 'running';
 
+      // serveClockRunning defaults to true unless explicitly false
+      // (rally in progress → serve clock paused while bolt keeps running)
+      const serveClockRunning = data.serveClockRunning !== false;
+
       setClockAnchor(data.matchUpId, {
         boltRemainingMs: boltMs,
         serveRemainingMs: serveMs,
         anchoredAt: Date.now(),
         running,
         activeClock,
+        serveClockRunning,
         activeClockRemainingMs: typeof data.activeClockRemainingMs === 'number' ? data.activeClockRemainingMs : undefined,
         tournamentId: data.tournamentId,
       });
@@ -282,7 +289,10 @@ export function createRelay(io: Server, config: RelayConfig): void {
       }
 
       const boltMs = Math.max(0, anchor.boltRemainingMs - elapsed);
-      const serveMs = Math.max(0, anchor.serveRemainingMs - elapsed);
+      // Freeze serve clock when it's not running (e.g. rally in progress)
+      const serveMs = anchor.serveClockRunning
+        ? Math.max(0, anchor.serveRemainingMs - elapsed)
+        : anchor.serveRemainingMs;
 
       // For timeout/break clocks, extrapolate the secondary countdown.
       const activeClockMs = anchor.activeClockRemainingMs !== undefined

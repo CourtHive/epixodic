@@ -76,9 +76,7 @@
     </div>
   {/if}
 
-  <div class="intennse-serve-indicator" style:visibility={isServingTeam ? 'visible' : 'hidden'}>
-    {serveSide === 'AD' ? 'AD' : 'DEUCE'}
-  </div>
+  <!-- Serve side indicator removed — now shown in the nav bar header -->
 </div>
 
 <style>
