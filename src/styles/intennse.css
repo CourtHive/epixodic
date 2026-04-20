@@ -65,6 +65,7 @@
 }
 .intennse-footer-btn--play.intennse-footer-btn--paused {
   background: var(--intennse-warning, #ffd54f);
+  color: #1a1a1a;
 }
 
 /* Compact horizontal footer for phone landscape. Mirrors the
