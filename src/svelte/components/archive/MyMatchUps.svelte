@@ -9,6 +9,49 @@
 
   const local = getLocalMatchUpsState();
 
+  interface DateGroup {
+    label: string;
+    sortKey: string;
+    matchUps: typeof local.myMatchUps;
+  }
+
+  function formatDateLabel(dateStr: string): string {
+    const today = new Date();
+    const date = new Date(dateStr + 'T00:00:00');
+    const todayStr = today.toISOString().split('T')[0];
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    if (dateStr === todayStr) return 'Today';
+    if (dateStr === yesterdayStr) return 'Yesterday';
+    return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const dateGroups = $derived.by(() => {
+    const groups = new Map<string, typeof local.myMatchUps>();
+    for (const matchUp of local.myMatchUps) {
+      const dateKey = matchUp.schedule?.scheduledDate || '_undated';
+      const existing = groups.get(dateKey);
+      if (existing) {
+        existing.push(matchUp);
+      } else {
+        groups.set(dateKey, [matchUp]);
+      }
+    }
+
+    const result: DateGroup[] = [];
+    for (const [key, matchUps] of groups) {
+      result.push({
+        label: key === '_undated' ? 'Undated' : formatDateLabel(key),
+        sortKey: key === '_undated' ? '0000-00-00' : key,
+        matchUps,
+      });
+    }
+    return result.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+  });
+
   let activePopup: HTMLElement | null = null;
   let dismissListener: ((e: MouseEvent) => void) | null = null;
 
@@ -140,21 +183,48 @@
   <EmptyState message="No matchUps yet. Tap + to create one." />
 {:else}
   <div class="matchup-list">
-    {#each local.myMatchUps as matchUp (matchUp.matchUpId)}
-      <MatchUpCard
-        {matchUp}
-        onclick={() => navigateToScoring(matchUp.matchUpId)}
-        oncontextmenu={(e) => showPopupMenu(e, matchUp.matchUpId)}
-      />
+    {#each dateGroups as group (group.sortKey)}
+      {#if dateGroups.length > 1 || group.sortKey !== '_undated'}
+        <div class="date-header">{group.label}</div>
+      {/if}
+      <div class="matchup-grid">
+        {#each group.matchUps as matchUp (matchUp.matchUpId)}
+          <MatchUpCard
+            {matchUp}
+            onclick={() => navigateToScoring(matchUp.matchUpId)}
+            oncontextmenu={(e) => showPopupMenu(e, matchUp.matchUpId)}
+          />
+        {/each}
+      </div>
     {/each}
   </div>
 {/if}
 
 <style>
   .matchup-list {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     overflow-y: auto;
+    padding: 0.5rem;
+  }
+  .date-header {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ep-page-text-muted, #888);
+    border-bottom: 1px solid var(--ep-page-border, #333);
+    margin-bottom: 0.5rem;
+  }
+  .matchup-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 700px) {
+    .matchup-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

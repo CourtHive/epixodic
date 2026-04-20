@@ -9,6 +9,10 @@ import { loadMatch } from '../match/loadMatch';
 const MODAL_W = 375;
 const MODAL_H = 667;
 
+function refreshArchive() {
+  globalThis.dispatchEvent(new CustomEvent('matcharchive:updated'));
+}
+
 export function openScoringModal(matchUpId: string): void {
   const success = loadMatch(matchUpId);
   if (!success) {
@@ -16,10 +20,18 @@ export function openScoringModal(matchUpId: string): void {
     return;
   }
 
+  function onIframeMessage(event: MessageEvent) {
+    if (event.data?.type === 'scoring-modal:close') {
+      cModal.close();
+    }
+  }
+
+  globalThis.addEventListener('message', onIframeMessage);
+
   const content = (elem: HTMLElement) => {
     const iframe = document.createElement('iframe');
     iframe.style.cssText = `width: ${MODAL_W}px; height: ${MODAL_H}px; border: none; border-radius: 8px;`;
-    iframe.src = `${window.location.origin}${window.location.pathname}#/match/${matchUpId}/scoring?forcePortrait=1`;
+    iframe.src = `${globalThis.location.origin}${globalThis.location.pathname}#/match/${matchUpId}/scoring?forcePortrait=1`;
     elem.appendChild(iframe);
   };
 
@@ -28,5 +40,9 @@ export function openScoringModal(matchUpId: string): void {
     content,
     config: { clickAway: true, maxWidth: MODAL_W + 48 },
     buttons: [],
+    onClose: () => {
+      globalThis.removeEventListener('message', onIframeMessage);
+      refreshArchive();
+    },
   });
 }

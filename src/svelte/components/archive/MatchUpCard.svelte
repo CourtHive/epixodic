@@ -51,7 +51,6 @@
 <style>
   .matchup-card {
     width: 100%;
-    max-width: 350px;
   }
   .matchup-card :global(.matchUp) {
     cursor: pointer;
