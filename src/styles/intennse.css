@@ -53,6 +53,20 @@
   justify-content: center;
 }
 
+/* Play/pause button in the tablet footer center row */
+.intennse-footer-btn--play {
+  background: var(--intennse-serving, #00d4aa);
+  color: var(--intennse-bg, #0a1128);
+  font-weight: 800;
+  min-width: 3rem;
+}
+.intennse-footer-btn--play:disabled {
+  opacity: 0.3;
+}
+.intennse-footer-btn--play.intennse-footer-btn--paused {
+  background: var(--intennse-warning, #ffd54f);
+}
+
 /* Compact horizontal footer for phone landscape. Mirrors the
  * VerticalBolt iv-footer--compact pattern: [⋯ 1] [↩ ▶ ↪] [⋯ 2]. */
 .intennse-h-footer--compact {

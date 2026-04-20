@@ -242,6 +242,7 @@
     {#if !compactFooter}
       <ControlBar
         serveClock={!breakActive}
+        hidePlayPause
         {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
         {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
         {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
@@ -385,6 +386,27 @@
           >
             <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 1
           </button>
+
+          {#if breakActive && breakPaused}
+            <button class="intennse-footer-btn intennse-footer-btn--play" onclick={onStartNextBolt}>
+              ▶ START
+            </button>
+          {:else if breakActive}
+            <button class="intennse-footer-btn intennse-footer-btn--play" onclick={onPauseBreak}>
+              ⏸ PAUSE
+            </button>
+          {:else}
+            <button
+              class="intennse-footer-btn intennse-footer-btn--play"
+              class:intennse-footer-btn--active={rallyInProgress && !officialPause}
+              class:intennse-footer-btn--paused={officialPause}
+              onclick={onPointStart}
+              disabled={boltComplete}
+            >
+              {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}▶{:else}⏸{/if}
+            </button>
+          {/if}
+
           <button
             class="intennse-footer-btn intennse-footer-btn--info"
             class:intennse-footer-btn--active={playerTimeSide === 2}
