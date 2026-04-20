@@ -22,6 +22,7 @@ export interface ParticipantDetail {
   jerseyNumber?: string;
   imageUrl?: string;
   sideNumber?: number;
+  teamName?: string;
 }
 
 export interface IntennseSnapshot {
@@ -35,6 +36,9 @@ export interface IntennseSnapshot {
   /** Roster map: participantId → display-ready details (name, jersey, image).
    *  Included so arena/scorebug clients can resolve IDs without factory server access. */
   roster?: Record<string, ParticipantDetail>;
+  /** Team names for display (resolved from team matchUp sides). */
+  side1Name?: string;
+  side2Name?: string;
   boltTimerRemainingMs?: number;
   serveClockRemainingMs?: number;
   server: number;
@@ -145,15 +149,18 @@ export function buildIntennseSnapshot(options: {
   /** Category label (e.g. "Men's Singles", "Mixed Doubles") for scorebug/video boards. */
   categoryLabel?: string;
 }): IntennseSnapshot {
+  const { roster, side1Name, side2Name } = buildRoster();
   return {
     ...options,
+    side1Name,
+    side2Name,
     playerStats: computePlayerStats(),
     penaltyBox: getBoxedPlayers().map((p) => ({
       participantId: p.participantId,
       participantName: p.participantName,
       remainingMs: p.remainingMs,
     })),
-    roster: buildRoster(),
+    roster,
   };
 }
 
@@ -162,27 +169,37 @@ export function buildIntennseSnapshot(options: {
  * Each side's participant.individualParticipants carries the full
  * roster with names, person details, extensions, and onlineResources.
  */
-function buildRoster(): Record<string, ParticipantDetail> | undefined {
+function buildRoster(): { roster?: Record<string, ParticipantDetail>; side1Name?: string; side2Name?: string } {
   const { teamMatchUp } = getTeamMatchUpState();
-  if (!teamMatchUp?.sides) return undefined;
+  if (!teamMatchUp?.sides) return {};
 
   const roster: Record<string, ParticipantDetail> = {};
+  let side1Name: string | undefined;
+  let side2Name: string | undefined;
 
   for (const side of teamMatchUp.sides as any[]) {
     const sideNumber = side.sideNumber;
-    const individuals = side.participant?.individualParticipants ?? [];
+    const teamName = side.participant?.participantName;
+    if (sideNumber === 1) side1Name = teamName;
+    if (sideNumber === 2) side2Name = teamName;
 
+    const individuals = side.participant?.individualParticipants ?? [];
     for (const p of individuals) {
       roster[p.participantId] = {
         participantName: p.participantName ?? buildName(p.person),
         jerseyNumber: resolveExtension(p, 'jerseyNumber') ?? resolveExtension(p?.person, 'jerseyNumber'),
         imageUrl: resolveImageUrl(p),
         sideNumber,
+        teamName,
       };
     }
   }
 
-  return Object.keys(roster).length > 0 ? roster : undefined;
+  return {
+    roster: Object.keys(roster).length > 0 ? roster : undefined,
+    side1Name,
+    side2Name,
+  };
 }
 
 function buildName(person: any): string {
