@@ -11,6 +11,7 @@ import {
   setClockTimer,
   clearClockTimer,
 } from './matchUpStore.js';
+import { connectUpstream } from './upstreamFederation.js';
 import { persistMatchHistory } from './persistence.js';
 import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
 
@@ -34,6 +35,11 @@ export function createRelay(io: Server, config: RelayConfig): void {
   const staleMatchAgeMs = config.staleMatchHours * 60 * 60 * 1000;
   const pruneIntervalMs = config.pruneIntervalMinutes * 60 * 1000;
   const tickerIdleMs = (config.tickerIdleTimeoutSeconds ?? 1800) * 1000;
+
+  // Upstream federation: forward tracker events to the cloud relay
+  const forward = config.upstreamRelayUrl
+    ? connectUpstream(config.upstreamRelayUrl)
+    : null;
 
   // --- Tracker namespace: mobile trackers push scores here ---
   const tracker = io.of('/tracker');
@@ -87,6 +93,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
           clearClockTimer(data.matchUpId);
         }
       }
+
+      forward?.('score', data);
     });
 
     // INTENNSE enriched snapshots: fan out to listeners + anchor clocks
@@ -132,6 +140,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
       } else {
         clearClockTimer(matchUpId);
       }
+
+      forward?.('intennse', data);
     });
 
     // Clock state sync — lightweight event fired when the bolt clock
@@ -178,6 +188,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
         listeners.to(`tournament:${data.tournamentId}`).emit('clockSync', data);
       }
       listeners.to('all').emit('clockSync', data);
+
+      forward?.('clockSync', data);
     });
 
     socket.on('history', async (data: MatchHistory) => {
@@ -194,6 +206,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Notify listeners
       listeners.to(data.matchUpId).emit('history', data);
+
+      forward?.('history', data);
     });
 
     socket.on('disconnect', () => {

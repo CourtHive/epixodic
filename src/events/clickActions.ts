@@ -198,6 +198,10 @@ export function selectInterfaces() {
   });
 }
 export function matchArchive() {
+  if ((globalThis as any).parent !== globalThis) {
+    (globalThis as any).parent.postMessage({ type: 'scoring-modal:close' }, '*');
+    return;
+  }
   getRouter()?.navigate('/archive');
 }
 export function outcomeEntry() {

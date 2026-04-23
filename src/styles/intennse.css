@@ -53,6 +53,21 @@
   justify-content: center;
 }
 
+/* Play/pause button in the tablet footer center row */
+.intennse-footer-btn--play {
+  background: var(--intennse-serving, #00d4aa);
+  color: var(--intennse-bg, #0a1128);
+  font-weight: 800;
+  min-width: 3rem;
+}
+.intennse-footer-btn--play:disabled {
+  opacity: 0.3;
+}
+.intennse-footer-btn--play.intennse-footer-btn--paused {
+  background: var(--intennse-warning, #ffd54f);
+  color: #1a1a1a;
+}
+
 /* Compact horizontal footer for phone landscape. Mirrors the
  * VerticalBolt iv-footer--compact pattern: [⋯ 1] [↩ ▶ ↪] [⋯ 2]. */
 .intennse-h-footer--compact {
@@ -64,17 +79,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.4rem 0.75rem;
+  padding: 0.25rem 0.5rem;
   border: 1px solid var(--intennse-accent, #0f3460);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--intennse-surface, #16213e);
   color: var(--intennse-text, #e0e0e0);
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
-  min-height: 2rem;
-  letter-spacing: 0.15em;
+  min-height: 1.6rem;
+  letter-spacing: 0.1em;
 }
 .ih-actions-trigger:active { opacity: 0.7; }
 .ih-actions-trigger--open {
@@ -282,6 +297,23 @@
   padding: 0.4rem 0.75rem;
   border-bottom: 1px solid var(--intennse-accent);
   position: relative;
+}
+/* When clocks are in the header (phone landscape), switch to flow layout.
+ * The default header uses position:absolute on back + serve-side so the
+ * bolt label stays centered. With clocks in the flow we need everything
+ * in the flex stream. */
+.intennse-h-header--clocks {
+  justify-content: flex-start;
+}
+.intennse-h-header--clocks .intennse-h-back {
+  position: static;
+}
+.intennse-h-header--clocks .intennse-h-serve-side {
+  position: static;
+}
+.intennse-bolt-label--grow {
+  flex: 1;
+  text-align: center;
 }
 
 .intennse-h-back {

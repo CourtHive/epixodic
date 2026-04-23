@@ -24,7 +24,6 @@
     "pre-commit": "lint-staged",
     "prepare": "rimraf dist",
     "preview": "vite preview",
-    "postbuild": "./addVersion $npm_package_version",
     "start": "pnpm run config --check && vite --open",
     "test": "TZ=UTC vitest",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
@@ -40,10 +39,10 @@
     "@playwright/test": "^1.59.1",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@types/node": "24.12.2",
-    "@typescript-eslint/eslint-plugin": "8.58.2",
-    "@typescript-eslint/parser": "8.58.2",
-    "@vitest/coverage-v8": "4.1.4",
-    "@vitest/ui": "4.1.4",
+    "@typescript-eslint/eslint-plugin": "8.59.0",
+    "@typescript-eslint/parser": "8.59.0",
+    "@vitest/coverage-v8": "4.1.5",
+    "@vitest/ui": "4.1.5",
     "c8": "11.0.0",
     "clipboard": "2.0.11",
     "cz-git": "1.12.0",
@@ -52,7 +51,7 @@
     "eslint": "10.2.1",
     "eslint-plugin-sonarjs": "4.0.3",
     "husky": "9.1.7",
-    "inquirer": "13.4.1",
+    "inquirer": "13.4.2",
     "lint-staged": "16.4.0",
     "prettier": "3.8.3",
     "rimraf": "6.1.3",
@@ -61,8 +60,8 @@
     "source-map-explorer": "2.5.3",
     "svelte-check": "^4.4.4",
     "typescript": "6.0.3",
-    "vite": "8.0.8",
-    "vitest": "4.1.4",
+    "vite": "8.0.10",
+    "vitest": "4.1.5",
     "vitest-github-actions-reporter": "0.11.1",
     "vitest-sonar-reporter": "3.0.0",
     "yargs": "18.0.0"
@@ -70,12 +69,12 @@
   "dependencies": {
     "@tennisvisuals/scoring-visualizations": "^0.2.1",
     "axios": "^1.6.5",
-    "courthive-components": "^0.9.28-beta.37",
+    "courthive-components": "^1.0.1",
     "d3": "^7.9.0",
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "svelte": "^5.53.6",
-    "tods-competition-factory": "^3.0.0"
+    "tods-competition-factory": "^3.1.0"
   },
   "pnpm": {
     "overrides": {

@@ -28,6 +28,7 @@
     onPauseBreak,
     onStartNextBolt,
     onNextBolt,
+    hidePlayPause = false,
   }: {
     canUndo?: boolean;
     canRedo?: boolean;
@@ -55,6 +56,8 @@
     onPauseBreak?: () => void;
     onStartNextBolt?: () => void;
     onNextBolt?: () => void;
+    /** When true, play/pause/resume button is hidden (rendered in footer instead). */
+    hidePlayPause?: boolean;
   } = $props();
 
   const timeoutSnapshot = $derived(getClockSnapshot('timeoutTimer'));
@@ -102,39 +105,41 @@
     <button class="intennse-ctrl-btn intennse-ctrl-btn--half intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo} title="Redo">REDO ↪</button>
   </div>
 
-  <!-- Start/Pause/Resume — full width -->
-  {#if breakActive && breakPaused}
-    <button
-      class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
-      onclick={onStartNextBolt}
-      title="Start next bolt"
-    >
-      ▶ START BOLT {currentBoltNumber}
-    </button>
-  {:else if breakActive}
-    <div class="intennse-controls-row">
-      <span class="intennse-break-label">{isLastBoltBreak ? 'Next match starting...' : 'Next bolt starting...'}</span>
-      <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onPauseBreak} title="Pause break">
-        ⏸ PAUSE
-      </button>
-    </div>
-  {:else}
-    <button
-      class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
-      class:intennse-ctrl-btn--paused={officialPause}
-      onclick={onPointStart}
-      disabled={boltComplete}
-      title="Start / Pause"
-    >
-      {#if matchComplete}
-        MATCH COMPLETE
-      {:else if !boltStarted}
+  <!-- Start/Pause/Resume — full width (hidden when footer handles it) -->
+  {#if !hidePlayPause}
+    {#if breakActive && breakPaused}
+      <button
+        class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
+        onclick={onStartNextBolt}
+        title="Start next bolt"
+      >
         ▶ START BOLT {currentBoltNumber}
-      {:else if officialPause}
-        ▶ RESUME
-      {:else}
-        ⏸ PAUSE
-      {/if}
-    </button>
+      </button>
+    {:else if breakActive}
+      <div class="intennse-controls-row">
+        <span class="intennse-break-label">{isLastBoltBreak ? 'Next match starting...' : 'Next bolt starting...'}</span>
+        <button class="intennse-ctrl-btn intennse-ctrl-btn--half" onclick={onPauseBreak} title="Pause break">
+          ⏸ PAUSE
+        </button>
+      </div>
+    {:else}
+      <button
+        class="intennse-ctrl-btn intennse-ctrl-btn--point-start intennse-ctrl-btn--full-width"
+        class:intennse-ctrl-btn--paused={officialPause}
+        onclick={onPointStart}
+        disabled={boltComplete}
+        title="Start / Pause"
+      >
+        {#if matchComplete}
+          MATCH COMPLETE
+        {:else if !boltStarted}
+          ▶ START BOLT {currentBoltNumber}
+        {:else if officialPause}
+          ▶ RESUME
+        {:else}
+          ⏸ PAUSE
+        {/if}
+      </button>
+    {/if}
   {/if}
 </div>

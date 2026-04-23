@@ -75,6 +75,7 @@
     participantNames,
     onHistoryEntryTap,
     onDeleteChallengeEntry,
+    sidesSwapped = false,
     compactFooter = false,
   }: {
     side1Name: string;
@@ -146,6 +147,8 @@
     /** Phase 3: open the point-detail modal for a history row. */
     onHistoryEntryTap?: (entry: import('./historyStream').PointHistoryEntry) => void;
     onDeleteChallengeEntry?: (entry: import('./historyStream').PointHistoryEntry) => void;
+    /** When true, penalty box indicators show flipped side numbers. */
+    sidesSwapped?: boolean;
     /** When true, collapses the footer to [⋯ 1] [⋯ 2] action-sheet triggers (phone landscape). */
     compactFooter?: boolean;
   } = $props();
@@ -155,11 +158,21 @@
 </script>
 
 <div class="intennse-horizontal">
-  <!-- Top header: back button + bolt label (spans all columns) -->
-  <div class="intennse-h-header">
+  <!-- Top header: back button + clocks + bolt label (spans all columns) -->
+  <div class="intennse-h-header" class:intennse-h-header--clocks={compactFooter}>
     <button class="intennse-ctrl-btn intennse-h-back" onclick={onBack} title="Back to Arc">← Arc</button>
-    <span class="intennse-bolt-label">{boltLabel}</span>
+    {#if compactFooter}
+      {#if breakActive}
+        <ClockDisplay clockId="breakTimer" label="BREAK" size="compact" urgentAt={30000} criticalAt={10000} />
+      {:else}
+        <ClockDisplay clockId="boltTimer" label="BOLT" size="compact" urgentAt={60000} criticalAt={30000} />
+      {/if}
+    {/if}
+    <span class="intennse-bolt-label" class:intennse-bolt-label--grow={compactFooter}>{boltLabel}</span>
     <span class="intennse-h-serve-side">{serveSide === 'AD' ? 'AD' : serveSide ? 'DEUCE' : ''}</span>
+    {#if compactFooter && !breakActive}
+      <ClockDisplay clockId="serveClock" label="SERVE" size="compact" urgentAt={5000} criticalAt={3000} />
+    {/if}
   </div>
 
   <!-- Left side: Side 1 player + actions + penalty box -->
@@ -185,10 +198,12 @@
 
   <!-- Center column -->
   <div class="intennse-h-center">
-    {#if breakActive}
-      <ClockDisplay clockId="breakTimer" label="BREAK" size="xlarge" urgentAt={30000} criticalAt={10000} />
-    {:else}
-      <ClockDisplay clockId="boltTimer" label={categoryLabel || 'BOLT'} size="xlarge" urgentAt={60000} criticalAt={30000} />
+    {#if !compactFooter}
+      {#if breakActive}
+        <ClockDisplay clockId="breakTimer" label="BREAK" size="xlarge" urgentAt={30000} criticalAt={10000} />
+      {:else}
+        <ClockDisplay clockId="boltTimer" label={categoryLabel || 'BOLT'} size="xlarge" urgentAt={60000} criticalAt={30000} />
+      {/if}
     {/if}
     <ScoreDisplay
       side1Score={aggregateScore.side1}
@@ -196,7 +211,7 @@
       {server}
     />
     <div class="intennse-h-arc-row">
-      <PenaltyBoxIndicator sideNumber={1} onTap={onPenaltyBoxTap} />
+      <PenaltyBoxIndicator sideNumber={sidesSwapped ? 2 : 1} onTap={onPenaltyBoxTap} />
       <div class="intennse-arc-compact intennse-arc-compact--large">
         <div class="intennse-arc-compact-label">BOLT</div>
         <div class="intennse-arc-compact-score">
@@ -205,7 +220,7 @@
           <span class:intennse-arc-leading={boltScore.side2 > boltScore.side1}>{boltScore.side2}</span>
         </div>
       </div>
-      <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />
+      <PenaltyBoxIndicator sideNumber={sidesSwapped ? 1 : 2} onTap={onPenaltyBoxTap} />
     </div>
     {#if playerTimePanelOpen && playerTimeSide}
       <div class="intennse-h-center-info">
@@ -224,14 +239,17 @@
         />
       </div>
     {/if}
-    <ControlBar
-      serveClock={!breakActive}
-      {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
-      {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
-      {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
-      {side1Name} {side2Name}
-      onTimeoutSubstitute={onSubstitute}
-    />
+    {#if !compactFooter}
+      <ControlBar
+        serveClock={!breakActive}
+        hidePlayPause
+        {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
+        {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
+        {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
+        {side1Name} {side2Name}
+        onTimeoutSubstitute={onSubstitute}
+      />
+    {/if}
     {#if canSubmitScore && (breakActive || (matchComplete && !breakActive))}
       <button
         class="ih-submit-btn"
@@ -276,7 +294,7 @@
         ⋯ 1
       </button>
       <div class="ih-compact-center">
-        <button class="intennse-ctrl-btn" onclick={onUndo} disabled={!canUndo}>↩</button>
+        <button class="intennse-ctrl-btn intennse-ctrl-btn--undo-redo" onclick={onUndo} disabled={!canUndo}>UNDO</button>
         <button
           class="intennse-ctrl-btn intennse-ctrl-btn--point-start"
           class:intennse-ctrl-btn--active={rallyInProgress && !officialPause}
@@ -286,7 +304,7 @@
         >
           {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}⏸{:else if rallyInProgress}⏵{:else}⏯{/if}
         </button>
-        <button class="intennse-ctrl-btn" onclick={onRedo} disabled={!canRedo}>↪</button>
+        <button class="intennse-ctrl-btn intennse-ctrl-btn--undo-redo" onclick={onRedo} disabled={!canRedo}>REDO</button>
       </div>
       <button
         class="ih-actions-trigger"
@@ -368,6 +386,27 @@
           >
             <span class="footer-label-full">Time</span><span class="footer-label-short">TIME</span> 1
           </button>
+
+          {#if breakActive && breakPaused}
+            <button class="intennse-footer-btn intennse-footer-btn--play" onclick={onStartNextBolt}>
+              ▶ START
+            </button>
+          {:else if breakActive}
+            <button class="intennse-footer-btn intennse-footer-btn--play" onclick={onPauseBreak}>
+              ⏸ PAUSE
+            </button>
+          {:else}
+            <button
+              class="intennse-footer-btn intennse-footer-btn--play"
+              class:intennse-footer-btn--active={rallyInProgress && !officialPause}
+              class:intennse-footer-btn--paused={officialPause}
+              onclick={onPointStart}
+              disabled={boltComplete}
+            >
+              {#if matchComplete}✓{:else if !boltStarted}▶{:else if officialPause}▶{:else}⏸{/if}
+            </button>
+          {/if}
+
           <button
             class="intennse-footer-btn intennse-footer-btn--info"
             class:intennse-footer-btn--active={playerTimeSide === 2}

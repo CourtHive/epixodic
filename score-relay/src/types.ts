@@ -40,6 +40,11 @@ export interface RelayConfig {
    *  it. After this, the ticker auto-stops (the match is presumed
    *  abandoned or the tracker disconnected). Default: 1800 (30 min). */
   tickerIdleTimeoutSeconds?: number;
+  /** Upstream relay URL for federation. When set, all tracker events
+   *  (score, intennse, clockSync, history) are forwarded to the upstream
+   *  relay's /tracker namespace. Fire-and-forget — local processing is
+   *  never delayed. */
+  upstreamRelayUrl?: string;
 }
 
 export interface RelayMetrics {

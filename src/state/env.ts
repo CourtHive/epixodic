@@ -358,9 +358,10 @@ export function updateMatchArchive(force?: boolean) {
   const matchUpStatus = isComplete ? 'COMPLETED' : (matchPoints.length || env.directActions.length) ? 'IN_PROGRESS' : undefined;
 
   const matchDate = env.metadata.match?.date;
-  const schedule = matchDate
-    ? { scheduledDate: new Date(matchDate).toISOString().split('T')[0] }
-    : undefined;
+  const scheduledDate = matchDate
+    ? new Date(matchDate).toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0];
+  const schedule = { scheduledDate };
 
   const todsMatchUp: any = {
     tournamentId: env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId,

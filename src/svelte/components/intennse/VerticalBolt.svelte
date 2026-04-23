@@ -61,6 +61,7 @@
     onAwardBreakPoints,
     onBack,
     onPenaltyBoxTap,
+    sidesSwapped = false,
     showForcedError = false,
     onReceiverRallyStart,
     rallyCount = 0,
@@ -130,6 +131,7 @@
     onAwardBreakPoints?: (side: 1 | 2, points: number) => void;
     onBack: () => void;
     onPenaltyBoxTap?: () => void;
+    sidesSwapped?: boolean;
     showForcedError?: boolean;
     onReceiverRallyStart?: () => void;
     rallyCount?: number;
@@ -304,7 +306,7 @@
 
   <!-- Compact ARC score with penalty indicators flush left/right -->
   <div class="iv-arc-row">
-    <PenaltyBoxIndicator sideNumber={1} onTap={onPenaltyBoxTap} />
+    <PenaltyBoxIndicator sideNumber={sidesSwapped ? 2 : 1} onTap={onPenaltyBoxTap} />
     <div class="intennse-arc-compact iv-arc-wrapper">
       <div class="intennse-arc-compact-label">BOLT</div>
       <div class="intennse-arc-compact-score">
@@ -313,7 +315,7 @@
         <span class:intennse-arc-leading={boltScore.side2 > boltScore.side1}>{boltScore.side2}</span>
       </div>
     </div>
-    <PenaltyBoxIndicator sideNumber={2} onTap={onPenaltyBoxTap} />
+    <PenaltyBoxIndicator sideNumber={sidesSwapped ? 1 : 2} onTap={onPenaltyBoxTap} />
   </div>
 
   <!-- Actions: split two-column layout, one per side -->
