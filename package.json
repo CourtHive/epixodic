@@ -34,7 +34,7 @@
     "scorebug:save": "tsx score-relay/cli/scorebug-client.ts --save=packets.jsonl"
   },
   "devDependencies": {
-    "@commitlint/cli": "20.5.0",
+    "@commitlint/cli": "20.5.2",
     "@commitlint/config-conventional": "20.5.0",
     "@playwright/test": "^1.59.1",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
