@@ -21,6 +21,7 @@ export function openScoringModal(matchUpId: string): void {
   }
 
   function onIframeMessage(event: MessageEvent) {
+    if (event.origin !== globalThis.location.origin) return;
     if (event.data?.type === 'scoring-modal:close') {
       cModal.close();
     }
