@@ -8,7 +8,7 @@ Before doing anything else, read `../Mentat/CLAUDE.md`, `../Mentat/TASKS.md`, `.
 
 ## Project Overview
 
-Epixodic is a Svelte 5 point-by-point match tracker for tennis. It provides interactive scoring interfaces, live match display, and integrates with D3 visualizations from `@tennisvisuals/scoring-visualizations`. Supports standard tennis scoring and the INTENNSE team tennis format.
+Epixodic is a Svelte 5 point-by-point match tracker for tennis. It provides interactive scoring interfaces, live match display, and integrates with D3 visualizations from `@courthive/scoring-visualizations`. Supports standard tennis scoring and the INTENNSE team tennis format.
 
 Private package (not published to npm). Deployed as a standalone web app.
 
@@ -67,7 +67,7 @@ src/
 | Package | Purpose |
 |---|---|
 | `svelte` | UI framework (v5 with runes) |
-| `@tennisvisuals/scoring-visualizations` | D3 match visualization charts |
+| `@courthive/scoring-visualizations` | D3 match visualization charts |
 | `courthive-components` | Shared CourtHive UI components |
 | `tods-competition-factory` | TODS types and tournament engine |
 | `d3` | Additional charting |

@@ -1,4 +1,4 @@
-import { simpleChart, computeMatchStatsFromMatchUp } from '@tennisvisuals/scoring-visualizations';
+import { simpleChart, computeMatchStatsFromMatchUp } from '@courthive/scoring-visualizations';
 import { getCurrentMatchUpId } from '../state/matchContext';
 import { matchPath } from '../router/routes';
 import { env, options } from '../state/env';

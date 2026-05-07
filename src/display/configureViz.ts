@@ -4,7 +4,7 @@ import {
   gameFish,
   momentumChart,
   ptsMatch,
-} from '@tennisvisuals/scoring-visualizations';
+} from '@courthive/scoring-visualizations';
 import { charts, env, setOrientation, getEpisodes, getParticipantNames } from '../state/env';
 import { groupGames } from '../engine/groupGames';
 import { changeDisplay } from './viewManager';
