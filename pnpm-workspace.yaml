@@ -2,6 +2,9 @@ packages:
   - '.'
   - 'score-relay'
 
+allowBuilds:
+  esbuild: set this to true or false
+
 ignoredBuiltDependencies:
   - esbuild
 overrides:
