@@ -9,6 +9,9 @@ export default ({ mode }) => {
   const BASE_URL = (process.env.BASE_URL && `/${process.env.BASE_URL}/`) || '';
 
   return defineConfig({
+    server: {
+      port: 5182,
+    },
     build: { sourcemap: true },
     plugins: [svelte()],
     base: BASE_URL,
