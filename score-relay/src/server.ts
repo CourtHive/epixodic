@@ -9,6 +9,8 @@ import { runMigrations } from './crowd/migrationRunner.js';
 import { CrowdScoringStorage } from './crowd/storage.js';
 import { startInactivityScheduler, type InactivityScheduler } from './crowd/inactivityScheduler.js';
 import { createMatchUpFinalizedHandler } from './crowd/webhookReceiver.js';
+import { attachCrowdNamespace } from './crowd/crowdNamespace.js';
+import { UserLimits } from './crowd/userLimits.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RelayConfig } from './types.js';
 
@@ -112,6 +114,16 @@ if (crowdPostgresUrl) {
     console.log('[relay] crowd internal webhook: POST /api/internal/matchup-finalized (X-Internal-Secret required)');
   } else {
     console.warn('[relay] crowd internal webhook disabled (set INTERNAL_WEBHOOK_SECRET to enable)');
+  }
+
+  // Slice 2 — /crowd Socket.IO namespace with JWT validation + per-user rate limits.
+  const jwtSecret = process.env.JWT_SECRET?.trim();
+  if (jwtSecret) {
+    const userLimits = new UserLimits({ eventsPerSecond: 5, maxConcurrentSessions: 3 });
+    attachCrowdNamespace({ io, storage: crowdStorage, userLimits, jwtSecret });
+    console.log('[relay] /crowd namespace ready (JWT-gated; 5 events/sec/user, 3 sessions/user)');
+  } else {
+    console.warn('[relay] /crowd namespace disabled (set JWT_SECRET to enable)');
   }
 } else {
   console.log('[relay] crowd-scoring storage disabled (set CROWD_POSTGRES_URL to enable)');
