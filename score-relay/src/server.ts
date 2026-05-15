@@ -1,9 +1,11 @@
 import { Server } from 'socket.io';
 import { createServer } from 'http';
+import { Pool } from 'pg';
 import { createRelay, getMetrics } from './relay.js';
 import { createProjectionIntake } from './projectionIntake.js';
 import { configureVideoBoardForwarder } from './videoBoardForwarder.js';
 import { configurePersistence } from './persistence.js';
+import { runMigrations } from './crowd/migrationRunner.js';
 import type { RelayConfig } from './types.js';
 
 const config: RelayConfig = {
@@ -63,6 +65,26 @@ projectionIntake = createProjectionIntake({
 });
 configureVideoBoardForwarder(process.env.VIDEO_BOARD_UDP_TARGET);
 
+// Crowd-scoring foundation (Phase 3 slice 1).
+// When CROWD_POSTGRES_URL is set, bootstrap the `crowd` schema and apply
+// pending migrations before accepting traffic. Skipped silently otherwise
+// so existing deployments keep working unchanged.
+const crowdPostgresUrl = process.env.CROWD_POSTGRES_URL?.trim();
+let crowdPool: Pool | null = null;
+if (crowdPostgresUrl) {
+  crowdPool = new Pool({ connectionString: crowdPostgresUrl });
+  try {
+    await runMigrations(crowdPool);
+    console.log('[relay] crowd-scoring storage ready (Postgres)');
+  } catch (err) {
+    console.error('[relay] crowd migration failed — aborting startup', err);
+    await crowdPool.end().catch(() => undefined);
+    process.exit(1);
+  }
+} else {
+  console.log('[relay] crowd-scoring storage disabled (set CROWD_POSTGRES_URL to enable)');
+}
+
 httpServer.listen(config.port, () => {
   console.log(`[relay] score-relay listening on port ${config.port}`);
   console.log(`[relay] tracker namespace: /tracker (mobile trackers connect here)`);
@@ -71,3 +93,10 @@ httpServer.listen(config.port, () => {
   console.log(`[relay] metrics:          GET /metrics`);
   console.log(`[relay] stale prune: ${config.staleMatchHours}h threshold, ${config.pruneIntervalMinutes}min interval`);
 });
+
+async function shutdown() {
+  if (crowdPool) await crowdPool.end().catch(() => undefined);
+  process.exit(0);
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
