@@ -6,6 +6,8 @@ import { createProjectionIntake } from './projectionIntake.js';
 import { configureVideoBoardForwarder } from './videoBoardForwarder.js';
 import { configurePersistence } from './persistence.js';
 import { runMigrations } from './crowd/migrationRunner.js';
+import { CrowdScoringStorage } from './crowd/storage.js';
+import { startInactivityScheduler, type InactivityScheduler } from './crowd/inactivityScheduler.js';
 import type { RelayConfig } from './types.js';
 
 const config: RelayConfig = {
@@ -71,16 +73,23 @@ configureVideoBoardForwarder(process.env.VIDEO_BOARD_UDP_TARGET);
 // so existing deployments keep working unchanged.
 const crowdPostgresUrl = process.env.CROWD_POSTGRES_URL?.trim();
 let crowdPool: Pool | null = null;
+let crowdStorage: CrowdScoringStorage | null = null;
+let crowdInactivityScheduler: InactivityScheduler | null = null;
 if (crowdPostgresUrl) {
   crowdPool = new Pool({ connectionString: crowdPostgresUrl });
   try {
     await runMigrations(crowdPool);
+    crowdStorage = new CrowdScoringStorage(crowdPool);
     console.log('[relay] crowd-scoring storage ready (Postgres)');
   } catch (err) {
     console.error('[relay] crowd migration failed — aborting startup', err);
     await crowdPool.end().catch(() => undefined);
     process.exit(1);
   }
+
+  // Slice 5 — background sweep that auto-cancels sessions idle longer than 2 hours.
+  crowdInactivityScheduler = startInactivityScheduler(crowdStorage);
+  console.log('[relay] crowd inactivity scheduler started (30min interval, 2h threshold)');
 } else {
   console.log('[relay] crowd-scoring storage disabled (set CROWD_POSTGRES_URL to enable)');
 }
@@ -95,6 +104,7 @@ httpServer.listen(config.port, () => {
 });
 
 async function shutdown() {
+  crowdInactivityScheduler?.stop();
   if (crowdPool) await crowdPool.end().catch(() => undefined);
   process.exit(0);
 }
