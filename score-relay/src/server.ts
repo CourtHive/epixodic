@@ -8,6 +8,8 @@ import { configurePersistence } from './persistence.js';
 import { runMigrations } from './crowd/migrationRunner.js';
 import { CrowdScoringStorage } from './crowd/storage.js';
 import { startInactivityScheduler, type InactivityScheduler } from './crowd/inactivityScheduler.js';
+import { createMatchUpFinalizedHandler } from './crowd/webhookReceiver.js';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RelayConfig } from './types.js';
 
 const config: RelayConfig = {
@@ -22,6 +24,7 @@ const config: RelayConfig = {
 };
 
 let projectionIntake: ReturnType<typeof createProjectionIntake> | null = null;
+let matchUpFinalizedHandler: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | null = null;
 
 const httpServer = createServer((req, res) => {
   // Projection intake routes (POST from competition-factory-server's projector)
@@ -31,6 +34,17 @@ const httpServer = createServer((req, res) => {
   }
   if (req.method === 'POST' && req.url === '/api/projection/video-board') {
     void projectionIntake?.handleVideoBoard(req, res);
+    return;
+  }
+
+  // Crowd internal webhook — TD finalized a matchUp; cancel any active crowd sessions for it
+  if (req.url === '/api/internal/matchup-finalized') {
+    if (!matchUpFinalizedHandler) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'crowd-storage-disabled' }));
+      return;
+    }
+    void matchUpFinalizedHandler(req, res);
     return;
   }
 
@@ -90,6 +104,15 @@ if (crowdPostgresUrl) {
   // Slice 5 — background sweep that auto-cancels sessions idle longer than 2 hours.
   crowdInactivityScheduler = startInactivityScheduler(crowdStorage);
   console.log('[relay] crowd inactivity scheduler started (30min interval, 2h threshold)');
+
+  // Slice 4 — internal webhook for TD-finalized matchUps (server-to-server, shared secret).
+  const internalSecret = process.env.INTERNAL_WEBHOOK_SECRET?.trim();
+  if (internalSecret) {
+    matchUpFinalizedHandler = createMatchUpFinalizedHandler({ storage: crowdStorage, secret: internalSecret });
+    console.log('[relay] crowd internal webhook: POST /api/internal/matchup-finalized (X-Internal-Secret required)');
+  } else {
+    console.warn('[relay] crowd internal webhook disabled (set INTERNAL_WEBHOOK_SECRET to enable)');
+  }
 } else {
   console.log('[relay] crowd-scoring storage disabled (set CROWD_POSTGRES_URL to enable)');
 }
