@@ -11,6 +11,7 @@ import { startInactivityScheduler, type InactivityScheduler } from './crowd/inac
 import { createMatchUpFinalizedHandler } from './crowd/webhookReceiver.js';
 import { attachCrowdNamespace } from './crowd/crowdNamespace.js';
 import { UserLimits } from './crowd/userLimits.js';
+import { createCrowdRestApi, type CrowdRestApi } from './crowd/restApi.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RelayConfig } from './types.js';
 
@@ -27,6 +28,7 @@ const config: RelayConfig = {
 
 let projectionIntake: ReturnType<typeof createProjectionIntake> | null = null;
 let matchUpFinalizedHandler: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | null = null;
+let crowdRestApi: CrowdRestApi | null = null;
 
 const httpServer = createServer((req, res) => {
   // Projection intake routes (POST from competition-factory-server's projector)
@@ -47,6 +49,12 @@ const httpServer = createServer((req, res) => {
       return;
     }
     void matchUpFinalizedHandler(req, res);
+    return;
+  }
+
+  // Crowd REST API (TMX-facing). Returns false when path is unrelated.
+  if (crowdRestApi && req.url?.startsWith('/api/crowd-sessions')) {
+    void crowdRestApi.route(req, res);
     return;
   }
 
@@ -117,13 +125,17 @@ if (crowdPostgresUrl) {
   }
 
   // Slice 2 — /crowd Socket.IO namespace with JWT validation + per-user rate limits.
+  // Slice 3 — REST API for TMX (same JWT secret).
   const jwtSecret = process.env.JWT_SECRET?.trim();
   if (jwtSecret) {
     const userLimits = new UserLimits({ eventsPerSecond: 5, maxConcurrentSessions: 3 });
     attachCrowdNamespace({ io, storage: crowdStorage, userLimits, jwtSecret });
     console.log('[relay] /crowd namespace ready (JWT-gated; 5 events/sec/user, 3 sessions/user)');
+
+    crowdRestApi = createCrowdRestApi({ storage: crowdStorage, jwtSecret });
+    console.log('[relay] crowd REST API ready: GET/POST/DELETE /api/crowd-sessions/* (JWT bearer required)');
   } else {
-    console.warn('[relay] /crowd namespace disabled (set JWT_SECRET to enable)');
+    console.warn('[relay] /crowd namespace + REST API disabled (set JWT_SECRET to enable)');
   }
 } else {
   console.log('[relay] crowd-scoring storage disabled (set CROWD_POSTGRES_URL to enable)');
