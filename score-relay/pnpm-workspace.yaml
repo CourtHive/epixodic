@@ -1,5 +1,10 @@
 packages: []
 
+# Security override: ws GHSA-58qx-3vcg-4xpx (DoS); patched 8.20.1. ws is the
+# relay's runtime WebSocket library (transitive via socket.io).
+overrides:
+  ws: ^8.20.1
+
 # Disable pnpm v11's supply-chain minimumReleaseAge policy. Recent
 # CourtHive-owned packages (factory, provider-config, i18n) often fall
 # within the policy's freshness window but are overridden to local
