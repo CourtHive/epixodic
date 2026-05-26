@@ -5,8 +5,6 @@ packages:
 allowBuilds:
   esbuild: true
 
-ignoredBuiltDependencies:
-  - esbuild
 overrides:
   '@tennisvisuals/scoring-visualizations': link:../scoringVisualizations
   courthive-components: link:../courthive-components
