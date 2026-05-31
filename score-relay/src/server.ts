@@ -29,6 +29,23 @@ const config: RelayConfig = {
   trackerMaxEventsPerSecond: parseFloat(process.env.TRACKER_MAX_EVENTS_PER_SECOND || '10'),
 };
 
+// Strict-auth-without-a-secret check. Without this gate the relay would
+// silently admit every /tracker connection as anonymous-admin — exactly
+// the misconfiguration an operator is most likely to hit under deploy
+// pressure (TRACKER_REQUIRE_AUTH gets toggled, TRACKER_JWT_SECRET gets
+// forgotten or unset, env file load order swaps).
+// See Mentat/standards/architectural-standards.md A3 (open defaults are
+// fail-open).
+if (config.trackerRequireAuth && !config.trackerJwtSecret) {
+  console.error(
+    '[relay] FATAL: TRACKER_REQUIRE_AUTH=true but TRACKER_JWT_SECRET is unset.\n' +
+      '         Strict auth without a secret would admit every connection as\n' +
+      '         anonymous-admin. Set TRACKER_JWT_SECRET to the same value as CFS\'s\n' +
+      '         JWT_SECRET, or unset TRACKER_REQUIRE_AUTH to run in legacy permissive mode.',
+  );
+  process.exit(1);
+}
+
 let projectionIntake: ReturnType<typeof createProjectionIntake> | null = null;
 let matchUpFinalizedHandler: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | null = null;
 let crowdRestApi: CrowdRestApi | null = null;
