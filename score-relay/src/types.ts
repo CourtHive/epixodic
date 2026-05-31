@@ -45,6 +45,17 @@ export interface RelayConfig {
    *  relay's /tracker namespace. Fire-and-forget — local processing is
    *  never delayed. */
   upstreamRelayUrl?: string;
+  /** Shared HS256 secret (CFS `JWT_SECRET`). When set, /tracker handshake
+   *  verifies a JWT and stashes audience + tournamentId on the socket.
+   *  Unset = legacy permissive mode (existing epixodic + TMX trackers
+   *  keep working without auth during the rollout). */
+  trackerJwtSecret?: string;
+  /** When true AND `trackerJwtSecret` is set, /tracker rejects unauthed
+   *  connections. When false (default), an unauthed connection logs a
+   *  deprecation warning and proceeds — the additive rollout path. */
+  trackerRequireAuth?: boolean;
+  /** Token-bucket cap per matchUp on /tracker. Default 10 events/sec. */
+  trackerMaxEventsPerSecond?: number;
 }
 
 export interface RelayMetrics {

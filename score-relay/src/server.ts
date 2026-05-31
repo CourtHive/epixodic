@@ -24,6 +24,9 @@ const config: RelayConfig = {
   pruneIntervalMinutes: parseFloat(process.env.PRUNE_INTERVAL_MINUTES || '30'),
   tickerIdleTimeoutSeconds: parseInt(process.env.TICKER_IDLE_TIMEOUT_SECONDS || '1800', 10),
   upstreamRelayUrl: process.env.UPSTREAM_RELAY_URL?.trim() || undefined,
+  trackerJwtSecret: process.env.TRACKER_JWT_SECRET?.trim() || undefined,
+  trackerRequireAuth: process.env.TRACKER_REQUIRE_AUTH === 'true',
+  trackerMaxEventsPerSecond: parseFloat(process.env.TRACKER_MAX_EVENTS_PER_SECOND || '10'),
 };
 
 let projectionIntake: ReturnType<typeof createProjectionIntake> | null = null;
@@ -77,8 +80,10 @@ const io = new Server(httpServer, {
 });
 
 if (config.persistScores && config.factoryServerUrl) {
-  configurePersistence(config.factoryServerUrl);
-  console.log(`[relay] persistence enabled → ${config.factoryServerUrl}`);
+  const serviceJwt = process.env.RELAY_SERVICE_JWT?.trim() || undefined;
+  configurePersistence(config.factoryServerUrl, serviceJwt);
+  const authMode = serviceJwt ? 'authenticated' : 'anonymous (will be rejected by CFS RolesGuard)';
+  console.log(`[relay] persistence enabled → ${config.factoryServerUrl} (${authMode})`);
 } else {
   console.log('[relay] persistence disabled (no FACTORY_SERVER_URL or PERSIST_SCORES=false)');
 }

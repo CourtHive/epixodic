@@ -13,6 +13,13 @@ import {
 } from './matchUpStore.js';
 import { connectUpstream } from './upstreamFederation.js';
 import { persistMatchHistory } from './persistence.js';
+import {
+  extractTrackerToken,
+  TrackerAuthError,
+  verifyTrackerToken,
+  type TrackerSocketData,
+} from './trackerAuth.js';
+import { TrackerLimits } from './trackerLimits.js';
 import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
 
 // Metrics counters
@@ -44,15 +51,51 @@ export function createRelay(io: Server, config: RelayConfig): void {
   // --- Tracker namespace: mobile trackers push scores here ---
   const tracker = io.of('/tracker');
 
-  tracker.on('connection', (socket: Socket) => {
-    trackerCount++;
-    console.log(`[tracker] connected: ${socket.id} (${trackerCount} active)`);
-
-    socket.on('score', (data: ScoreUpdate) => {
-      if (!data?.matchUpId) {
-        socket.emit('error', { message: 'matchUpId required' });
+  // Auth + ownership gate. Transitional during the IONSport rollout —
+  // see types.ts RelayConfig.trackerJwtSecret / trackerRequireAuth.
+  tracker.use((socket, next) => {
+    const token = extractTrackerToken(socket);
+    if (!config.trackerJwtSecret) {
+      // Legacy permissive mode — relay was deployed without a secret.
+      (socket.data as TrackerSocketData) = { userId: 'anonymous', audience: 'admin' };
+      next();
+      return;
+    }
+    if (!token) {
+      if (config.trackerRequireAuth) {
+        console.warn(`[tracker] reject ${socket.id}: missing-token`);
+        next(new Error('missing-token'));
         return;
       }
+      console.warn(`[tracker] DEPRECATED: ${socket.id} connected without token; tighten before IONSport go-live`);
+      (socket.data as TrackerSocketData) = { userId: 'anonymous', audience: 'admin' };
+      next();
+      return;
+    }
+    try {
+      (socket.data as TrackerSocketData) = verifyTrackerToken(token, config.trackerJwtSecret);
+      next();
+    } catch (err) {
+      const reason = err instanceof TrackerAuthError ? err.reason : 'bad-token';
+      console.warn(`[tracker] reject ${socket.id}: ${reason}`);
+      next(new Error(reason));
+    }
+  });
+
+  // Per-matchUp rate limit; default 10 events/sec/match.
+  const trackerLimits = new TrackerLimits({
+    eventsPerSecond: config.trackerMaxEventsPerSecond ?? 10,
+  });
+  // Prune idle buckets on the same cadence as stale matches.
+  setInterval(() => trackerLimits.prune(), pruneIntervalMs);
+
+  tracker.on('connection', (socket: Socket) => {
+    trackerCount++;
+    const socketData = socket.data as TrackerSocketData;
+    console.log(`[tracker] connected: ${socket.id} user=${socketData.userId} aud=${socketData.audience} (${trackerCount} active)`);
+
+    socket.on('score', (data: ScoreUpdate) => {
+      if (!guardFrame(socket, data, trackerLimits)) return;
 
       updateMatch(data);
       scoresRelayed++;
@@ -100,11 +143,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
     // INTENNSE enriched snapshots: fan out to listeners + anchor clocks
     // for relay-native tick generation.
     socket.on('intennse', (data: any) => {
-      if (!data?.matchUpId) {
-        socket.emit('error', { message: 'matchUpId required' });
-        return;
-      }
-
+      if (!guardFrame(socket, data, trackerLimits)) return;
       socket.emit('ack', { matchUpId: data.matchUpId, received: true });
 
       // Fan out the event payload (full stats, score, penalty box, etc.)
@@ -149,8 +188,11 @@ export function createRelay(io: Server, config: RelayConfig): void {
     // pause, timeout, break, navigation away). Re-anchors or stops
     // the relay's ticker so the scorebug display matches reality.
     socket.on('clockSync', (data: any) => {
-      if (!data?.matchUpId) {
-        socket.emit('error', { message: 'matchUpId required' });
+      // clockSync ownership-checked but not rate-limited — there are
+      // never more than a handful per match (pause/resume/break), and
+      // rate-limiting them would risk dropping a transition.
+      if (!guardOwnership(socket, data)) {
+        socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
         return;
       }
 
@@ -193,8 +235,10 @@ export function createRelay(io: Server, config: RelayConfig): void {
     });
 
     socket.on('history', async (data: MatchHistory) => {
-      if (!data?.matchUpId) {
-        socket.emit('error', { message: 'matchUpId required' });
+      // history is the final-state event — ownership-checked, but
+      // rate-limit-exempt because it fires at most once per match.
+      if (!guardOwnership(socket, data)) {
+        socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
         return;
       }
 
@@ -355,4 +399,48 @@ export function createRelay(io: Server, config: RelayConfig): void {
       console.log(`[relay] pruned ${pruned} stale matches`);
     }
   }, pruneIntervalMs);
+}
+
+/**
+ * Validate matchUpId presence + tournament ownership (for score-aud
+ * tokens) and consume one rate-limit token. Returns true to proceed;
+ * on failure, the socket has already been signaled and the caller
+ * should just `return`.
+ */
+function guardFrame(
+  socket: Socket,
+  data: { matchUpId?: string; tournamentId?: string } | undefined,
+  limits: TrackerLimits,
+): boolean {
+  if (!guardOwnership(socket, data)) {
+    socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
+    return false;
+  }
+  const limit = limits.tryConsume(data!.matchUpId!);
+  if (!limit.allowed) {
+    socket.emit('rejected', {
+      matchUpId: data!.matchUpId,
+      reason: 'rate-limited',
+      retryAfter: limit.retryAfter,
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Ownership-only check, no rate limit. Used for clockSync and history
+ * which are low-frequency transitions that shouldn't be dropped under
+ * rate pressure.
+ */
+function guardOwnership(
+  socket: Socket,
+  data: { matchUpId?: string; tournamentId?: string } | undefined,
+): boolean {
+  if (!data?.matchUpId) return false;
+  const socketData = socket.data as TrackerSocketData | undefined;
+  if (socketData?.audience === 'score' && socketData.tournamentId) {
+    if (data.tournamentId && data.tournamentId !== socketData.tournamentId) return false;
+  }
+  return true;
 }
