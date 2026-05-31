@@ -56,8 +56,16 @@ export function verifyTrackerToken(
     throw new TrackerAuthError(reason);
   }
 
-  const userId = typeof payload.sub === 'string' ? payload.sub : undefined;
-  if (!userId) throw new TrackerAuthError('missing-sub');
+  // CFS's admin login tokens use `userId` (no JWT `sub` standard claim).
+  // Score-aud tokens minted by /auth/tracker-token use `sub: provider:<id>`.
+  // Accept either — both identify the principal for the relay's purposes.
+  const userId =
+    typeof payload.sub === 'string'
+      ? payload.sub
+      : typeof payload.userId === 'string'
+        ? payload.userId
+        : undefined;
+  if (!userId) throw new TrackerAuthError('missing-subject');
 
   const audience = resolveTrackerAudience(payload.aud);
 

@@ -35,9 +35,15 @@ describe('trackerAuth', () => {
       expect(() => verifyTrackerToken(token, SECRET)).toThrowError(/audience-mismatch/);
     });
 
-    it('rejects a token without sub', () => {
+    it('rejects a token without sub or userId', () => {
       const token = signHs256({ aud: 'admin' }, SECRET);
-      expect(() => verifyTrackerToken(token, SECRET)).toThrowError(/missing-sub/);
+      expect(() => verifyTrackerToken(token, SECRET)).toThrowError(/missing-subject/);
+    });
+
+    it('accepts userId as a fallback subject claim (CFS admin tokens)', () => {
+      const token = signHs256({ userId: 'u-from-cfs-login', aud: 'admin' }, SECRET);
+      const data = verifyTrackerToken(token, SECRET);
+      expect(data).toEqual({ userId: 'u-from-cfs-login', audience: 'admin' });
     });
 
     it('wraps verifier errors as TrackerAuthError', () => {
