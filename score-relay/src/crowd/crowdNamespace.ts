@@ -27,15 +27,18 @@
  */
 
 import type { Namespace, Server, Socket } from 'socket.io';
-import { verifyHs256, JwtVerificationError, type JwtPayload } from './jwtVerify.js';
+import { verifyHs256, JwtVerificationError, normalizeAudiences, type JwtPayload } from './jwtVerify.js';
 import {
   SessionNotFoundError,
   VersionConflictError,
   type CrowdPoint,
   type CrowdScoreSnapshot,
+  type CrowdScorerAttribution,
 } from './types.js';
 import type { CrowdScoringStorage } from './storage.js';
 import type { UserLimits } from './userLimits.js';
+
+type CrowdAudience = 'admin' | 'hiveid';
 
 export interface CrowdNamespaceOptions {
   io: Server;
@@ -56,6 +59,19 @@ export interface SubmitCrowdScorePayload {
   /** Required for resume; omit on the first event for a session. */
   expectedVersion?: number;
   formatHint?: string;
+  /**
+   * HiveID attribution from courthive-public. Recorded on session
+   * creation only. For hiveid-aud sockets the JWT-derived personId
+   * wins over the client-supplied value (defense-in-depth — a client
+   * could otherwise impersonate another Person). Admin-aud sockets
+   * may attribute on behalf of someone, so payload values are used
+   * as-is there.
+   */
+  scorer?: {
+    personId: string | null;
+    displayName: string;
+    audience?: CrowdAudience;
+  };
 }
 
 export interface EndSessionPayload {
@@ -64,6 +80,12 @@ export interface EndSessionPayload {
 
 interface SocketData {
   userId: string;
+  /** Resolved audience after `aud` claim normalization. */
+  audience: CrowdAudience;
+  /** JWT-attested canonical Person id (hiveid-aud sockets only). */
+  personId?: string;
+  /** Cached display name from JWT for hiveid-aud sockets. */
+  displayName?: string;
   acquiredSessions: Set<string>;
 }
 
@@ -83,7 +105,7 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
     }
     let payload: JwtPayload;
     try {
-      payload = verifyHs256(token, opts.jwtSecret);
+      payload = verifyHs256(token, opts.jwtSecret, { expectedAudiences: ['admin', 'hiveid'] });
     } catch (err) {
       const reason = err instanceof JwtVerificationError ? err.reason : 'bad-token';
       log(`reject ${socket.id}: ${reason}`);
@@ -96,7 +118,20 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
       next(new Error('missing-sub'));
       return;
     }
-    (socket.data as SocketData) = { userId, acquiredSessions: new Set<string>() };
+    const audience = resolveAudience(payload);
+    let personId: string | undefined;
+    let displayName: string | undefined;
+    if (audience === 'hiveid') {
+      const claimed = typeof payload.personId === 'string' ? payload.personId : undefined;
+      if (!claimed) {
+        log(`reject ${socket.id}: missing-person-id`);
+        next(new Error('missing-person-id'));
+        return;
+      }
+      personId = claimed;
+      displayName = typeof payload.displayName === 'string' ? payload.displayName : undefined;
+    }
+    (socket.data as SocketData) = { userId, audience, personId, displayName, acquiredSessions: new Set<string>() };
     next();
   });
 
@@ -167,6 +202,7 @@ async function handleSubmit(
       clientId: payload.clientId,
       formatHint: payload.formatHint,
       currentScore: payload.currentScore,
+      crowdScoredBy: resolveAttribution(data, payload.scorer),
     });
 
     const appended = await opts.storage.appendPoint({
@@ -268,4 +304,36 @@ function isValidSubmitPayload(payload: unknown): payload is SubmitCrowdScorePayl
     typeof p.point === 'object' &&
     (p.point.winner === 1 || p.point.winner === 2)
   );
+}
+
+function resolveAudience(payload: JwtPayload): CrowdAudience {
+  // CFS's @Audience([...]) decorator emits 'aud' as string | string[].
+  // Prefer 'hiveid' when present (more specific identity claim) so a
+  // dual-audience token always exposes the canonical personId path.
+  const list = normalizeAudiences(payload.aud);
+  if (list.includes('hiveid')) return 'hiveid';
+  return 'admin';
+}
+
+function resolveAttribution(
+  data: SocketData,
+  payloadScorer: SubmitCrowdScorePayload['scorer'],
+): CrowdScorerAttribution | undefined {
+  if (data.audience === 'hiveid') {
+    // JWT personId is the source of truth — the client's scorer block
+    // is informational, never trusted to override the JWT-attested id.
+    return {
+      personId: data.personId ?? null,
+      displayName: payloadScorer?.displayName ?? data.displayName ?? '',
+      audience: 'hiveid',
+    };
+  }
+  if (payloadScorer && typeof payloadScorer.displayName === 'string') {
+    return {
+      personId: payloadScorer.personId ?? null,
+      displayName: payloadScorer.displayName,
+      audience: 'admin',
+    };
+  }
+  return undefined;
 }

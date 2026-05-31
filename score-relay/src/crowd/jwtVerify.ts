@@ -41,6 +41,16 @@ export interface VerifyOptions {
   now?: number;
   /** Tolerance in seconds for `exp`/`nbf` checks. Default 0. */
   clockSkewSeconds?: number;
+  /**
+   * If set, `payload.aud` must include at least one of these strings.
+   * CFS's `@Audience([...])` decorator emits `aud` as either a string or
+   * a string[] depending on how many audiences it was minted for. We
+   * normalize both shapes and pass if the intersection is non-empty.
+   * Legacy unaudienced tokens (no `aud` claim) are treated as `'admin'`
+   * for back-compat with in-flight admin sessions, matching CFS's
+   * AuthGuard default.
+   */
+  expectedAudiences?: string[];
 }
 
 export function verifyHs256(token: string, secret: string, options: VerifyOptions = {}): JwtPayload {
@@ -77,7 +87,30 @@ export function verifyHs256(token: string, secret: string, options: VerifyOption
     throw new JwtVerificationError('not-yet-valid');
   }
 
+  if (options.expectedAudiences && options.expectedAudiences.length > 0) {
+    const tokenAudiences = normalizeAudiences(payload.aud);
+    const intersects = options.expectedAudiences.some((a) => tokenAudiences.includes(a));
+    if (!intersects) throw new JwtVerificationError('audience-mismatch');
+  }
+
   return payload;
+}
+
+/**
+ * Normalize the JWT `aud` claim into a list:
+ *   undefined / empty array / empty string → ['admin'] (legacy back-compat)
+ *   string                                  → [string]
+ *   string[]                                → as-is (filtered to non-empty)
+ *   anything else                           → []
+ */
+export function normalizeAudiences(raw: unknown): string[] {
+  if (raw === undefined || raw === null) return ['admin'];
+  if (typeof raw === 'string') return raw.length === 0 ? ['admin'] : [raw];
+  if (Array.isArray(raw)) {
+    const filtered = raw.filter((x): x is string => typeof x === 'string' && x.length > 0);
+    return filtered.length === 0 ? ['admin'] : filtered;
+  }
+  return [];
 }
 
 /**

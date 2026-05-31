@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JwtVerificationError, signHs256, verifyHs256 } from './jwtVerify.js';
+import { JwtVerificationError, normalizeAudiences, signHs256, verifyHs256 } from './jwtVerify.js';
 
 const SECRET = 'test-shared-secret';
 
@@ -62,5 +62,62 @@ describe('jwtVerify', () => {
 
   it('throws when secret is empty', () => {
     expect(() => verifyHs256(signHs256({ sub: 'x' }, SECRET), '')).toThrowError(/secret-required/);
+  });
+
+  describe('expectedAudiences', () => {
+    it('passes when token aud matches a single allowed audience', () => {
+      const token = signHs256({ sub: 'u', aud: 'hiveid' }, SECRET);
+      expect(() => verifyHs256(token, SECRET, { expectedAudiences: ['hiveid'] })).not.toThrow();
+    });
+
+    it('passes when token aud array intersects allowed list', () => {
+      const token = signHs256({ sub: 'u', aud: ['admin', 'hiveid'] }, SECRET);
+      expect(() => verifyHs256(token, SECRET, { expectedAudiences: ['hiveid'] })).not.toThrow();
+    });
+
+    it('treats a missing aud as admin for back-compat', () => {
+      const token = signHs256({ sub: 'u' }, SECRET);
+      expect(() => verifyHs256(token, SECRET, { expectedAudiences: ['admin'] })).not.toThrow();
+    });
+
+    it('rejects when no audience matches', () => {
+      const token = signHs256({ sub: 'u', aud: 'projector' }, SECRET);
+      expect(() => verifyHs256(token, SECRET, { expectedAudiences: ['admin', 'hiveid'] })).toThrowError(
+        /audience-mismatch/,
+      );
+    });
+
+    it('skips the check entirely when expectedAudiences is omitted', () => {
+      const token = signHs256({ sub: 'u', aud: 'anything-goes' }, SECRET);
+      expect(() => verifyHs256(token, SECRET)).not.toThrow();
+    });
+
+    it('skips the check when expectedAudiences is an empty array', () => {
+      const token = signHs256({ sub: 'u', aud: 'projector' }, SECRET);
+      expect(() => verifyHs256(token, SECRET, { expectedAudiences: [] })).not.toThrow();
+    });
+  });
+
+  describe('normalizeAudiences', () => {
+    it('returns [admin] for undefined / null / empty string / empty array', () => {
+      expect(normalizeAudiences(undefined)).toEqual(['admin']);
+      expect(normalizeAudiences(null)).toEqual(['admin']);
+      expect(normalizeAudiences('')).toEqual(['admin']);
+      expect(normalizeAudiences([])).toEqual(['admin']);
+    });
+
+    it('wraps a single string', () => {
+      expect(normalizeAudiences('hiveid')).toEqual(['hiveid']);
+    });
+
+    it('returns string[] as-is, filtered to non-empty strings', () => {
+      expect(normalizeAudiences(['admin', 'hiveid'])).toEqual(['admin', 'hiveid']);
+      expect(normalizeAudiences(['admin', '', 42, 'hiveid'])).toEqual(['admin', 'hiveid']);
+    });
+
+    it('returns [] for non-string non-array shapes', () => {
+      expect(normalizeAudiences(42)).toEqual([]);
+      expect(normalizeAudiences({})).toEqual([]);
+    });
   });
 });

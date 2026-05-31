@@ -301,4 +301,106 @@ suite('/crowd namespace', () => {
 
     client.disconnect();
   });
+
+  // HiveID Phase 5 — verify hiveid-aud JWTs, stamp crowdScoredBy.
+
+  it('rejects a hiveid-aud token without a personId claim', async () => {
+    const token = signHs256({ sub: 'u-no-person', aud: 'hiveid' }, JWT_SECRET);
+    const client = connect(token);
+    const err = await new Promise<Error>((resolve) => client.on('connect_error', resolve));
+    expect(err.message).toMatch(/missing-person-id/);
+    client.disconnect();
+  });
+
+  it('rejects a token whose aud is none of admin/hiveid', async () => {
+    const token = signHs256({ sub: 'u-projector', aud: 'projector' }, JWT_SECRET);
+    const client = connect(token);
+    const err = await new Promise<Error>((resolve) => client.on('connect_error', resolve));
+    expect(err.message).toMatch(/audience-mismatch/);
+    client.disconnect();
+  });
+
+  it('stamps crowdScoredBy from the JWT on a hiveid-aud session, ignoring client-supplied personId', async () => {
+    const token = mkToken('u-hive-alice', {
+      aud: 'hiveid',
+      personId: 'person-canonical-alice',
+      displayName: 'Alice from JWT',
+    });
+    const client = connect(token);
+    await new Promise<void>((resolve) => client.on('connect', resolve));
+
+    client.emit('submitCrowdScore', {
+      sessionId: 'sess-hive-1',
+      matchUpId: 'mu-1',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-1',
+      point: mkPoint(1),
+      currentScore: {},
+      scorer: {
+        // Client lies about personId — the namespace MUST ignore this and
+        // use the JWT-attested one.
+        personId: 'person-evil-impersonator',
+        displayName: 'Alice from payload',
+        audience: 'hiveid',
+      },
+    });
+    await nextEvent(client, 'acked');
+
+    const persisted = await storage.getById('sess-hive-1');
+    expect(persisted?.crowdScoredBy?.audience).toBe('hiveid');
+    expect(persisted?.crowdScoredBy?.personId).toBe('person-canonical-alice');
+    // displayName from payload is allowed (server has no opinion on it)
+    expect(persisted?.crowdScoredBy?.displayName).toBe('Alice from payload');
+
+    client.disconnect();
+  });
+
+  it('records admin-aud attribution from the payload when supplied (TD on behalf of)', async () => {
+    const token = mkToken('u-td-bob', { aud: 'admin' });
+    const client = connect(token);
+    await new Promise<void>((resolve) => client.on('connect', resolve));
+
+    client.emit('submitCrowdScore', {
+      sessionId: 'sess-admin-1',
+      matchUpId: 'mu-1',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-1',
+      point: mkPoint(1),
+      currentScore: {},
+      scorer: {
+        personId: 'person-on-court',
+        displayName: 'Person On Court',
+        audience: 'admin',
+      },
+    });
+    await nextEvent(client, 'acked');
+
+    const persisted = await storage.getById('sess-admin-1');
+    expect(persisted?.crowdScoredBy?.audience).toBe('admin');
+    expect(persisted?.crowdScoredBy?.personId).toBe('person-on-court');
+    expect(persisted?.crowdScoredBy?.displayName).toBe('Person On Court');
+
+    client.disconnect();
+  });
+
+  it('omits crowdScoredBy on an admin-aud session with no scorer payload (anonymous-admin)', async () => {
+    const token = mkToken('u-td-anon', { aud: 'admin' });
+    const client = connect(token);
+    await new Promise<void>((resolve) => client.on('connect', resolve));
+
+    client.emit('submitCrowdScore', {
+      sessionId: 'sess-admin-2',
+      matchUpId: 'mu-1',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-1',
+      point: mkPoint(1),
+      currentScore: {},
+    });
+    await nextEvent(client, 'acked');
+
+    const persisted = await storage.getById('sess-admin-2');
+    expect(persisted?.crowdScoredBy).toBeUndefined();
+
+    client.disconnect();
+  });
 });

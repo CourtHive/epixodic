@@ -19,6 +19,23 @@ export type CrowdSessionStatus =
   | 'cancelled-by-td-finalize';
 
 /**
+ * Identity of whoever submitted the points in a crowd session, when known.
+ * Populated for HiveID-authenticated visitors on courthive-public (Phase 5
+ * of the HiveID integration). The JWT-derived `personId` is the source of
+ * truth on hiveid-aud sessions; admin-aud sessions may carry a client-supplied
+ * attribution (TD scoring on behalf of someone, for example). Anonymous /
+ * legacy admin sessions leave `crowdScoredBy` undefined.
+ */
+export interface CrowdScorerAttribution {
+  /** Canonical Person id from courthive-persons, or null when unknown. */
+  personId: string | null;
+  /** Cached display name from the JWT or admin-side input. */
+  displayName: string;
+  /** Source of trust for the attribution. */
+  audience: 'admin' | 'hiveid';
+}
+
+/**
  * Compact per-point log entry. Stored in JSONB.
  * Shape is intentionally loose — the engine's getScore() output is
  * format-agnostic, and we never re-derive state from these points
@@ -82,6 +99,8 @@ export interface CrowdScoringSession {
   version: number;
   createdAt: Date;
   updatedAt: Date;
+  /** HiveID-or-admin attribution, when known. See `CrowdScorerAttribution`. */
+  crowdScoredBy?: CrowdScorerAttribution;
 }
 
 export interface CreateSessionInput {
@@ -92,6 +111,8 @@ export interface CreateSessionInput {
   clientId: string;
   formatHint?: string;
   currentScore: CrowdScoreSnapshot;
+  /** Optional attribution stamped at session creation; not mutable after. */
+  crowdScoredBy?: CrowdScorerAttribution;
 }
 
 export interface AppendPointInput {

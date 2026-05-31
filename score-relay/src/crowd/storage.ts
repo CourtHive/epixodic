@@ -18,6 +18,7 @@ import type { Pool } from 'pg';
 import type {
   AppendPointInput,
   CreateSessionInput,
+  CrowdScorerAttribution,
   CrowdScoringSession,
   CrowdSessionStatus,
 } from './types.js';
@@ -26,7 +27,8 @@ import { SessionNotFoundError, VersionConflictError } from './types.js';
 const SELECT_COLS = `
   session_id, matchup_id, tournament_id, user_id, client_id, format_hint,
   current_score, point_history, trusted, trusted_by, trusted_at, status,
-  version, created_at, updated_at
+  version, created_at, updated_at,
+  scorer_person_id, scorer_display_name, scorer_audience
 `;
 
 interface SessionRow {
@@ -45,6 +47,9 @@ interface SessionRow {
   version: number;
   created_at: Date;
   updated_at: Date;
+  scorer_person_id: string | null;
+  scorer_display_name: string | null;
+  scorer_audience: string | null;
 }
 
 function rowToSession(row: SessionRow): CrowdScoringSession {
@@ -64,6 +69,19 @@ function rowToSession(row: SessionRow): CrowdScoringSession {
     version: row.version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    crowdScoredBy: rowToCrowdScoredBy(row),
+  };
+}
+
+function rowToCrowdScoredBy(row: SessionRow): CrowdScorerAttribution | undefined {
+  // `scorer_audience` is the gate — admin / hiveid is what makes a row
+  // "attributed". A bare displayName without audience is treated as legacy /
+  // anonymous and omitted.
+  if (row.scorer_audience !== 'admin' && row.scorer_audience !== 'hiveid') return undefined;
+  return {
+    personId: row.scorer_person_id ?? null,
+    displayName: row.scorer_display_name ?? '',
+    audience: row.scorer_audience,
   };
 }
 
@@ -74,8 +92,9 @@ export class CrowdScoringStorage {
     const result = await this.pool.query<SessionRow>(
       `
       INSERT INTO crowd.crowd_scoring_sessions
-        (session_id, matchup_id, tournament_id, user_id, client_id, format_hint, current_score)
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+        (session_id, matchup_id, tournament_id, user_id, client_id, format_hint, current_score,
+         scorer_person_id, scorer_display_name, scorer_audience)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)
       RETURNING ${SELECT_COLS}
       `,
       [
@@ -86,6 +105,9 @@ export class CrowdScoringStorage {
         input.clientId,
         input.formatHint ?? null,
         JSON.stringify(input.currentScore),
+        input.crowdScoredBy?.personId ?? null,
+        input.crowdScoredBy?.displayName ?? null,
+        input.crowdScoredBy?.audience ?? null,
       ],
     );
     return rowToSession(result.rows[0]);
