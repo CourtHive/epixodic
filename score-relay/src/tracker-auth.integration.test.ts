@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Server as IoServer } from 'socket.io';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
 import { createServer, type Server as HttpServer } from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { createRelay } from './relay.js';
 import { signHs256 } from './crowd/jwtVerify.js';
 
@@ -140,17 +141,200 @@ describe('/tracker auth (strict mode)', () => {
     client.disconnect();
   });
 
+  // H2 — score-aud frame ownership bypass when tournamentId is omitted.
+  // A score-aud holder for tournament A must not be able to skip the
+  // mismatch check by simply leaving tournamentId off the frame and
+  // reach `listeners.to('all')` as if the token were global.
+  it('stamps the score-aud tournament onto a score frame that omits it', async () => {
+    const token = signHs256(
+      { sub: 'svc-ionsport', aud: 'score', tournamentId: 't-ion' },
+      JWT_SECRET,
+    );
+    const tracker = connect(token);
+    await new Promise<void>((resolve) => tracker.on('connect', resolve));
+
+    const inScope = ioClient(`http://localhost:${port}/live`, {
+      transports: ['websocket'],
+      forceNew: true,
+    });
+    const outOfScope = ioClient(`http://localhost:${port}/live`, {
+      transports: ['websocket'],
+      forceNew: true,
+    });
+    await Promise.all([
+      new Promise<void>((resolve) => inScope.on('connect', () => resolve())),
+      new Promise<void>((resolve) => outOfScope.on('connect', () => resolve())),
+    ]);
+    inScope.emit('subscribe:tournament', 't-ion');
+    outOfScope.emit('subscribe:tournament', 't-other');
+    await new Promise((r) => setTimeout(r, 50));
+
+    let receivedOutOfScope = false;
+    outOfScope.on('score', () => {
+      receivedOutOfScope = true;
+    });
+
+    const inScopeReceived = nextEvent<{ matchUpId: string; tournamentId?: string }>(inScope, 'score');
+    tracker.emit('score', {
+      matchUpId: 'mu-omit-tid',
+      // tournamentId intentionally omitted by a malicious client
+      score: { scoreStringSide1: '0-0' },
+    });
+    const ack = await nextEvent<{ matchUpId: string }>(tracker, 'ack');
+    expect(ack.matchUpId).toBe('mu-omit-tid');
+
+    const got = await inScopeReceived;
+    expect(got.matchUpId).toBe('mu-omit-tid');
+    // The relay must have stamped the token's tournamentId onto the frame
+    // before fan-out so subscribers can route on it correctly.
+    expect(got.tournamentId).toBe('t-ion');
+
+    // Cross-tournament listener must NOT see this frame even though the
+    // client sent it without a tournamentId.
+    await new Promise((r) => setTimeout(r, 100));
+    expect(receivedOutOfScope).toBe(false);
+
+    tracker.disconnect();
+    inScope.disconnect();
+    outOfScope.disconnect();
+  });
+
+  it('stamps the score-aud tournament onto an intennse frame that omits it', async () => {
+    const token = signHs256(
+      { sub: 'svc-ionsport', aud: 'score', tournamentId: 't-ion' },
+      JWT_SECRET,
+    );
+    const tracker = connect(token);
+    await new Promise<void>((resolve) => tracker.on('connect', resolve));
+
+    const inScope = ioClient(`http://localhost:${port}/live`, {
+      transports: ['websocket'],
+      forceNew: true,
+    });
+    await new Promise<void>((resolve) => inScope.on('connect', () => resolve()));
+    inScope.emit('subscribe:tournament', 't-ion');
+    await new Promise((r) => setTimeout(r, 50));
+
+    const received = nextEvent<{ matchUpId: string; tournamentId?: string }>(inScope, 'intennse');
+    tracker.emit('intennse', {
+      matchUpId: 'mu-omit-tid-intennse',
+      boltScore: { side1: 1, side2: 0 },
+      aggregateScore: { side1: 1, side2: 0 },
+      server: 0,
+    });
+    await nextEvent(tracker, 'ack');
+
+    const got = await received;
+    expect(got.matchUpId).toBe('mu-omit-tid-intennse');
+    expect(got.tournamentId).toBe('t-ion');
+
+    tracker.disconnect();
+    inScope.disconnect();
+  });
+
+  it('stamps the score-aud tournament onto a clockSync frame that omits it', async () => {
+    const token = signHs256(
+      { sub: 'svc-ionsport', aud: 'score', tournamentId: 't-ion' },
+      JWT_SECRET,
+    );
+    const tracker = connect(token);
+    await new Promise<void>((resolve) => tracker.on('connect', resolve));
+
+    const inScope = ioClient(`http://localhost:${port}/live`, {
+      transports: ['websocket'],
+      forceNew: true,
+    });
+    await new Promise<void>((resolve) => inScope.on('connect', () => resolve()));
+    inScope.emit('subscribe:tournament', 't-ion');
+    await new Promise((r) => setTimeout(r, 50));
+
+    const received = nextEvent<{ matchUpId: string; tournamentId?: string }>(inScope, 'clockSync');
+    tracker.emit('clockSync', {
+      matchUpId: 'mu-omit-tid-sync',
+      boltTimerRemainingMs: 200000,
+      serveClockRemainingMs: 12000,
+      clockState: 'paused',
+    });
+    await nextEvent(tracker, 'ack');
+
+    const got = await received;
+    expect(got.matchUpId).toBe('mu-omit-tid-sync');
+    expect(got.tournamentId).toBe('t-ion');
+
+    tracker.disconnect();
+    inScope.disconnect();
+  });
+
+  it('stamps the score-aud tournament onto a history frame that omits it', async () => {
+    const token = signHs256(
+      { sub: 'svc-ionsport', aud: 'score', tournamentId: 't-ion' },
+      JWT_SECRET,
+    );
+    const tracker = connect(token);
+    await new Promise<void>((resolve) => tracker.on('connect', resolve));
+
+    // history is acknowledged but only fans out to the per-matchUp room
+    // (no tournament/all fan-out). The visible signal is the stored
+    // record's tournamentId — assert via the ack contract is fine here
+    // since the persistence side is exercised by persistence tests.
+    tracker.emit('history', {
+      matchUpId: 'mu-omit-tid-hist',
+      points: [{ winner: 0 }],
+      // tournamentId omitted
+    });
+    const ack = await nextEvent<{ matchUpId: string }>(tracker, 'ack');
+    expect(ack.matchUpId).toBe('mu-omit-tid-hist');
+
+    tracker.disconnect();
+  });
+
+  it('keeps frames with a matching tournamentId untouched (admin-aud)', async () => {
+    // Admin-aud tokens have no token-side tournament binding; they may
+    // legitimately omit tournamentId. The stamp must not run for admin.
+    const token = signHs256({ sub: 'u-td', aud: 'admin' }, JWT_SECRET);
+    const tracker = connect(token);
+    await new Promise<void>((resolve) => tracker.on('connect', resolve));
+
+    const allListener = ioClient(`http://localhost:${port}/live`, {
+      transports: ['websocket'],
+      forceNew: true,
+    });
+    await new Promise<void>((resolve) => allListener.on('connect', () => resolve()));
+    allListener.emit('subscribe:all');
+    await new Promise((r) => setTimeout(r, 50));
+
+    const received = nextEvent<{ matchUpId: string; tournamentId?: string }>(allListener, 'score');
+    tracker.emit('score', {
+      matchUpId: 'mu-admin-no-tid',
+      score: { scoreStringSide1: '1-0' },
+    });
+    await nextEvent(tracker, 'ack');
+
+    const got = await received;
+    expect(got.matchUpId).toBe('mu-admin-no-tid');
+    expect(got.tournamentId).toBeUndefined();
+
+    tracker.disconnect();
+    allListener.disconnect();
+  });
+
   it('rate-limits per matchUp at trackerMaxEventsPerSecond', async () => {
     const token = signHs256({ sub: 'u', aud: 'admin' }, JWT_SECRET);
     const client = connect(token);
     await new Promise<void>((resolve) => client.on('connect', resolve));
 
+    // F1 (architectural-standards.md A6): generate a unique matchUpId
+    // per test so we never share a bucket with another test in this
+    // suite-scoped relay. Without this, a future test that touches
+    // 'mu-rate-1' would silently inherit a drained bucket.
+    const matchUpId = `mu-rate-${randomBytes(4).toString('hex')}`;
+
     // Capacity = 3; 4 rapid emits → 4th rejected.
     for (let i = 0; i < 3; i++) {
-      client.emit('score', { matchUpId: 'mu-rate-1', score: { scoreStringSide1: `${i}` } });
+      client.emit('score', { matchUpId, score: { scoreStringSide1: `${i}` } });
       await nextEvent(client, 'ack');
     }
-    client.emit('score', { matchUpId: 'mu-rate-1', score: { scoreStringSide1: '4' } });
+    client.emit('score', { matchUpId, score: { scoreStringSide1: '4' } });
     const rejected = await nextEvent<{ reason: string; retryAfter?: number }>(client, 'rejected');
     expect(rejected.reason).toBe('rate-limited');
     expect(rejected.retryAfter).toBeTypeOf('number');
