@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.1.0](https://github.com/CourtHive/epixodic/compare/v2.0.5...v2.1.0) (2026-06-01)
+
+
+### Features
+
+* **crowd:** verify hiveid-aud JWTs + record crowdScoredBy on session (hiveid phase 5) ([ab4244d](https://github.com/CourtHive/epixodic/commit/ab4244dca61a2b7ba994e9ceee720e76a602fe61))
+* **score-relay:** IONSport-track auth + ownership + rate-limit + persistence fix ([0f3c4a7](https://github.com/CourtHive/epixodic/commit/0f3c4a75c810a899735df3c21aa44bd2da43edd8))
+* **score-relay:** per-user fan-out ceiling + per-IP connect rate limit ([19f2688](https://github.com/CourtHive/epixodic/commit/19f2688834781e33fef2c1ada10358ad9afe35f4))
+
+
+### Bug Fixes
+
+* **deps:** update dependency courthive-components to v1.10.1 ([413925f](https://github.com/CourtHive/epixodic/commit/413925f660f9f1c35030a62f7bcd49d055e39cae))
+* **score-relay:** boot fail-fast on strict-auth-without-secret ([e60baa3](https://github.com/CourtHive/epixodic/commit/e60baa3ee33c06125bb555c68a281cc4c2a3211f))
+* **score-relay:** stamp token's tournamentId on score-aud frames + unref intervals ([8933e96](https://github.com/CourtHive/epixodic/commit/8933e966ffdb60946b9b519b8e884ebb6eee76ac))
+* **tracker-auth:** accept userId as fallback subject claim ([526a3d8](https://github.com/CourtHive/epixodic/commit/526a3d8dfe6041fa0f73d69825ce85c07585be92))
+
 ## [2.0.5](https://github.com/CourtHive/epixodic/compare/v2.0.4...v2.0.5) (2026-05-26)
 
 
