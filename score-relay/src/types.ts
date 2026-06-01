@@ -56,6 +56,15 @@ export interface RelayConfig {
   trackerRequireAuth?: boolean;
   /** Token-bucket cap per matchUp on /tracker. Default 10 events/sec. */
   trackerMaxEventsPerSecond?: number;
+  /** Per-user fan-out ceiling on /tracker — multiplier of
+   *  `trackerMaxEventsPerSecond`. Default 5 → 50 ev/s across all
+   *  matchUps a single token holder can publish to. Closes the
+   *  cross-matchUp bypass flagged in the 2026-05-31 punch list. */
+  trackerUserFanoutMultiplier?: number;
+  /** Per-IP connect-rate cap on /tracker. Default 60/min. Caps the
+   *  previously-unlimited handshake — defense-in-depth against
+   *  connection floods (legit reconnect storms stay well under). */
+  trackerMaxConnectsPerMinute?: number;
 }
 
 export interface RelayMetrics {
