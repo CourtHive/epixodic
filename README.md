@@ -90,36 +90,43 @@ Legacy format codes from earlier versions are automatically migrated on load.
 
 ## Architecture
 
+Epixodic is a Svelte 5 application using runes (`$state`, `$derived`, `$effect`). The earlier vanilla-TypeScript implementation was rewritten in 2026.
+
 ```
 src/
-  main.ts                 # Entry point, router init
-  init.ts                 # App initialization, event setup
-  router/                 # Navigo-based hash routing
-  state/                  # Global state (env, settings, browserStorage)
-  pages/                  # View components (ViewPage subclasses)
-  scoring/                # Scoring skins (portrait/landscape)
-  display/                # Visualization setup, score display, view management
-  engine/                 # ScoringEngine integration, match end detection
-  events/                 # Touch/click handling, stroke decoration
-  decorations/            # Shot type profiles (standard, intennse)
-  match/                  # Load, export, archive management
-  services/               # Format migration, match object helpers
-  visualizations/         # Re-exports from scoring-visualizations
-  styles/                 # CSS (Bulma + app styles)
-  assets/                 # Images, audio, icons
+  main.ts             # Svelte app entry
+  init.ts             # App initialization
+  components/         # Svelte components
+  pages/              # Page-level components
+  router/             # Client-side hash routing (Navigo)
+  match/              # Match state management
+  scoring/            # Scoring logic and UI
+  engine/             # ScoringEngine integration
+  intennse/           # INTENNSE team tennis scoring
+  clock/              # Clock/timer system (general + INTENNSE)
+  modals/             # Modal dialogs
+  display/            # Display/rendering logic
+  events/             # Event handling
+  decorations/        # Visual decoration utilities
+  player/             # Player data handling
+  config/             # App configuration
+  functions/          # Shared utility functions
+  services/           # External service integration
+  dev/                # Development helpers
 ```
 
 ### Key Dependencies
 
-| Package                                                                          | Role                                                  |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [Competition Factory](https://courthive.github.io/competition-factory/)          | Scoring engine, match format parsing, statistics      |
-| [Scoring Visualizations](https://github.com/CourtHive/scoringVisualizations) | D3 visualizations (GameTree, GameFish, Momentum, PTS) |
-| [CourtHive Components](https://github.com/CourtHive/courthive-components)        | Modal dialogs, UI components                          |
-| [D3.js v7](https://d3js.org/)                                                    | SVG rendering for all visualizations                  |
-| [Navigo](https://github.com/krasimir/navigo)                                     | Client-side hash routing                              |
-| [Bulma](https://bulma.io/)                                                       | CSS framework                                         |
-| [Vite](https://vitejs.dev/)                                                      | Build tool and dev server                             |
+| Package | Role |
+| --- | --- |
+| `svelte` (v5 with runes) | UI framework |
+| [Competition Factory](https://courthive.github.io/competition-factory/) | Scoring engine, match format parsing, statistics |
+| [`@courthive/scoring-visualizations`](https://github.com/CourtHive/scoringVisualizations) | D3 match visualization charts |
+| [`courthive-components`](https://github.com/CourtHive/courthive-components) | Shared CourtHive UI components |
+| `d3` v7 | Additional charting |
+| [Navigo](https://github.com/krasimir/navigo) | Client-side hash routing |
+| `socket.io-client` | Real-time communication |
+| [Vite](https://vitejs.dev/) | Build tool and dev server |
 
 ## License
 
