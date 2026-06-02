@@ -1,6 +1,16 @@
+# score-relay is intentionally NOT listed here. It has its own
+# pnpm-workspace.yaml (`packages: []`) declaring it a standalone
+# workspace root with its own pnpm-lock.yaml. Listing it here makes
+# pnpm v11 consolidate its dependencies into epixodic's root lockfile
+# on install AND delete `score-relay/pnpm-lock.yaml` as part of that
+# normalization — which breaks `mentat-build-all.sh`'s install path
+# (`pnpm install --ignore-workspace` from score-relay/, which
+# requires the standalone lockfile). Keep score-relay installs
+# separate; run `pnpm install` inside `score-relay/` to refresh.
+# Mirrors the same fix made in competition-factory-server for
+# audit-worker.
 packages:
   - '.'
-  - 'score-relay'
 
 allowBuilds:
   esbuild: true
