@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.1](https://github.com/CourtHive/epixodic/compare/v2.1.0...v2.1.1) (2026-06-02)
+
+
+### Bug Fixes
+
+* **build:** stop pnpm at epixodic root from deleting score-relay lockfile ([28bcffa](https://github.com/CourtHive/epixodic/commit/28bcffa611811c14698268e0ed0f11163e4c0139))
+
+
+### Documentation
+
+* **readme:** rewrite architecture section for the svelte 5 rewrite ([00a59dc](https://github.com/CourtHive/epixodic/commit/00a59dc7381e2aa058103deec9f52102a1733b60))
+
 ## [2.1.0](https://github.com/CourtHive/epixodic/compare/v2.0.5...v2.1.0) (2026-06-01)
 
 
