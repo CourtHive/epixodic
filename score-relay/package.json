@@ -20,7 +20,7 @@
     "pg": "^8.13.1",
     "socket.io": "^4.8.3",
     "socket.io-client": "4.8.3",
-    "tods-competition-factory": "5.2.1"
+    "tods-competition-factory": "5.2.3"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
