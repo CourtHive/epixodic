@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.2.0](https://github.com/CourtHive/epixodic/compare/v2.1.1...v2.2.0) (2026-06-08)
+
+
+### Features
+
+* **build:** emit dist/version.json so /epixodic/version.json returns real JSON ([7cab85d](https://github.com/CourtHive/epixodic/commit/7cab85d8d700f9a36209e9a88a81d7978f67db5a))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 5.3.0 ([d7ed5ef](https://github.com/CourtHive/epixodic/commit/d7ed5ef9634b07f479074bba8d2521d96c472e44))
+* **deps:** update tods-competition-factory to 5.4.0 ([d95f282](https://github.com/CourtHive/epixodic/commit/d95f28231aa7e4205315627b864f3bced892a71c))
+
 ## [2.1.1](https://github.com/CourtHive/epixodic/compare/v2.1.0...v2.1.1) (2026-06-02)
 
 
