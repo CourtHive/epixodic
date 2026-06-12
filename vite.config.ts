@@ -1,5 +1,6 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { readFileSync, writeFileSync } from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
 import { version as pkgVersion } from './package.json';
@@ -28,6 +29,26 @@ const emitVersionJson = (): Plugin => ({
   },
 });
 
+// The service-worker source in public/sw.js carries a literal
+// `__EPIXODIC_BUILD_COMMIT__` token that Vite would otherwise copy
+// verbatim into dist/sw.js (anything in public/ is shipped as-is).
+// This post-build hook rewrites that token to the actual commit
+// short-SHA so the SW's CACHE_VERSION changes every build and the
+// activate-time sweep can evict the previous cache. The SW bytes also
+// change between builds, which forces browsers to install + activate
+// the new worker instead of clinging to the old one indefinitely.
+const stampServiceWorkerVersion = (): Plugin => ({
+  name: 'epixodic-stamp-sw-version',
+  apply: 'build',
+  writeBundle(options) {
+    const outDir = options.dir ?? 'dist';
+    const swPath = path.join(outDir, 'sw.js');
+    const original = readFileSync(swPath, 'utf8');
+    const stamped = original.replaceAll('__EPIXODIC_BUILD_COMMIT__', BUILD_COMMIT);
+    if (stamped !== original) writeFileSync(swPath, stamped);
+  },
+});
+
 export default ({ mode }) => {
   // Load app-level env vars to node-level env vars.
   process.env = { ...process.env, ...loadEnv(mode, process.cwd(), '') };
@@ -39,7 +60,7 @@ export default ({ mode }) => {
       port: 5182,
     },
     build: { sourcemap: true },
-    plugins: [svelte(), emitVersionJson()],
+    plugins: [svelte(), emitVersionJson(), stampServiceWorkerVersion()],
     base: BASE_URL,
     test: {
       exclude: ['e2e/**', '**/node_modules/**', 'score-relay/**'],
