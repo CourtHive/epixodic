@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.1](https://github.com/CourtHive/epixodic/compare/v2.2.0...v2.2.1) (2026-06-28)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 3.4.4 ([aebbf34](https://github.com/CourtHive/epixodic/commit/aebbf348e13bc9e6fff3f52d67fb694a686ba1e7))
+* **deps:** update tods-competition-factory to 5.6.0 ([59bfa18](https://github.com/CourtHive/epixodic/commit/59bfa1840b369974403dc640dd8490eb3b1fc9ff))
+* **deps:** update tods-competition-factory to 5.7.0 ([82bead8](https://github.com/CourtHive/epixodic/commit/82bead85056fc4916e68c5b7f890afe723ea0f43))
+* **pwa:** stamp SW cache version per build + auto-activate updates ([26828a1](https://github.com/CourtHive/epixodic/commit/26828a13a3e66d10e8342a502a03f715ca20c468))
+
 ## [2.2.0](https://github.com/CourtHive/epixodic/compare/v2.1.1...v2.2.0) (2026-06-08)
 
 
