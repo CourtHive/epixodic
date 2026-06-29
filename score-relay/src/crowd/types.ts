@@ -33,6 +33,12 @@ export interface CrowdScorerAttribution {
   displayName: string;
   /** Source of trust for the attribution. */
   audience: 'admin' | 'hiveid';
+  /**
+   * Whether the scorer's email is verified (from the hiveid JWT's
+   * `email_verified` claim). TMX gates scorer-nomination on this — only
+   * verified persons may be nominated. False for unverified / admin-attributed.
+   */
+  verified: boolean;
 }
 
 /**

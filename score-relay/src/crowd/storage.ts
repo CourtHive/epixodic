@@ -28,7 +28,7 @@ const SELECT_COLS = `
   session_id, matchup_id, tournament_id, user_id, client_id, format_hint,
   current_score, point_history, trusted, trusted_by, trusted_at, status,
   version, created_at, updated_at,
-  scorer_person_id, scorer_display_name, scorer_audience
+  scorer_person_id, scorer_display_name, scorer_audience, scorer_verified
 `;
 
 interface SessionRow {
@@ -50,6 +50,7 @@ interface SessionRow {
   scorer_person_id: string | null;
   scorer_display_name: string | null;
   scorer_audience: string | null;
+  scorer_verified: boolean | null;
 }
 
 function rowToSession(row: SessionRow): CrowdScoringSession {
@@ -82,6 +83,7 @@ function rowToCrowdScoredBy(row: SessionRow): CrowdScorerAttribution | undefined
     personId: row.scorer_person_id ?? null,
     displayName: row.scorer_display_name ?? '',
     audience: row.scorer_audience,
+    verified: row.scorer_verified === true,
   };
 }
 
@@ -93,8 +95,8 @@ export class CrowdScoringStorage {
       `
       INSERT INTO crowd.crowd_scoring_sessions
         (session_id, matchup_id, tournament_id, user_id, client_id, format_hint, current_score,
-         scorer_person_id, scorer_display_name, scorer_audience)
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)
+         scorer_person_id, scorer_display_name, scorer_audience, scorer_verified)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11)
       RETURNING ${SELECT_COLS}
       `,
       [
@@ -108,6 +110,7 @@ export class CrowdScoringStorage {
         input.crowdScoredBy?.personId ?? null,
         input.crowdScoredBy?.displayName ?? null,
         input.crowdScoredBy?.audience ?? null,
+        input.crowdScoredBy?.verified ?? false,
       ],
     );
     return rowToSession(result.rows[0]);

@@ -86,6 +86,8 @@ interface SocketData {
   personId?: string;
   /** Cached display name from JWT for hiveid-aud sockets. */
   displayName?: string;
+  /** JWT `email_verified` claim (hiveid-aud sockets). Gates TMX nomination. */
+  verified?: boolean;
   acquiredSessions: Set<string>;
 }
 
@@ -131,7 +133,15 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
       personId = claimed;
       displayName = typeof payload.displayName === 'string' ? payload.displayName : undefined;
     }
-    (socket.data as SocketData) = { userId, audience, personId, displayName, acquiredSessions: new Set<string>() };
+    const verified = payload.email_verified === true;
+    (socket.data as SocketData) = {
+      userId,
+      audience,
+      personId,
+      displayName,
+      verified,
+      acquiredSessions: new Set<string>(),
+    };
     next();
   });
 
@@ -326,6 +336,7 @@ function resolveAttribution(
       personId: data.personId ?? null,
       displayName: payloadScorer?.displayName ?? data.displayName ?? '',
       audience: 'hiveid',
+      verified: data.verified === true,
     };
   }
   if (payloadScorer && typeof payloadScorer.displayName === 'string') {
@@ -333,6 +344,9 @@ function resolveAttribution(
       personId: payloadScorer.personId ?? null,
       displayName: payloadScorer.displayName,
       audience: 'admin',
+      // Admin-attributed scores are not email-verified HiveID identities;
+      // they are never nominatable as a verified crowd scorer.
+      verified: false,
     };
   }
   return undefined;

@@ -351,6 +351,35 @@ suite('/crowd namespace', () => {
     expect(persisted?.crowdScoredBy?.personId).toBe('person-canonical-alice');
     // displayName from payload is allowed (server has no opinion on it)
     expect(persisted?.crowdScoredBy?.displayName).toBe('Alice from payload');
+    // No email_verified claim on the token → not nominatable.
+    expect(persisted?.crowdScoredBy?.verified).toBe(false);
+
+    client.disconnect();
+  });
+
+  it('stamps crowdScoredBy.verified=true from the JWT email_verified claim', async () => {
+    const token = mkToken('u-hive-bob', {
+      aud: 'hiveid',
+      personId: 'person-canonical-bob',
+      displayName: 'Bob',
+      email_verified: true,
+    });
+    const client = connect(token);
+    await new Promise<void>((resolve) => client.on('connect', resolve));
+
+    client.emit('submitCrowdScore', {
+      sessionId: 'sess-hive-verified',
+      matchUpId: 'mu-1',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-2',
+      point: mkPoint(1),
+      currentScore: {},
+    });
+    await nextEvent(client, 'acked');
+
+    const persisted = await storage.getById('sess-hive-verified');
+    expect(persisted?.crowdScoredBy?.personId).toBe('person-canonical-bob');
+    expect(persisted?.crowdScoredBy?.verified).toBe(true);
 
     client.disconnect();
   });
