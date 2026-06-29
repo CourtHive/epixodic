@@ -38,7 +38,7 @@ import {
 import type { CrowdScoringStorage } from './storage.js';
 import type { UserLimits } from './userLimits.js';
 
-type CrowdAudience = 'admin' | 'hiveid';
+type CrowdAudience = 'admin' | 'hiveid' | 'provider';
 
 export interface CrowdNamespaceOptions {
   io: Server;
@@ -123,7 +123,7 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
     const audience = resolveAudience(payload);
     let personId: string | undefined;
     let displayName: string | undefined;
-    if (audience === 'hiveid') {
+    if (audience === 'hiveid' || audience === 'provider') {
       const claimed = typeof payload.personId === 'string' ? payload.personId : undefined;
       if (!claimed) {
         log(`reject ${socket.id}: missing-person-id`);
@@ -322,6 +322,9 @@ function resolveAudience(payload: JwtPayload): CrowdAudience {
   // dual-audience token always exposes the canonical personId path.
   const list = normalizeAudiences(payload.aud);
   if (list.includes('hiveid')) return 'hiveid';
+  // Provider-minted tokens (e.g. IONSport via the provisioner key) carry an
+  // identity-attested scorer like hiveid, scoped to a tournament.
+  if (list.includes('provider')) return 'provider';
   return 'admin';
 }
 
@@ -329,13 +332,13 @@ function resolveAttribution(
   data: SocketData,
   payloadScorer: SubmitCrowdScorePayload['scorer'],
 ): CrowdScorerAttribution | undefined {
-  if (data.audience === 'hiveid') {
+  if (data.audience === 'hiveid' || data.audience === 'provider') {
     // JWT personId is the source of truth — the client's scorer block
     // is informational, never trusted to override the JWT-attested id.
     return {
       personId: data.personId ?? null,
       displayName: payloadScorer?.displayName ?? data.displayName ?? '',
-      audience: 'hiveid',
+      audience: data.audience,
       verified: data.verified === true,
     };
   }

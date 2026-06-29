@@ -32,7 +32,7 @@ export interface CrowdScorerAttribution {
   /** Cached display name from the JWT or admin-side input. */
   displayName: string;
   /** Source of trust for the attribution. */
-  audience: 'admin' | 'hiveid';
+  audience: 'admin' | 'hiveid' | 'provider';
   /**
    * Whether the scorer's email is verified (from the hiveid JWT's
    * `email_verified` claim). TMX gates scorer-nomination on this — only

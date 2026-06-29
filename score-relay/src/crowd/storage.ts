@@ -78,7 +78,9 @@ function rowToCrowdScoredBy(row: SessionRow): CrowdScorerAttribution | undefined
   // `scorer_audience` is the gate — admin / hiveid is what makes a row
   // "attributed". A bare displayName without audience is treated as legacy /
   // anonymous and omitted.
-  if (row.scorer_audience !== 'admin' && row.scorer_audience !== 'hiveid') return undefined;
+  if (row.scorer_audience !== 'admin' && row.scorer_audience !== 'hiveid' && row.scorer_audience !== 'provider') {
+    return undefined;
+  }
   return {
     personId: row.scorer_person_id ?? null,
     displayName: row.scorer_display_name ?? '',

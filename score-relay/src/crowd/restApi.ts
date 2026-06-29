@@ -107,6 +107,17 @@ async function handle(
 
     if (method === 'POST' && action === 'promote') {
       const trustedBy = typeof _payload.sub === 'string' ? _payload.sub : 'unknown';
+      // Provider-scoped tokens (a `tournamentId` claim) may only nominate within
+      // their tournament scope — enforced from the token, so the relay needs no
+      // tournament→provider mapping.
+      const scopeTournamentId = typeof _payload.tournamentId === 'string' ? _payload.tournamentId : undefined;
+      if (scopeTournamentId) {
+        const existing = await opts.storage.getById(sessionId);
+        if (existing && existing.tournamentId !== scopeTournamentId) {
+          respondJson(res, 403, { error: 'tournament-scope-mismatch' });
+          return;
+        }
+      }
       try {
         const session = await opts.storage.promote(sessionId, trustedBy);
         respondJson(res, 200, { session });
