@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.3.0](https://github.com/CourtHive/epixodic/compare/v2.2.1...v2.3.0) (2026-06-30)
+
+
+### Features
+
+* **crowd:** accept provider-audience relay tokens (IONSport) ([f50d970](https://github.com/CourtHive/epixodic/commit/f50d970dc9f7fa39effc8657684f9bfacfa6f542))
+* **crowd:** carry email_verified scorer attribution to consumers ([7219b28](https://github.com/CourtHive/epixodic/commit/7219b28ad8dd0607f7d91a873de84c1a67c8ad00))
+
+
+### Bug Fixes
+
+* **deps:** update dependency courthive-components to v3.4.5 ([15b4f79](https://github.com/CourtHive/epixodic/commit/15b4f79c44767716e04c2b3098880a5f713b3373))
+* **deps:** update dependency tods-competition-factory to v5.7.1 ([a188e48](https://github.com/CourtHive/epixodic/commit/a188e48685bc1cc9304161a3b36a3b3b5bd9644a))
+
 ## [2.2.1](https://github.com/CourtHive/epixodic/compare/v2.2.0...v2.2.1) (2026-06-28)
 
 
