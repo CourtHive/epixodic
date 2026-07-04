@@ -107,7 +107,7 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
     }
     let payload: JwtPayload;
     try {
-      payload = verifyHs256(token, opts.jwtSecret, { expectedAudiences: ['admin', 'hiveid'] });
+      payload = verifyHs256(token, opts.jwtSecret, { expectedAudiences: ['admin', 'hiveid', 'provider'] });
     } catch (err) {
       const reason = err instanceof JwtVerificationError ? err.reason : 'bad-token';
       log(`reject ${socket.id}: ${reason}`);

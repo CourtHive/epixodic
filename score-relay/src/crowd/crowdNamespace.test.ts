@@ -312,11 +312,53 @@ suite('/crowd namespace', () => {
     client.disconnect();
   });
 
-  it('rejects a token whose aud is none of admin/hiveid', async () => {
+  it('rejects a token whose aud is none of admin/hiveid/provider', async () => {
     const token = signHs256({ sub: 'u-projector', aud: 'projector' }, JWT_SECRET);
     const client = connect(token);
     const err = await new Promise<Error>((resolve) => client.on('connect_error', resolve));
     expect(err.message).toMatch(/audience-mismatch/);
+    client.disconnect();
+  });
+
+  it('accepts a provider-aud token with a personId and stamps crowdScoredBy.audience=provider', async () => {
+    const token = mkToken('u-provider-ion', {
+      aud: 'provider',
+      personId: 'person-ion-carla',
+      displayName: 'Carla (IONSport)',
+      email_verified: true,
+    });
+    const client = connect(token);
+    await new Promise<void>((resolve) => client.on('connect', resolve));
+
+    client.emit('submitCrowdScore', {
+      sessionId: 'sess-prov-1',
+      matchUpId: 'mu-1',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-prov',
+      point: mkPoint(1),
+      currentScore: {},
+      scorer: {
+        personId: 'person-evil-impersonator',
+        displayName: 'Carla from payload',
+        audience: 'provider',
+      },
+    });
+    await nextEvent(client, 'acked');
+
+    const persisted = await storage.getById('sess-prov-1');
+    expect(persisted?.crowdScoredBy?.audience).toBe('provider');
+    // JWT-attested personId wins over the client-supplied one.
+    expect(persisted?.crowdScoredBy?.personId).toBe('person-ion-carla');
+    expect(persisted?.crowdScoredBy?.verified).toBe(true);
+
+    client.disconnect();
+  });
+
+  it('rejects a provider-aud token without a personId claim', async () => {
+    const token = signHs256({ sub: 'u-provider-no-person', aud: 'provider' }, JWT_SECRET);
+    const client = connect(token);
+    const err = await new Promise<Error>((resolve) => client.on('connect_error', resolve));
+    expect(err.message).toMatch(/missing-person-id/);
     client.disconnect();
   });
 
