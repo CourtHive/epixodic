@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.3.1](https://github.com/CourtHive/epixodic/compare/v2.3.0...v2.3.1) (2026-07-04)
+
+
+### Bug Fixes
+
+* **crowd:** accept provider-audience tokens at the /crowd handshake ([5fa9fcf](https://github.com/CourtHive/epixodic/commit/5fa9fcfd5bef0d03c3a32be027949053717aea4e))
+* **deps:** update dependency courthive-components to v3.4.6 ([1a6e655](https://github.com/CourtHive/epixodic/commit/1a6e6552878dec0f758f97a36778e61328345a35))
+* **deps:** update dependency tods-competition-factory to v5.8.0 ([#261](https://github.com/CourtHive/epixodic/issues/261)) ([41c452b](https://github.com/CourtHive/epixodic/commit/41c452b81838f2cec4da8aaf7b6f9b562f9cc102))
+
+
+### Documentation
+
+* refresh CLAUDE.md for score-relay and crowd-scoring ([c39feaa](https://github.com/CourtHive/epixodic/commit/c39feaa8d8045e03c6653cdd474d496bc905be16))
+
 ## [2.3.0](https://github.com/CourtHive/epixodic/compare/v2.2.1...v2.3.0) (2026-06-30)
 
 
