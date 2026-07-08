@@ -7,7 +7,10 @@ interface ApiResult<T> {
 }
 
 export interface ScheduledMatchUpsResponse {
-  dateMatchUps?: Record<string, HydratedMatchUp[]>;
+  // Flat array of the incomplete matchUps for the requested schedule range — the
+  // factory's `competitionScheduleMatchUps` shape, passed through by CFS unchanged
+  // (NOT keyed by date). Group/filter by `matchUp.schedule.scheduledDate` client-side.
+  dateMatchUps?: HydratedMatchUp[];
   completedMatchUps?: HydratedMatchUp[];
   groupInfo?: Record<string, any>;
   mappedParticipants?: Record<string, any>;
