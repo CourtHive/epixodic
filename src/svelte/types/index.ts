@@ -42,6 +42,9 @@ export interface HydratedMatchUp {
     courtName?: string;
   };
   readyToScore?: boolean;
+  /** Set by localScoreOverlay when an in-progress local (unsubmitted) score is
+   *  merged onto a server matchUp for display in the draw view. */
+  hasLocalScore?: boolean;
   winningSide?: number;
   tieMatchUps?: HydratedMatchUp[];
   tieFormat?: TieFormat;

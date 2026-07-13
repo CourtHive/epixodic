@@ -1,4 +1,5 @@
 import { getEventData } from '../services/factoryApi';
+import { localScoreVersion, overlayLocalScore } from './localScoreOverlay.svelte';
 import type { HydratedMatchUp, Participant } from '../types';
 
 let tournamentId = $state<string | undefined>(undefined);
@@ -8,16 +9,24 @@ let participants = $state<Participant[]>([]);
 let loading = $state(false);
 let error = $state<string | undefined>(undefined);
 
+// Server matchUps with any in-progress local scores merged on top. Reactive to
+// local scoring (incl. the scoring iframe) via localScoreVersion(), so the Draw
+// view reflects points as they are scored without a CFS round-trip or reload.
+const overlaidMatchUps = $derived.by(() => {
+  localScoreVersion();
+  return matchUps.map((m) => overlayLocalScore(m));
+});
+
 const completedMatchUps = $derived(
-  matchUps.filter((m) => m.winningSide || m.matchUpStatus === 'COMPLETED'),
+  overlaidMatchUps.filter((m) => m.winningSide || m.matchUpStatus === 'COMPLETED'),
 );
 const readyToScoreMatchUps = $derived(
-  matchUps.filter(
+  overlaidMatchUps.filter(
     (m) => m.readyToScore && !m.winningSide && m.matchUpStatus !== 'COMPLETED',
   ),
 );
 const inProgressMatchUps = $derived(
-  matchUps.filter(
+  overlaidMatchUps.filter(
     (m) =>
       !m.readyToScore &&
       !m.winningSide &&
@@ -35,7 +44,7 @@ export function getEventDataState() {
       return eventId;
     },
     get matchUps() {
-      return matchUps;
+      return overlaidMatchUps;
     },
     get participants() {
       return participants;
