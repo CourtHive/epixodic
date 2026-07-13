@@ -5,6 +5,7 @@
  */
 import { cModal } from 'courthive-components';
 import { loadMatch } from '../match/loadMatch';
+import { finalizeMatchOutcome } from '../match/finalizeMatchOutcome';
 
 const MODAL_W = 375;
 const MODAL_H = 667;
@@ -44,6 +45,7 @@ export function openScoringModal(matchUpId: string): void {
     onClose: () => {
       globalThis.removeEventListener('message', onIframeMessage);
       refreshArchive();
+      void finalizeMatchOutcome(matchUpId);
     },
   });
 }

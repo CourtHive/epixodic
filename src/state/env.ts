@@ -365,6 +365,7 @@ export function updateMatchArchive(force?: boolean) {
 
   const todsMatchUp: any = {
     tournamentId: env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId,
+    drawId: env.metadata.match?.drawId,
     matchUpId: match_id,
     matchUpFormat,
     matchUpType: env.matchUpType || SINGLES,

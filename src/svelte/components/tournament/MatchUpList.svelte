@@ -19,9 +19,13 @@
       matchUpFormat: matchUp.matchUpFormat || 'SET3-S:6/TB7',
       sides: matchUp.sides,
       score: matchUp.score,
+      // drawId is required for the authorized CFS final-outcome submit
+      // (POST /factory/score); carry it through the local round-trip.
+      drawId: matchUp.drawId,
       match: {
         matchUpId: matchUp.matchUpId,
         tournamentId: matchUp.tournamentId,
+        drawId: matchUp.drawId,
       },
       tournament: {
         tournamentId: matchUp.tournamentId,

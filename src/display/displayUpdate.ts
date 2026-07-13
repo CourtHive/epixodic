@@ -9,6 +9,7 @@ import {
   getNextServer,
 } from '../state/env';
 import { FORMAT_NAMES, isLegacyFormat, migrateFormat } from '../services/matchObject/formatMigration';
+import { finalizeMatchOutcome } from '../match/finalizeMatchOutcome';
 import { sendScore } from '../services/messaging/scoreRelay';
 import { browserStorage } from '../state/browserStorage';
 import { groupGames } from '../engine/groupGames';
@@ -110,9 +111,32 @@ export function stateChangeEvent() {
 
     // Broadcast live score to relay
     broadcastScore();
+
+    // Standalone (mobile) scoring page: submit the final outcome to CFS when the
+    // match completes. The desktop modal runs this scorer in an iframe and
+    // finalizes from the parent on close, so skip when framed to avoid a double
+    // submit.
+    maybeFinalizeStandalone();
   } finally {
     inStateChange = false;
   }
+}
+
+let lastFinalizeKey: string | undefined;
+
+function maybeFinalizeStandalone(): void {
+  if (typeof globalThis === 'undefined' || globalThis.self !== globalThis.top) return;
+  if (!env.engine?.isComplete?.()) return;
+  const matchUpId = env.metadata?.match?.matchUpId;
+  if (!matchUpId) return;
+
+  // Fire once per unique completed outcome (re-fires on a correction).
+  const state = env.engine.getState();
+  const key = `${matchUpId}|${state?.winningSide ?? ''}|${JSON.stringify(state?.score?.sets ?? [])}`;
+  if (key === lastFinalizeKey) return;
+  lastFinalizeKey = key;
+
+  void finalizeMatchOutcome(matchUpId);
 }
 
 export function visibleButtons() {

@@ -3,9 +3,11 @@
   import Breadcrumb from './Breadcrumb.svelte';
   import NavAction from './NavAction.svelte';
   import LoginModal from '../shared/LoginModal.svelte';
+  import { onMount } from 'svelte';
   import { getNavigationState } from '../../stores/navigation.svelte';
   import { getAuthState, handleLogout } from '../../stores/auth.svelte';
   import { getAvatarAriaLabel, getAvatarColorClass, getAvatarTitle } from './avatarState';
+  import { LOGIN_REQUIRED_EVENT, type LoginRequiredDetail } from '../../../services/auth/loginPrompt';
   import type { BreadcrumbItem, NavAction as NavActionType } from '../../types';
 
   let { actions = [], backAction }: { actions?: NavActionType[]; backAction?: () => void } = $props();
@@ -22,6 +24,26 @@
   });
 
   let showLoginModal = $state(false);
+  let pendingOnSuccess: (() => void) | undefined;
+
+  // Any context (e.g. the scoring flow finalizing a tournament outcome) can ask
+  // the app to open the login modal via requestLogin(); run its callback once
+  // the user authenticates.
+  onMount(() => {
+    const handler = (event: Event) => {
+      pendingOnSuccess = (event as CustomEvent<LoginRequiredDetail>).detail?.onSuccess;
+      showLoginModal = true;
+    };
+    window.addEventListener(LOGIN_REQUIRED_EVENT, handler);
+    return () => window.removeEventListener(LOGIN_REQUIRED_EVENT, handler);
+  });
+
+  function handleLoginSuccess() {
+    showLoginModal = false;
+    const cb = pendingOnSuccess;
+    pendingOnSuccess = undefined;
+    cb?.();
+  }
 </script>
 
 <nav class="top-nav">
@@ -64,8 +86,8 @@
 
 {#if showLoginModal}
   <LoginModal
-    onClose={() => (showLoginModal = false)}
-    onSuccess={() => (showLoginModal = false)}
+    onClose={() => { showLoginModal = false; pendingOnSuccess = undefined; }}
+    onSuccess={handleLoginSuccess}
   />
 {/if}
 
