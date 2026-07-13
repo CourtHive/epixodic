@@ -75,6 +75,6 @@
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "svelte": "^5.53.6",
-    "tods-competition-factory": "6.5.0"
+    "tods-competition-factory": "6.6.0"
   }
 }
