@@ -87,6 +87,20 @@ describe('jwtVerify', () => {
       );
     });
 
+    it('accepts a CFS scorer token (aud: score) at the /crowd audience set', () => {
+      const token = signHs256({ sub: 'u', aud: 'score', personId: 'p-1' }, SECRET);
+      expect(() =>
+        verifyHs256(token, SECRET, { expectedAudiences: ['admin', 'hiveid', 'provider', 'score'] }),
+      ).not.toThrow();
+    });
+
+    it('rejects a score token where score is NOT in the expected set (grants nothing elsewhere)', () => {
+      const token = signHs256({ sub: 'u', aud: 'score', personId: 'p-1' }, SECRET);
+      expect(() => verifyHs256(token, SECRET, { expectedAudiences: ['admin', 'hiveid'] })).toThrowError(
+        /audience-mismatch/,
+      );
+    });
+
     it('skips the check entirely when expectedAudiences is omitted', () => {
       const token = signHs256({ sub: 'u', aud: 'anything-goes' }, SECRET);
       expect(() => verifyHs256(token, SECRET)).not.toThrow();
