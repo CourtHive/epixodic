@@ -10,6 +10,7 @@ import {
 } from '../state/env';
 import { FORMAT_NAMES, isLegacyFormat, migrateFormat } from '../services/matchObject/formatMigration';
 import { finalizeMatchOutcome } from '../match/finalizeMatchOutcome';
+import { relayCrowdScoreIfLaunched } from '../services/messaging/crowdScoreRelay';
 import { sendScore } from '../services/messaging/scoreRelay';
 import { browserStorage } from '../state/browserStorage';
 import { groupGames } from '../engine/groupGames';
@@ -429,15 +430,28 @@ function broadcastScore(): void {
   const score = state.score || {};
   const scoreDisplay = getScoreForDisplay();
 
+  const tournamentId = env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId;
+  const isComplete = env.engine.isComplete();
+  const winningSide = isComplete ? state.winningSide : undefined;
+
   sendScore({
     matchUpId,
-    tournamentId: env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId,
+    tournamentId,
     score: {
       sets: score.sets,
       scoreStringSide1: scoreDisplay,
       scoreStringSide2: scoreDisplay,
     },
-    matchUpStatus: env.engine.isComplete() ? 'COMPLETED' : 'IN_PROGRESS',
-    winningSide: env.engine.isComplete() ? state.winningSide : undefined,
+    matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
+    winningSide,
+  });
+
+  // When launched from courthive-public with a HiveID identity, also relay to
+  // the /crowd namespace as that scorer (Phase D) — no-op otherwise.
+  relayCrowdScoreIfLaunched({
+    matchUpId,
+    tournamentId,
+    currentScore: { sets: score.sets, winningSide, scoreboard: scoreDisplay, matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS' },
+    formatHint: env.metadata.match?.matchUpFormat,
   });
 }

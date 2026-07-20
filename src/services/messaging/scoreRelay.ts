@@ -7,7 +7,7 @@ import { io, Socket } from 'socket.io-client';
  * Deployed: same origin, nginx proxies `/relay/` to the relay server,
  *   so Socket.IO path must be `/relay/socket.io/` for the proxy to route it.
  */
-function getRelayConfig(): { origin: string; path: string } {
+export function getRelayConfig(): { origin: string; path: string } {
   if (import.meta.env.VITE_RELAY_URL) {
     return { origin: import.meta.env.VITE_RELAY_URL, path: '/socket.io/' };
   }
