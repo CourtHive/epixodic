@@ -9,10 +9,12 @@
  * identical to scoring inline on courthive-public — so a nominated scorer's
  * epixodic scores flow through TMX's `classifyScorer` → one-click Accept.
  *
- * NOTE (security): today this carries the HiveID session JWT in the URL, which
- * leaks into history/logs. Hardening: mint a short-lived, single-use `aud:score`
- * scoring token (CFS `tracker-token.service` already supports personId+verified)
- * and hand THAT off instead. Tracked as a follow-up.
+ * The token in the URL is a short-lived, scope-narrowed `aud: 'score'` token
+ * minted by CFS `POST /auth/scorer-token` (personId + email_verified are the
+ * caller's own session claims). It grants nothing against CFS and is accepted
+ * only by the relay `/crowd` namespace — NOT the full HiveID session JWT, which
+ * would leak a whole-session credential into history/logs. The wire shape here
+ * is unchanged: any JWT carrying personId + email_verified decodes the same way.
  */
 
 import { jwtDecode } from 'jwt-decode';

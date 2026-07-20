@@ -426,6 +426,68 @@ suite('/crowd namespace', () => {
     client.disconnect();
   });
 
+  it('accepts a CFS scorer token (aud: score) and attributes it like a hiveid identity', async () => {
+    const token = mkToken('u-scorer-dana', {
+      aud: 'score',
+      personId: 'person-canonical-dana',
+      displayName: 'Dana',
+      email_verified: true,
+      matchUpId: 'mu-1',
+    });
+    const client = connect(token);
+    await new Promise<void>((resolve) => client.on('connect', resolve));
+
+    client.emit('submitCrowdScore', {
+      sessionId: 'sess-score-dana',
+      matchUpId: 'mu-1',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-score',
+      point: mkPoint(1),
+      currentScore: {},
+    });
+    await nextEvent(client, 'acked');
+
+    const persisted = await storage.getById('sess-score-dana');
+    expect(persisted?.crowdScoredBy?.audience).toBe('hiveid');
+    expect(persisted?.crowdScoredBy?.personId).toBe('person-canonical-dana');
+    expect(persisted?.crowdScoredBy?.verified).toBe(true);
+
+    client.disconnect();
+  });
+
+  it('rejects a scorer token whose bound matchUpId differs from the submitted matchUp', async () => {
+    const token = mkToken('u-scorer-evan', {
+      aud: 'score',
+      personId: 'person-canonical-evan',
+      email_verified: true,
+      matchUpId: 'mu-bound',
+    });
+    const client = connect(token);
+    await new Promise<void>((resolve) => client.on('connect', resolve));
+
+    client.emit('submitCrowdScore', {
+      sessionId: 'sess-score-evan',
+      matchUpId: 'mu-other',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-evan',
+      point: mkPoint(1),
+      currentScore: {},
+    });
+    const rejected = await nextEvent<{ reason: string }>(client, 'rejected');
+    expect(rejected.reason).toBe('matchup-scope');
+    expect(await storage.getById('sess-score-evan')).toBeFalsy();
+
+    client.disconnect();
+  });
+
+  it('rejects a scorer token without a personId claim', async () => {
+    const token = mkToken('u-scorer-noperson', { aud: 'score', email_verified: true });
+    const client = connect(token);
+    const err = await new Promise<Error>((resolve) => client.on('connect_error', resolve));
+    expect(err.message).toMatch(/missing-person-id/);
+    client.disconnect();
+  });
+
   it('records admin-aud attribution from the payload when supplied (TD on behalf of)', async () => {
     const token = mkToken('u-td-bob', { aud: 'admin' });
     const client = connect(token);

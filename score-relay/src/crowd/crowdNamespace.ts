@@ -88,6 +88,8 @@ interface SocketData {
   displayName?: string;
   /** JWT `email_verified` claim (hiveid-aud sockets). Gates TMX nomination. */
   verified?: boolean;
+  /** MatchUp the token is scoped to (CFS scorer tokens); undefined = unscoped. */
+  boundMatchUpId?: string;
   acquiredSessions: Set<string>;
 }
 
@@ -107,7 +109,7 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
     }
     let payload: JwtPayload;
     try {
-      payload = verifyHs256(token, opts.jwtSecret, { expectedAudiences: ['admin', 'hiveid', 'provider'] });
+      payload = verifyHs256(token, opts.jwtSecret, { expectedAudiences: ['admin', 'hiveid', 'provider', 'score'] });
     } catch (err) {
       const reason = err instanceof JwtVerificationError ? err.reason : 'bad-token';
       log(`reject ${socket.id}: ${reason}`);
@@ -133,6 +135,12 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
       personId = claimed;
       displayName = typeof payload.displayName === 'string' ? payload.displayName : undefined;
     }
+    // A CFS-minted scorer token (`aud: score`, mapped to hiveid above) may bind
+    // itself to a single matchUp. When present, submissions for any other
+    // matchUp are rejected — the token cannot be replayed across matches.
+    const boundMatchUpId = typeof payload.matchUpId === 'string' && payload.matchUpId.length > 0
+      ? payload.matchUpId
+      : undefined;
     const verified = payload.email_verified === true;
     (socket.data as SocketData) = {
       userId,
@@ -140,6 +148,7 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
       personId,
       displayName,
       verified,
+      boundMatchUpId,
       acquiredSessions: new Set<string>(),
     };
     next();
@@ -186,6 +195,12 @@ async function handleSubmit(
   if (!isValidSubmitPayload(payload)) {
     const sessionId = (payload as { sessionId?: unknown } | undefined)?.sessionId;
     socket.emit('rejected', { sessionId, reason: 'invalid-payload' });
+    return;
+  }
+
+  // Per-match scope: a token bound to a matchUp may only score that matchUp.
+  if (data.boundMatchUpId && payload.matchUpId !== data.boundMatchUpId) {
+    socket.emit('rejected', { sessionId: payload.sessionId, reason: 'matchup-scope' });
     return;
   }
 
@@ -316,7 +331,7 @@ function isValidSubmitPayload(payload: unknown): payload is SubmitCrowdScorePayl
   );
 }
 
-function resolveAudience(payload: JwtPayload): CrowdAudience {
+export function resolveAudience(payload: JwtPayload): CrowdAudience {
   // CFS's @Audience([...]) decorator emits 'aud' as string | string[].
   // Prefer 'hiveid' when present (more specific identity claim) so a
   // dual-audience token always exposes the canonical personId path.
@@ -325,6 +340,11 @@ function resolveAudience(payload: JwtPayload): CrowdAudience {
   // Provider-minted tokens (e.g. IONSport via the provisioner key) carry an
   // identity-attested scorer like hiveid, scoped to a tournament.
   if (list.includes('provider')) return 'provider';
+  // CFS scorer tokens (`aud: score`) are a HiveID person's own short-lived,
+  // scope-narrowed identity — the epixodic launch handoff. Treat them as a
+  // hiveid identity so the JWT-attested personId is the source of truth and the
+  // client-supplied scorer block can never override it.
+  if (list.includes('score')) return 'hiveid';
   return 'admin';
 }
 

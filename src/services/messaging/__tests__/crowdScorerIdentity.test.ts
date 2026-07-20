@@ -32,6 +32,26 @@ describe('decodeScorerIdentity', () => {
     expect(identity?.verified).toBe(false);
   });
 
+  it('decodes a CFS scoped scorer token (aud: score) the same way', () => {
+    const identity = decodeScorerIdentity(
+      makeJwt({
+        sub: 'user-9',
+        aud: 'score',
+        tournamentId: 't-1',
+        matchUpId: 'm-1',
+        personId: 'person-7',
+        displayName: 'Scoped Scorer',
+        email_verified: true,
+      }),
+    );
+    expect(identity).toEqual({
+      token: expect.any(String),
+      personId: 'person-7',
+      displayName: 'Scoped Scorer',
+      verified: true,
+    });
+  });
+
   it('returns null for an absent or undecodable token', () => {
     expect(decodeScorerIdentity(null)).toBeNull();
     expect(decodeScorerIdentity('not-a-jwt')).toBeNull();
