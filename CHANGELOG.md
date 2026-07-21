@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.4.0](https://github.com/CourtHive/epixodic/compare/v2.3.1...v2.4.0) (2026-07-21)
+
+
+### Features
+
+* **crowd:** accept scoped score-audience token on the /crowd relay ([#279](https://github.com/CourtHive/epixodic/issues/279)) ([bdc8333](https://github.com/CourtHive/epixodic/commit/bdc8333c926a7e4bb3a1a95afa25b5c901a5f0dc))
+* **crowd:** relay epixodic scores to /crowd as the launched HiveID scorer ([ed15e37](https://github.com/CourtHive/epixodic/commit/ed15e37ba0b8efcd44e5cab400f37f84ee6e83bd))
+* **score-relay:** dual-accept es256 tokens alongside legacy hs256 ([1849062](https://github.com/CourtHive/epixodic/commit/1849062ab23744e8f65096d035501528ef351236))
+* **score-relay:** JWT_ACCEPT_HS256=false toggle to drop legacy tokens ([80b6371](https://github.com/CourtHive/epixodic/commit/80b6371f34de27ae4ced82b972f98a1798320006))
+* **scoring:** overlay local scores onto the tournament draw with live updates ([a0e4a10](https://github.com/CourtHive/epixodic/commit/a0e4a106925ad7d8bdf2494581ffe48ed636cadd))
+* **scoring:** submit final outcome to CFS when authorized ([a0d03d0](https://github.com/CourtHive/epixodic/commit/a0d03d0c5267f8e65f701104162b9427af6824c1))
+
+
+### Bug Fixes
+
+* **deps:** override brace-expansion to patched versions to clear audit ([0bfc4fa](https://github.com/CourtHive/epixodic/commit/0bfc4fa04e6903d3d86575bb0b67e1db89500e13))
+* **deps:** sync score-relay lockfile to tods-competition-factory 6.1.1 ([caec129](https://github.com/CourtHive/epixodic/commit/caec129eed972ea8dcc88c4f4aedb4157e8df960))
+* **deps:** update courthive-components to 3.11.0 ([06815e6](https://github.com/CourtHive/epixodic/commit/06815e60acfecf047ba00e2db58bd2a299f245d4))
+* **deps:** update dependency courthive-components to v3.8.0 ([#272](https://github.com/CourtHive/epixodic/issues/272)) ([f5da29a](https://github.com/CourtHive/epixodic/commit/f5da29a76f2ab9a7dba9a19a68ef16590d1f7eb1))
+* **deps:** update dependency courthive-components to v3.8.2 ([#275](https://github.com/CourtHive/epixodic/issues/275)) ([9057717](https://github.com/CourtHive/epixodic/commit/9057717e2b8e16d462861eeffa2186af15b9dc0c))
+* **deps:** update tods-competition-factory to 6.10.0 ([9aa6a75](https://github.com/CourtHive/epixodic/commit/9aa6a759f894fae8b5d335f134c5940fbe8ae87d))
+* **deps:** update tods-competition-factory to 6.11.0 ([1ae3c83](https://github.com/CourtHive/epixodic/commit/1ae3c83118335ac4142c22d9f38380ea8cd074b2))
+* **deps:** update tods-competition-factory to 6.2.0 ([6f4cf91](https://github.com/CourtHive/epixodic/commit/6f4cf918796ed9153607a283047c8099242ad63c))
+* **deps:** update tods-competition-factory to 6.3.0 ([7f8394a](https://github.com/CourtHive/epixodic/commit/7f8394aed0dc77433d77c1674d9552103632e623))
+* **deps:** update tods-competition-factory to 6.4.0 ([0d36439](https://github.com/CourtHive/epixodic/commit/0d364398bd57e60d617562e34d94ed0be0653da6))
+* **deps:** update tods-competition-factory to 6.5.0 ([4730600](https://github.com/CourtHive/epixodic/commit/4730600a7bf4cc39343463e6e968cb256d95949e))
+* **deps:** update tods-competition-factory to 6.6.0 ([98e869d](https://github.com/CourtHive/epixodic/commit/98e869d193d98ddfee808d165b44a25573b05346))
+* **deps:** update tods-competition-factory to 6.7.0 ([ec964e7](https://github.com/CourtHive/epixodic/commit/ec964e7fc8f104c9e74a026cb0f49bb11bc45d55))
+* filter scheduled matchups by scheduled date and add store/api tests ([dd74e3c](https://github.com/CourtHive/epixodic/commit/dd74e3cd2d3632b1315a1d0cb2ae8a2d4c867f9d))
+* re-reject failed requests and set per-request auth header in baseApi ([210e0b7](https://github.com/CourtHive/epixodic/commit/210e0b71c6fe6858f46092822b1d694d4340e14d))
+
 ## [2.3.1](https://github.com/CourtHive/epixodic/compare/v2.3.0...v2.3.1) (2026-07-04)
 
 
