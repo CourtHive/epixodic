@@ -21,7 +21,7 @@ importers:
     dependencies:
       '@courthive/scoring-visualizations':
         specifier: ^0.2.2
-        version: 0.2.9(tods-competition-factory@6.11.0)
+        version: 0.2.9(tods-competition-factory@factory)
       axios:
         specifier: ^1.6.5
         version: 1.18.1
@@ -42,7 +42,7 @@ importers:
         version: 5.56.4(@typescript-eslint/types@8.64.0)
       tods-competition-factory:
         specifier: link:../factory
-        version: 6.11.0
+        version: link:../factory
     devDependencies:
       '@commitlint/cli':
         specifier: 21.2.1
@@ -1973,10 +1973,6 @@ packages:
   tippy.js@6.3.7:
     resolution: {integrity: sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ==}
 
-  tods-competition-factory@6.11.0:
-    resolution: {integrity: sha512-3lQAy0TZgWom1geQb0auGD0xUefVDuKGtvyqlwLvJ523V0CTinSIBd2Bz39gVYsW16q72zZuwz6MxxM9Rmi/UQ==}
-    engines: {node: '>=22'}
-
   totalist@3.0.1:
     resolution: {integrity: sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ==}
     engines: {node: '>=6'}
@@ -2316,11 +2312,11 @@ snapshots:
 
   '@conventional-changelog/template@1.2.1': {}
 
-  '@courthive/scoring-visualizations@0.2.9(tods-competition-factory@6.11.0)':
+  '@courthive/scoring-visualizations@0.2.9(tods-competition-factory@factory)':
     dependencies:
       d3: 7.9.0
       tippy.js: 6.3.7
-      tods-competition-factory: 6.11.0
+      tods-competition-factory: link:../factory
 
   '@emnapi/core@1.11.1':
     dependencies:
@@ -4015,8 +4011,6 @@ snapshots:
   tippy.js@6.3.7:
     dependencies:
       '@popperjs/core': 2.11.8
-
-  tods-competition-factory@6.11.0: {}
 
   totalist@3.0.1: {}
 
