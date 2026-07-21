@@ -25,6 +25,8 @@ overrides:
   # in the tree are left untouched.
   lodash: ^4.18.0
   'minimatch@<3.1.3': 10.2.5
+  # brace-expansion ReDoS (GHSA-3jxr-9vmj-r5cp); via source-map-explorer>ejs>jake tooling. Patched 2.1.2.
+  brace-expansion@2: '>=2.1.2'
   undici: ^8.0.0
   uuid: ^14.0.0
 
