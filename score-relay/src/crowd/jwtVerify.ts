@@ -191,6 +191,9 @@ export function verifyJwt(token: string, keys: DualAcceptKeys, options: VerifyOp
     return verifyEs256(token, keys.es256Keys, options);
   }
   if (header.alg === 'HS256') {
+    // Step 4 drain toggle: once ES256 tokens have drained in, JWT_ACCEPT_HS256=false
+    // rejects the legacy algorithm entirely (reversible config, symmetric with CFS).
+    if (process.env.JWT_ACCEPT_HS256 === 'false') throw new JwtVerificationError('hs256-disabled');
     if (!keys.hsSecret) throw new JwtVerificationError('secret-required');
     return verifyHs256(token, keys.hsSecret, options);
   }

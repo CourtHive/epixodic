@@ -208,6 +208,18 @@ describe('ES256 dual-accept (signing migration)', () => {
     expect(verifyJwt(hs, { hsSecret: SECRET }).sub).toBe('u-hs');
   });
 
+  it('verifyJwt rejects HS256 (but keeps ES256) once JWT_ACCEPT_HS256=false (step 4 toggle)', () => {
+    process.env.JWT_ACCEPT_HS256 = 'false';
+    try {
+      const hs = signHs256({ sub: 'u-hs' }, SECRET);
+      expect(() => verifyJwt(hs, { hsSecret: SECRET, es256Keys: keys })).toThrowError(/hs256-disabled/);
+      const es = signEs256({ sub: 'u-es' }, privateKey, KID);
+      expect(verifyJwt(es, { hsSecret: SECRET, es256Keys: keys }).sub).toBe('u-es');
+    } finally {
+      delete process.env.JWT_ACCEPT_HS256;
+    }
+  });
+
   describe('loadEs256Keys', () => {
     it('returns an empty map when unconfigured', () => {
       expect(loadEs256Keys({} as NodeJS.ProcessEnv).size).toBe(0);
