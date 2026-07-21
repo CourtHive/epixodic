@@ -70,7 +70,7 @@
   "dependencies": {
     "@courthive/scoring-visualizations": "^0.2.2",
     "axios": "^1.6.5",
-    "courthive-components": "3.8.2",
+    "courthive-components": "3.11.0",
     "d3": "^7.9.0",
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
