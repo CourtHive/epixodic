@@ -12,7 +12,8 @@
  */
 
 import type { Socket } from 'socket.io';
-import { verifyHs256, JwtVerificationError, normalizeAudiences } from './crowd/jwtVerify.js';
+import type { KeyObject } from 'node:crypto';
+import { verifyJwt, JwtVerificationError, normalizeAudiences } from './crowd/jwtVerify.js';
 
 export type TrackerAudience = 'admin' | 'score';
 
@@ -33,12 +34,17 @@ export class TrackerAuthError extends Error {
 export interface VerifyTrackerOptions {
   /** Override now() for tests, seconds since epoch. */
   now?: number;
+  /** ES256 public keys by `kid` (dual-accept during the signing migration). */
+  es256Keys?: Map<string, KeyObject>;
 }
 
 /**
  * Verify a tracker JWT and return the socket attribution. Throws
  * TrackerAuthError on any failure. Caller decides whether to reject
  * the socket (strict mode) or pass through anonymous (legacy).
+ *
+ * Dual-accepts ES256 (by `kid`) and legacy HS256 via the shared `verifyJwt`,
+ * so `/tracker` and `/crowd` share one trust root through the signing migration.
  */
 export function verifyTrackerToken(
   token: string,
@@ -47,10 +53,11 @@ export function verifyTrackerToken(
 ): TrackerSocketData {
   let payload: Record<string, unknown>;
   try {
-    payload = verifyHs256(token, jwtSecret, {
-      now: options.now,
-      expectedAudiences: ['admin', 'score'],
-    });
+    payload = verifyJwt(
+      token,
+      { hsSecret: jwtSecret, es256Keys: options.es256Keys },
+      { now: options.now, expectedAudiences: ['admin', 'score'] },
+    );
   } catch (err) {
     const reason = err instanceof JwtVerificationError ? err.reason : 'bad-token';
     throw new TrackerAuthError(reason);

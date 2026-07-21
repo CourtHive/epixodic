@@ -21,13 +21,16 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { URL } from 'node:url';
-import { JwtVerificationError, verifyHs256, type JwtPayload } from './jwtVerify.js';
+import { JwtVerificationError, verifyJwt, type JwtPayload } from './jwtVerify.js';
 import { SessionNotFoundError } from './types.js';
 import type { CrowdScoringStorage } from './storage.js';
+import type { KeyObject } from 'node:crypto';
 
 export interface CrowdRestApiOptions {
   storage: CrowdScoringStorage;
   jwtSecret: string;
+  /** ES256 public keys by `kid` (dual-accept during the signing migration). */
+  es256Keys?: Map<string, KeyObject>;
   logger?: (message: string) => void;
 }
 
@@ -49,7 +52,7 @@ export function createCrowdRestApi(opts: CrowdRestApiOptions): CrowdRestApi {
       const url = req.url ?? '';
       if (!url.startsWith('/api/crowd-sessions')) return false;
 
-      const auth = authenticate(req, opts.jwtSecret);
+      const auth = authenticate(req, opts.jwtSecret, opts.es256Keys);
       if (!auth.ok) {
         respondJson(res, 401, { error: auth.reason });
         return true;
@@ -162,14 +165,18 @@ interface AuthError {
   reason: string;
 }
 
-function authenticate(req: IncomingMessage, secret: string): AuthOk | AuthError {
+function authenticate(
+  req: IncomingMessage,
+  secret: string,
+  es256Keys?: Map<string, KeyObject>,
+): AuthOk | AuthError {
   const header = req.headers.authorization;
   if (typeof header !== 'string' || !header.startsWith('Bearer ')) {
     return { ok: false, reason: 'missing-bearer-token' };
   }
   const token = header.slice('Bearer '.length).trim();
   try {
-    return { ok: true, payload: verifyHs256(token, secret) };
+    return { ok: true, payload: verifyJwt(token, { hsSecret: secret, es256Keys }) };
   } catch (err) {
     const reason = err instanceof JwtVerificationError ? err.reason : 'bad-token';
     return { ok: false, reason };

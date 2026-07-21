@@ -14,7 +14,14 @@
  * mints tokens.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import {
+  createHmac,
+  timingSafeEqual,
+  createPublicKey,
+  verify as cryptoVerify,
+  sign as cryptoSign,
+  type KeyObject,
+} from 'node:crypto';
 
 export interface JwtPayload {
   /** Subject — typically the user id. */
@@ -77,6 +84,14 @@ export function verifyHs256(token: string, secret: string, options: VerifyOption
   }
 
   const payload = parseJsonSegment(payloadB64, 'payload') as JwtPayload;
+  return checkClaims(payload, options);
+}
+
+/**
+ * Temporal (`exp`/`nbf`) + audience validation shared by the HS256 and ES256
+ * verifiers, so both enforce identical claim policy.
+ */
+function checkClaims(payload: JwtPayload, options: VerifyOptions): JwtPayload {
   const now = options.now ?? Math.floor(Date.now() / 1000);
   const skew = options.clockSkewSeconds ?? 0;
 
@@ -94,6 +109,115 @@ export function verifyHs256(token: string, secret: string, options: VerifyOption
   }
 
   return payload;
+}
+
+/**
+ * ES256 verifier — Phase 1 signing decoupling
+ * (Mentat/planning/JWT_SIGNING_AUTHORITY_DECOUPLING.md, step 2).
+ *
+ * Verifies an ES256 JWT against the public key resolved by its `kid` header.
+ * JWT ES256 signatures are raw r||s (IEEE-P1363), so `dsaEncoding` is pinned
+ * accordingly (node's default expects DER). Fail-closed: an absent/unknown kid
+ * or a missing key rejects — the verifier never falls back to a weaker check.
+ */
+export function verifyEs256(
+  token: string,
+  publicKeys: Map<string, KeyObject>,
+  options: VerifyOptions = {},
+): JwtPayload {
+  if (typeof token !== 'string' || token.length === 0) {
+    throw new JwtVerificationError('token-required');
+  }
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new JwtVerificationError('malformed-token');
+  const [headerB64, payloadB64, signatureB64] = parts;
+
+  const header = parseJsonSegment(headerB64, 'header');
+  if (header.alg !== 'ES256') {
+    throw new JwtVerificationError(`unsupported-algorithm:${String(header.alg)}`);
+  }
+  if (header.typ && header.typ !== 'JWT') {
+    throw new JwtVerificationError(`unsupported-type:${String(header.typ)}`);
+  }
+  const kid = typeof header.kid === 'string' ? header.kid : undefined;
+  const key = kid ? publicKeys.get(kid) : undefined;
+  if (!key) throw new JwtVerificationError('unknown-key');
+
+  let signature: Buffer;
+  try {
+    signature = Buffer.from(toBase64(signatureB64), 'base64');
+  } catch {
+    throw new JwtVerificationError('malformed-token');
+  }
+  const data = Buffer.from(`${headerB64}.${payloadB64}`);
+  let ok = false;
+  try {
+    ok = cryptoVerify('sha256', data, { key, dsaEncoding: 'ieee-p1363' }, signature);
+  } catch {
+    ok = false;
+  }
+  if (!ok) throw new JwtVerificationError('bad-signature');
+
+  const payload = parseJsonSegment(payloadB64, 'payload') as JwtPayload;
+  return checkClaims(payload, options);
+}
+
+/** Verify keys for the dual-accept dispatcher. */
+export interface DualAcceptKeys {
+  /** Legacy shared HS256 secret (CFS `JWT_SECRET`). */
+  hsSecret?: string;
+  /** ES256 public keys by `kid` (from `loadEs256Keys`). */
+  es256Keys?: Map<string, KeyObject>;
+}
+
+/**
+ * Dual-accept verifier for the HS256 → ES256 migration: dispatch by the token's
+ * `alg` header — ES256 against the JWKS public keys, HS256 against the legacy
+ * secret — and hard-reject `alg: none` / any other algorithm (downgrade guard).
+ * Mirrors the CFS-side `verifyJwt` so both trust roots enforce one policy.
+ */
+export function verifyJwt(token: string, keys: DualAcceptKeys, options: VerifyOptions = {}): JwtPayload {
+  if (typeof token !== 'string' || token.length === 0) {
+    throw new JwtVerificationError('token-required');
+  }
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new JwtVerificationError('malformed-token');
+
+  const header = parseJsonSegment(parts[0], 'header');
+  if (header.alg === 'ES256') {
+    if (!keys.es256Keys || keys.es256Keys.size === 0) {
+      throw new JwtVerificationError('es256-unavailable');
+    }
+    return verifyEs256(token, keys.es256Keys, options);
+  }
+  if (header.alg === 'HS256') {
+    if (!keys.hsSecret) throw new JwtVerificationError('secret-required');
+    return verifyHs256(token, keys.hsSecret, options);
+  }
+  throw new JwtVerificationError(`unsupported-algorithm:${String(header.alg)}`);
+}
+
+/**
+ * Load ES256 public verify keys from the environment (the relay shares CFS's
+ * `.env` via ecosystem.config.js, so it reads the same `JWT_PUBLIC_KEY`/`JWT_KID`
+ * the signer publishes — no JWKS HTTP fetch needed while co-located; that
+ * becomes the upgrade when the signer moves to a remote service). Tolerates
+ * literal `\n` in PEM env values. Returns an empty map when unconfigured
+ * (dual-accept then falls through to HS256).
+ */
+export function loadEs256Keys(env: NodeJS.ProcessEnv = process.env): Map<string, KeyObject> {
+  const keys = new Map<string, KeyObject>();
+  const add = (pem?: string, kid?: string): void => {
+    if (!pem || !kid) return;
+    try {
+      keys.set(kid, createPublicKey(pem.replace(/\\n/g, '\n')));
+    } catch {
+      // Skip an unparseable key rather than crashing the relay; HS256 still works.
+    }
+  };
+  add(env.JWT_PUBLIC_KEY, env.JWT_KID);
+  add(env.JWT_PUBLIC_KEY_PREVIOUS, env.JWT_KID_PREVIOUS);
+  return keys;
 }
 
 /**
@@ -121,6 +245,20 @@ export function signHs256(payload: JwtPayload, secret: string): string {
   const body = base64UrlEncode(JSON.stringify(payload));
   const signature = hmacSha256Base64Url(`${header}.${body}`, secret);
   return `${header}.${body}.${signature}`;
+}
+
+/**
+ * Test-only helper to mint ES256 tokens (raw r||s signature). Production
+ * score-relay never mints — the signer is competition-factory-server.
+ */
+export function signEs256(payload: JwtPayload, privateKey: KeyObject, kid: string): string {
+  const header = base64UrlEncode(JSON.stringify({ alg: 'ES256', typ: 'JWT', kid }));
+  const body = base64UrlEncode(JSON.stringify(payload));
+  const signature = cryptoSign('sha256', Buffer.from(`${header}.${body}`), {
+    key: privateKey,
+    dsaEncoding: 'ieee-p1363',
+  });
+  return `${header}.${body}.${base64UrlEncodeBuffer(signature)}`;
 }
 
 function parseJsonSegment(segment: string, label: string): Record<string, unknown> {

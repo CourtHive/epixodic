@@ -50,6 +50,10 @@ export interface RelayConfig {
    *  Unset = legacy permissive mode (existing epixodic + TMX trackers
    *  keep working without auth during the rollout). */
   trackerJwtSecret?: string;
+  /** ES256 public keys by `kid` for dual-accept token verification during the
+   *  HS256 → ES256 signing migration. Loaded from the shared env
+   *  (`JWT_PUBLIC_KEY`/`JWT_KID`); empty map = HS256-only. */
+  es256Keys?: Map<string, import('node:crypto').KeyObject>;
   /** When true AND `trackerJwtSecret` is set, /tracker rejects unauthed
    *  connections. When false (default), an unauthed connection logs a
    *  deprecation warning and proceeds — the additive rollout path. */

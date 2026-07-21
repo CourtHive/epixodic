@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { JwtVerificationError, normalizeAudiences, signHs256, verifyHs256 } from './jwtVerify.js';
+import { generateKeyPairSync } from 'node:crypto';
+import {
+  JwtVerificationError,
+  normalizeAudiences,
+  signHs256,
+  verifyHs256,
+  signEs256,
+  verifyEs256,
+  verifyJwt,
+  loadEs256Keys,
+} from './jwtVerify.js';
 
 const SECRET = 'test-shared-secret';
 
@@ -132,6 +142,92 @@ describe('jwtVerify', () => {
     it('returns [] for non-string non-array shapes', () => {
       expect(normalizeAudiences(42)).toEqual([]);
       expect(normalizeAudiences({})).toEqual([]);
+    });
+  });
+});
+
+describe('ES256 dual-accept (signing migration)', () => {
+  const KID = 'es256-relay-test';
+  const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  const pubPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
+  const keys = loadEs256Keys({ JWT_PUBLIC_KEY: pubPem, JWT_KID: KID } as NodeJS.ProcessEnv);
+
+  it('verifyEs256 round-trips a token signed with the matching private key + kid', () => {
+    const token = signEs256({ sub: 'u-es', aud: 'score', personId: 'p-1' }, privateKey, KID);
+    const payload = verifyEs256(token, keys);
+    expect(payload.sub).toBe('u-es');
+    expect(payload.personId).toBe('p-1');
+  });
+
+  it('verifyEs256 rejects an unknown kid (fail-closed)', () => {
+    const token = signEs256({ sub: 'u' }, privateKey, 'some-other-kid');
+    expect(() => verifyEs256(token, keys)).toThrowError(/unknown-key/);
+  });
+
+  it('verifyEs256 rejects a tampered payload', () => {
+    const token = signEs256({ sub: 'u', roles: ['client'] }, privateKey, KID);
+    const [h, , s] = token.split('.');
+    const evilBody = Buffer.from(JSON.stringify({ sub: 'u', roles: ['admin'] }), 'utf-8')
+      .toString('base64')
+      .replace(/=+$/g, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+    expect(() => verifyEs256(`${h}.${evilBody}.${s}`, keys)).toThrowError(/bad-signature/);
+  });
+
+  it('verifyEs256 verified with the WRONG keypair fails', () => {
+    const other = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+    const otherKeys = loadEs256Keys({
+      JWT_PUBLIC_KEY: other.publicKey.export({ type: 'spki', format: 'pem' }) as string,
+      JWT_KID: KID,
+    } as NodeJS.ProcessEnv);
+    const token = signEs256({ sub: 'u' }, privateKey, KID);
+    expect(() => verifyEs256(token, otherKeys)).toThrowError(/bad-signature/);
+  });
+
+  it('verifyJwt dispatches ES256 and HS256 by header alg', () => {
+    const es = signEs256({ sub: 'u-es' }, privateKey, KID);
+    const hs = signHs256({ sub: 'u-hs' }, SECRET);
+    expect(verifyJwt(es, { hsSecret: SECRET, es256Keys: keys }).sub).toBe('u-es');
+    expect(verifyJwt(hs, { hsSecret: SECRET, es256Keys: keys }).sub).toBe('u-hs');
+  });
+
+  it('verifyJwt rejects alg:none (downgrade guard)', () => {
+    const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
+    const none = `${b64({ alg: 'none', typ: 'JWT' })}.${b64({ sub: 'attacker' })}.`;
+    expect(() => verifyJwt(none, { hsSecret: SECRET, es256Keys: keys })).toThrowError(/unsupported-algorithm/);
+  });
+
+  it('verifyJwt rejects an ES256 token when no ES256 keys are configured', () => {
+    const token = signEs256({ sub: 'u' }, privateKey, KID);
+    expect(() => verifyJwt(token, { hsSecret: SECRET })).toThrowError(/es256-unavailable/);
+  });
+
+  it('verifyJwt still verifies HS256 when only the secret is configured', () => {
+    const hs = signHs256({ sub: 'u-hs' }, SECRET);
+    expect(verifyJwt(hs, { hsSecret: SECRET }).sub).toBe('u-hs');
+  });
+
+  describe('loadEs256Keys', () => {
+    it('returns an empty map when unconfigured', () => {
+      expect(loadEs256Keys({} as NodeJS.ProcessEnv).size).toBe(0);
+    });
+
+    it('loads current + previous keys and tolerates literal \\n in the PEM', () => {
+      const escaped = pubPem.trim().replace(/\n/g, '\\n');
+      const prev = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+      const loaded = loadEs256Keys({
+        JWT_PUBLIC_KEY: escaped,
+        JWT_KID: 'k-new',
+        JWT_PUBLIC_KEY_PREVIOUS: prev.publicKey.export({ type: 'spki', format: 'pem' }) as string,
+        JWT_KID_PREVIOUS: 'k-old',
+      } as NodeJS.ProcessEnv);
+      expect([...loaded.keys()].sort()).toEqual(['k-new', 'k-old']);
+    });
+
+    it('skips an unparseable key rather than throwing', () => {
+      const loaded = loadEs256Keys({ JWT_PUBLIC_KEY: 'not-a-pem', JWT_KID: 'bad' } as NodeJS.ProcessEnv);
+      expect(loaded.size).toBe(0);
     });
   });
 });

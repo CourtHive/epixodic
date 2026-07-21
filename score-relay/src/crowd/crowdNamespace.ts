@@ -27,7 +27,8 @@
  */
 
 import type { Namespace, Server, Socket } from 'socket.io';
-import { verifyHs256, JwtVerificationError, normalizeAudiences, type JwtPayload } from './jwtVerify.js';
+import { verifyJwt, JwtVerificationError, normalizeAudiences, type JwtPayload } from './jwtVerify.js';
+import type { KeyObject } from 'node:crypto';
 import {
   SessionNotFoundError,
   VersionConflictError,
@@ -44,8 +45,10 @@ export interface CrowdNamespaceOptions {
   io: Server;
   storage: CrowdScoringStorage;
   userLimits: UserLimits;
-  /** Shared HS256 secret matching competition-factory-server's JWT_SECRET. */
+  /** Shared HS256 secret matching competition-factory-server's JWT_SECRET (legacy verify path). */
   jwtSecret: string;
+  /** ES256 public keys by `kid` (dual-accept during the signing migration). */
+  es256Keys?: Map<string, KeyObject>;
   logger?: (message: string) => void;
 }
 
@@ -109,7 +112,11 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
     }
     let payload: JwtPayload;
     try {
-      payload = verifyHs256(token, opts.jwtSecret, { expectedAudiences: ['admin', 'hiveid', 'provider', 'score'] });
+      payload = verifyJwt(
+        token,
+        { hsSecret: opts.jwtSecret, es256Keys: opts.es256Keys },
+        { expectedAudiences: ['admin', 'hiveid', 'provider', 'score'] },
+      );
     } catch (err) {
       const reason = err instanceof JwtVerificationError ? err.reason : 'bad-token';
       log(`reject ${socket.id}: ${reason}`);

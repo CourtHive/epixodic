@@ -12,8 +12,14 @@ import { createMatchUpFinalizedHandler } from './crowd/webhookReceiver.js';
 import { attachCrowdNamespace } from './crowd/crowdNamespace.js';
 import { UserLimits } from './crowd/userLimits.js';
 import { createCrowdRestApi, type CrowdRestApi } from './crowd/restApi.js';
+import { loadEs256Keys } from './crowd/jwtVerify.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RelayConfig } from './types.js';
+
+// ES256 public keys for dual-accept verification during the signing migration.
+// Read once from the shared env (same JWT_PUBLIC_KEY/JWT_KID the co-located CFS
+// signer publishes); empty until keys are provisioned, then dual-accept begins.
+const es256Keys = loadEs256Keys();
 
 const config: RelayConfig = {
   port: parseInt(process.env.RELAY_PORT || '8384', 10),
@@ -25,6 +31,7 @@ const config: RelayConfig = {
   tickerIdleTimeoutSeconds: parseInt(process.env.TICKER_IDLE_TIMEOUT_SECONDS || '1800', 10),
   upstreamRelayUrl: process.env.UPSTREAM_RELAY_URL?.trim() || undefined,
   trackerJwtSecret: process.env.TRACKER_JWT_SECRET?.trim() || undefined,
+  es256Keys,
   trackerRequireAuth: process.env.TRACKER_REQUIRE_AUTH === 'true',
   trackerMaxEventsPerSecond: parseFloat(process.env.TRACKER_MAX_EVENTS_PER_SECOND || '10'),
 };
@@ -151,10 +158,12 @@ if (crowdPostgresUrl) {
   const jwtSecret = process.env.JWT_SECRET?.trim();
   if (jwtSecret) {
     const userLimits = new UserLimits({ eventsPerSecond: 5, maxConcurrentSessions: 3 });
-    attachCrowdNamespace({ io, storage: crowdStorage, userLimits, jwtSecret });
-    console.log('[relay] /crowd namespace ready (JWT-gated; 5 events/sec/user, 3 sessions/user)');
+    attachCrowdNamespace({ io, storage: crowdStorage, userLimits, jwtSecret, es256Keys });
+    console.log(
+      `[relay] /crowd namespace ready (JWT-gated; 5 events/sec/user, 3 sessions/user; ES256 keys: ${es256Keys.size})`,
+    );
 
-    crowdRestApi = createCrowdRestApi({ storage: crowdStorage, jwtSecret });
+    crowdRestApi = createCrowdRestApi({ storage: crowdStorage, jwtSecret, es256Keys });
     console.log('[relay] crowd REST API ready: GET/POST/DELETE /api/crowd-sessions/* (JWT bearer required)');
   } else {
     console.warn('[relay] /crowd namespace + REST API disabled (set JWT_SECRET to enable)');

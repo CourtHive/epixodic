@@ -93,7 +93,9 @@ export function createRelay(io: Server, config: RelayConfig): void {
       return;
     }
     try {
-      (socket.data as TrackerSocketData) = verifyTrackerToken(token, config.trackerJwtSecret);
+      (socket.data as TrackerSocketData) = verifyTrackerToken(token, config.trackerJwtSecret, {
+        es256Keys: config.es256Keys,
+      });
       next();
     } catch (err) {
       const reason = err instanceof TrackerAuthError ? err.reason : 'bad-token';
