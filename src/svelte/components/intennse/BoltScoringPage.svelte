@@ -74,7 +74,7 @@
     getNextTieMatchUpId,
     getCompletedBoltCount,
   } from '../../stores/teamMatchUp.svelte';
-  import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/boltHistoryApi';
+  import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/matchUpHistoryApi';
   import { getLoginState } from '../../../services/auth/loginState';
   import { getAuthState } from '../../stores/auth.svelte';
   import { submitOfficialScore } from '../../../services/messaging/scoreSubmitApi';

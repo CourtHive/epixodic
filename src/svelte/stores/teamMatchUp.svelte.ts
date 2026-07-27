@@ -2,7 +2,7 @@ import { scoreGovernor } from 'tods-competition-factory';
 
 const { generateTieMatchUpScore } = scoreGovernor;
 import { buildBoltHistoryDocument } from '../../services/messaging/buildBoltHistoryDocument';
-import { getKnownVersion, pushBoltHistoryWithRetry, setKnownVersion } from '../../services/messaging/boltHistoryApi';
+import { getKnownVersion, pushBoltHistoryWithRetry, setKnownVersion } from '../../services/messaging/matchUpHistoryApi';
 import type { BoltHistoryDocument } from '../../services/messaging/boltHistoryDocument';
 import { getLoginState } from '../../services/auth/loginState';
 import { browserStorage } from '../../state/browserStorage';
@@ -322,7 +322,9 @@ async function pushBoltHistoryForTie(tieMatchUpId: string): Promise<void> {
     const document = buildBoltHistoryDocument(tieMatchUp, teamMatchUp, {
       version: getKnownVersion(tieMatchUpId),
     });
-    const result = await pushBoltHistoryWithRetry(document);
+    // Include the parent/team context in the durable envelope so a fresh device
+    // can resolve it on handoff (courthive-query stores no tournament record).
+    const result = await pushBoltHistoryWithRetry({ ...document, teamMatchUp } as any);
     if (result.error === 'SERVER_NEWER' && result.document) {
       // Server has data we should adopt. Apply it locally without re-pushing
       // (applyServerDocument bypasses the push hook).
