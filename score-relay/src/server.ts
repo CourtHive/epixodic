@@ -13,6 +13,7 @@ import { attachCrowdNamespace } from './crowd/crowdNamespace.js';
 import { UserLimits } from './crowd/userLimits.js';
 import { createCrowdRestApi, type CrowdRestApi } from './crowd/restApi.js';
 import { loadEs256Keys } from './crowd/jwtVerify.js';
+import { configurePointHistoryPersistence } from './pointHistoryPersistence.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RelayConfig } from './types.js';
 
@@ -110,6 +111,19 @@ if (config.persistScores && config.factoryServerUrl) {
   console.log(`[relay] persistence enabled → ${config.factoryServerUrl} (${authMode})`);
 } else {
   console.log('[relay] persistence disabled (no FACTORY_SERVER_URL or PERSIST_SCORES=false)');
+}
+
+// Per-point history persistence → courthive-query (S3). Reuses the score-role
+// RELAY_SERVICE_JWT (courthive-query verifies the same ecosystem JWT). Disabled
+// when POINT_HISTORY_URL is unset. See MATCHUP_HISTORY_PERSISTENCE.md.
+const pointHistoryUrl = process.env.POINT_HISTORY_URL?.trim();
+if (pointHistoryUrl) {
+  const pointHistoryJwt = process.env.RELAY_SERVICE_JWT?.trim() || undefined;
+  configurePointHistoryPersistence(pointHistoryUrl, pointHistoryJwt);
+  const authMode = pointHistoryJwt ? 'authenticated' : 'anonymous (courthive-query will 401)';
+  console.log(`[relay] point-history persistence enabled → ${pointHistoryUrl} (${authMode})`);
+} else {
+  console.log('[relay] point-history persistence disabled (set POINT_HISTORY_URL to enable)');
 }
 
 createRelay(io, config);

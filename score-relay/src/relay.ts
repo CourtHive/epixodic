@@ -13,6 +13,7 @@ import {
 } from './matchUpStore.js';
 import { connectUpstream } from './upstreamFederation.js';
 import { persistMatchHistory } from './persistence.js';
+import { persistPoint } from './pointHistoryPersistence.js';
 import {
   extractTrackerToken,
   TrackerAuthError,
@@ -137,6 +138,10 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Also emit to the "all" room for dashboards
       listeners.to('all').emit('score', data);
+
+      // Durably persist the point to courthive-query (S3). Fire-and-forget — a
+      // persistence failure must never block the broadcast/ack path above.
+      if (data.point) void persistPoint(data);
 
       // Anchor clock ticks from the score event if it carries clock
       // fields. This is the reliable baseline — the intennse event

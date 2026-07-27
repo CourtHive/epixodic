@@ -1,12 +1,14 @@
 export interface ScoreUpdate {
   matchUpId: string;
   tournamentId?: string;
+  matchUpFormat?: string;
   score: {
     sets?: any[];
     scoreStringSide1?: string;
     scoreStringSide2?: string;
   };
   point?: {
+    // Legacy on-wire fields (0-indexed player index).
     winner: number;
     server?: number;
     code?: string;
@@ -14,6 +16,17 @@ export interface ScoreUpdate {
     hand?: string;
     stroke?: string;
     rallyLength?: number;
+    // CODES-aligned fields (factory `Point`). Optional + forwarded verbatim so a
+    // producer can send full fidelity — notably `serverParticipantId` for doubles
+    // rotation, which the legacy 0-indexed shape cannot express. When absent, the
+    // relay derives winningSide/serverSideNumber from winner/server. See
+    // Mentat/planning/MATCHUP_HISTORY_PERSISTENCE.md (D1).
+    winningSide?: 1 | 2;
+    serverSideNumber?: 1 | 2;
+    serverParticipantId?: string;
+    pointNumber?: number;
+    timestamp?: string;
+    score?: string;
   };
   matchUpStatus?: string;
   winningSide?: number;
