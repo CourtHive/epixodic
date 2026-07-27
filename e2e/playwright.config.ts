@@ -19,5 +19,9 @@ export default defineConfig({
     command: 'npx vite --port 5175',
     url: 'http://localhost:5175',
     reuseExistingServer: !process.env.CI,
+    // A cold vite boot pre-bundles the linked factory/courthive-components deps,
+    // which exceeds the 60s default on a fresh machine — the run then fails before
+    // any test starts. Give it room (a warm/reused server is unaffected).
+    timeout: 180_000,
   },
 });
