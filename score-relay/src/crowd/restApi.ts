@@ -22,6 +22,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { URL } from 'node:url';
 import { JwtVerificationError, verifyJwt, type JwtPayload } from './jwtVerify.js';
+import { persistCrowdPromotedPoints } from '../pointHistoryPersistence.js';
 import { SessionNotFoundError } from './types.js';
 import type { CrowdScoringStorage } from './storage.js';
 import type { KeyObject } from 'node:crypto';
@@ -123,6 +124,9 @@ async function handle(
       }
       try {
         const session = await opts.storage.promote(sessionId, trustedBy);
+        // Materialize the promoted crowd points into the durable store (D4/S6).
+        // Fire-and-forget — never blocks the promote response.
+        void persistCrowdPromotedPoints(session);
         respondJson(res, 200, { session });
       } catch (err) {
         if (err instanceof SessionNotFoundError) respondJson(res, 404, { error: 'session-not-found' });

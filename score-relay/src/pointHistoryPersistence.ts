@@ -13,6 +13,7 @@
 
 import axios from 'axios';
 import type { ScoreUpdate } from './types.js';
+import type { CrowdScoringSession } from './crowd/types.js';
 
 let baseUrl: string | undefined;
 let serviceJwt: string | undefined;
@@ -60,6 +61,60 @@ export function toStoredPoint(update: ScoreUpdate): Record<string, unknown> | nu
 
 function numOrUndef(v: number | undefined, delta: number): number | undefined {
   return typeof v === 'number' ? v + delta : undefined;
+}
+
+/**
+ * Map a crowd session's `CrowdPoint[]` → CODES `Point[]` for the durable store.
+ * CrowdPoint already carries side numbers (`winner`/`server` are 1|2), so no
+ * 0-index shift; derive `pointNumber` from order and carry `result`/timestamp.
+ */
+function crowdPointsToStored(session: CrowdScoringSession): Record<string, unknown>[] {
+  return (session.pointHistory ?? []).map((p, i) => {
+    const point: Record<string, unknown> = { pointNumber: i + 1, winningSide: p.winner };
+    if (typeof p.server === 'number') point.serverSideNumber = p.server;
+    if (p.result !== undefined) point.result = p.result;
+    if (p.recordedAt !== undefined) point.timestamp = p.recordedAt;
+    return point;
+  });
+}
+
+/**
+ * Materialize a promoted crowd session's points into the durable store (D4/S6).
+ * On promotion the relay force-replaces the matchUp's points with the crowd
+ * sequence, tagged `provenance:'crowd-promoted'`. No-op when disabled or the
+ * session lacks identity/points. Fire-and-forget; never throws.
+ */
+export async function persistCrowdPromotedPoints(session: CrowdScoringSession): Promise<void> {
+  if (!baseUrl) return;
+  if (!session?.matchUpId || !session.tournamentId) return;
+  const points = crowdPointsToStored(session);
+  if (points.length === 0) return;
+
+  const body = {
+    tournamentId: session.tournamentId,
+    matchUpFormat: session.formatHint,
+    points,
+    provenance: 'crowd-promoted' as const,
+  };
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (serviceJwt) headers.Authorization = `Bearer ${serviceJwt}`;
+  const url = `${baseUrl}/match-up-point-history/${encodeURIComponent(session.matchUpId)}/points`;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await axios.put(url, body, { headers });
+      return;
+    } catch (err: any) {
+      if (attempt === MAX_RETRIES) {
+        console.error(
+          `[point-history] failed to materialize crowd-promoted points for ${session.matchUpId} ` +
+            `after ${MAX_RETRIES} attempts (status=${err?.response?.status ?? 'n/a'}): ${err?.message}`,
+        );
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, BASE_DELAY_MS * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
 }
 
 /**

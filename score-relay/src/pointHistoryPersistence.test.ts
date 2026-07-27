@@ -3,16 +3,18 @@ import axios from 'axios';
 import {
   configurePointHistoryPersistence,
   isPointHistoryPersistenceEnabled,
+  persistCrowdPromotedPoints,
   persistPoint,
   toStoredPoint,
 } from './pointHistoryPersistence.js';
 import type { ScoreUpdate } from './types.js';
 
 vi.mock('axios', () => ({
-  default: { post: vi.fn() },
+  default: { post: vi.fn(), put: vi.fn() },
 }));
 
 const mockedPost = vi.mocked(axios.post);
+const mockedPut = vi.mocked(axios.put);
 
 function update(overrides: Partial<ScoreUpdate> = {}): ScoreUpdate {
   return {
@@ -95,5 +97,54 @@ describe('persistPoint', () => {
     mockedPost.mockRejectedValue(Object.assign(new Error('boom'), { response: { status: 500 } }));
     await expect(persistPoint(update())).resolves.toBeUndefined();
     expect(mockedPost).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('persistCrowdPromotedPoints (S6)', () => {
+  const session = (over: any = {}): any => ({
+    matchUpId: 'mu-c',
+    tournamentId: 't-c',
+    matchUpFormat: 'SET3',
+    pointHistory: [
+      { winner: 1, server: 2, result: 'ace', recordedAt: '2026-07-27T00:00:00Z' },
+      { winner: 2 },
+    ],
+    ...over,
+  });
+
+  beforeEach(() => {
+    mockedPut.mockReset();
+    mockedPut.mockResolvedValue({ data: { version: 1 } } as any);
+  });
+  afterEach(() => configurePointHistoryPersistence(undefined, undefined));
+
+  it('PUTs crowd-mapped points with provenance crowd-promoted', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', 'svc');
+    await persistCrowdPromotedPoints(session());
+
+    expect(mockedPut).toHaveBeenCalledTimes(1);
+    const [url, body, cfg] = mockedPut.mock.calls[0];
+    expect(url).toBe('http://localhost:3150/match-up-point-history/mu-c/points');
+    expect(body.provenance).toBe('crowd-promoted');
+    // CrowdPoint side numbers map straight through (no 0-index shift) + pointNumber.
+    expect(body.points[0]).toEqual({
+      pointNumber: 1,
+      winningSide: 1,
+      serverSideNumber: 2,
+      result: 'ace',
+      timestamp: '2026-07-27T00:00:00Z',
+    });
+    expect(body.points[1]).toEqual({ pointNumber: 2, winningSide: 2 });
+    expect((cfg as any).headers.Authorization).toBe('Bearer svc');
+  });
+
+  it('no-ops when disabled or the session has no points', async () => {
+    configurePointHistoryPersistence(undefined, undefined);
+    await persistCrowdPromotedPoints(session());
+    expect(mockedPut).not.toHaveBeenCalled();
+
+    configurePointHistoryPersistence('http://localhost:3150', 'svc');
+    await persistCrowdPromotedPoints(session({ pointHistory: [] }));
+    expect(mockedPut).not.toHaveBeenCalled();
   });
 });
