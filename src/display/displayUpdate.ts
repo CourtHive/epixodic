@@ -434,6 +434,9 @@ function broadcastScore(): void {
   const isComplete = env.engine.isComplete();
   const winningSide = isComplete ? state.winningSide : undefined;
 
+  const points = state.history?.points;
+  const lastPoint = points?.length ? points[points.length - 1] : undefined;
+
   sendScore({
     matchUpId,
     tournamentId,
@@ -444,6 +447,9 @@ function broadcastScore(): void {
     },
     matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
     winningSide,
+    // The full CODES `Point` so the relay persists point-by-point to
+    // courthive-query; sendScore dedups per pointNumber.
+    point: lastPoint,
   });
 
   // When launched from courthive-public with a HiveID identity, also relay to

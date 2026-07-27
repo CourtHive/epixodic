@@ -1543,20 +1543,24 @@
       console.log('[bolt persist]', { matchUpId, sets, boltComplete, boltStarted });
     }
 
+    const points = state?.history?.points;
+    const lastPoint = points?.length ? points[points.length - 1] : undefined;
+
     sendScore({
       matchUpId,
       tournamentId: (getTeamMatchUpState().teamMatchUp as any)?.tournamentId,
       score: { sets },
       matchUpStatus,
+      // The full CODES `Point` (winningSide, serverSideNumber, serverParticipantId
+      // for doubles, …) so the relay persists point-by-point to courthive-query.
+      // sendScore dedups per pointNumber, so re-broadcasts don't duplicate it.
+      point: lastPoint,
       // Clock fields so the relay can anchor countdown ticks directly
       // from the score event. The intennse event carries richer data
       // but score is the reliable baseline flow.
       boltTimerRemainingMs: boltTimer?.remainingMs,
       serveClockRemainingMs: serveClock?.remainingMs,
     });
-
-    const points = state?.history?.points;
-    const lastPoint = points?.length ? points[points.length - 1] : undefined;
 
     sendIntennseUpdate(buildIntennseSnapshot({
       matchUpId,

@@ -103,6 +103,13 @@ export function connectTracker(): Socket {
   return trackerSocket;
 }
 
+// Last point number forwarded per matchUp — so a `point` is emitted once per
+// scored point even though the scoring UI re-broadcasts on many non-point
+// transitions (timeout, challenge, substitution, exit). courthive-query also
+// dedups monotonically by pointNumber as the safety net across reloads/handoffs
+// (this in-memory map resets on reload). See MATCHUP_HISTORY_PERSISTENCE.md (S5b).
+const lastSentPointNumber = new Map<string, number>();
+
 export function sendScore(update: {
   matchUpId: string;
   tournamentId?: string;
@@ -114,8 +121,20 @@ export function sendScore(update: {
   if (!trackerSocket?.connected) {
     connectTracker();
   }
-  if (logEmit) console.log('[scoreRelay] emit score:', update);
-  trackerSocket?.emit('score', update);
+  // Forward `point` only when it is a NEW, identifiable point for this matchUp;
+  // otherwise strip it so the relay/store don't append a duplicate.
+  let payload = update;
+  const pointNumber = typeof update.point?.pointNumber === 'number' ? update.point.pointNumber : undefined;
+  if (update.point) {
+    if (pointNumber === undefined || lastSentPointNumber.get(update.matchUpId) === pointNumber) {
+      const { point: _omit, ...rest } = update;
+      payload = rest;
+    } else {
+      lastSentPointNumber.set(update.matchUpId, pointNumber);
+    }
+  }
+  if (logEmit) console.log('[scoreRelay] emit score:', payload);
+  trackerSocket?.emit('score', payload);
 }
 
 export function sendHistory(history: {
