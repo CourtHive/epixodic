@@ -242,7 +242,7 @@
     {#if !compactFooter}
       <ControlBar
         serveClock={!breakActive}
-        hidePlayPause
+        hidePlayPause={compactFooter}
         {canUndo} {canRedo} {rallyInProgress} {officialPause} {boltStarted} {boltComplete} {matchComplete} {currentBoltNumber}
         {breakActive} {breakPaused} {isLastBoltBreak} {onPauseBreak} {onStartNextBolt}
         {onUndo} {onRedo} {onPointStart} {onNextBolt} {timeoutTeamName} {onDismissTimeout} {onCancelTimeout}
