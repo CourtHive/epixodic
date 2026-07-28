@@ -14,6 +14,7 @@ import { UserLimits } from './crowd/userLimits.js';
 import { createCrowdRestApi, type CrowdRestApi } from './crowd/restApi.js';
 import { loadEs256Keys } from './crowd/jwtVerify.js';
 import { configurePointHistoryPersistence } from './pointHistoryPersistence.js';
+import { applyCorsHeaders } from './cors.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { RelayConfig } from './types.js';
 
@@ -59,6 +60,16 @@ let matchUpFinalizedHandler: ((req: IncomingMessage, res: ServerResponse) => Pro
 let crowdRestApi: CrowdRestApi | null = null;
 
 const httpServer = createServer((req, res) => {
+  // CORS for the hand-rolled REST endpoints (Socket.IO's cors config does not
+  // cover this handler). Applies the same `corsOrigin` allowlist and answers
+  // browser preflight so the TMX crowd-promotion UI works cross-origin in dev.
+  applyCorsHeaders(req, res, config.corsOrigin);
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   // Projection intake routes (POST from competition-factory-server's projector)
   if (req.method === 'POST' && req.url === '/api/projection/scorebug') {
     void projectionIntake?.handleScorebug(req, res);
