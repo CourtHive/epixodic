@@ -28,7 +28,8 @@ pnpm build                # tsc + Vite development build → dist/
 pnpm build:prod           # tsc + Vite production build → dist/
 pnpm deploy:pages         # Build prod + deploy
 pnpm check-types          # TypeScript type-check only (tsc --noEmit)
-pnpm lint                 # ESLint with auto-fix + cache
+pnpm lint                 # ESLint — non-mutating, fails on any warning
+pnpm lint:fix             # ESLint with auto-fix (rewrites source)
 pnpm format               # Prettier on src/
 pnpm test                 # Vitest (TZ=UTC, watch mode; score-relay/** excluded)
 pnpm test:e2e             # Playwright E2E tests (spawns dev server on :5175)

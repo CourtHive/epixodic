@@ -68,7 +68,8 @@ pnpm launch        # serve the built dist/ folder
 | `pnpm launch`      | Serve built `dist/` with http-server     |
 | `pnpm test`        | Run tests with Vitest                    |
 | `pnpm check-types` | TypeScript type checking (no emit)       |
-| `pnpm lint`        | ESLint with auto-fix                     |
+| `pnpm lint`        | ESLint — non-mutating, fails on any warning |
+| `pnpm lint:fix`    | ESLint with auto-fix (rewrites source) |
 | `pnpm format`      | Prettier formatting                      |
 | `pnpm analyze`     | Bundle analysis with source-map-explorer |
 
