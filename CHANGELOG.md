@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.5.0](https://github.com/CourtHive/epixodic/compare/v2.4.0...v2.5.0) (2026-08-07)
+
+
+### Features
+
+* **point-history:** emit CODES point on sendScore so points persist (S5b) ([b677726](https://github.com/CourtHive/epixodic/commit/b67772655fa09d726004fd7b619fb948f1998135))
+* **point-history:** materialize promoted crowd points to courthive-query (S6) ([9a5d0db](https://github.com/CourtHive/epixodic/commit/9a5d0db963b327e9a70fdff06ef6b19bd4b94f14))
+* **point-history:** relay per-point write path to courthive-query (S3) ([0a93164](https://github.com/CourtHive/epixodic/commit/0a93164b03eaa7e825ee90b47ca66048954714f7))
+* **point-history:** repoint epixodic history to courthive-query (S5-client) ([7b83719](https://github.com/CourtHive/epixodic/commit/7b83719f6995d365f7159021ee47bb240e5b0488))
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 3.11.1 ([ac0078a](https://github.com/CourtHive/epixodic/commit/ac0078a311c804d876fa60cc0182bb414d37d396))
+* **deps:** update courthive-components to 3.12.0 ([6ecbf08](https://github.com/CourtHive/epixodic/commit/6ecbf082997e480fd69acb2807858d847cf5056a))
+* **deps:** update courthive-components to 3.12.1 ([8963f9e](https://github.com/CourtHive/epixodic/commit/8963f9e70a990bf686c07a5f0e9ce5543dea53b5))
+* **deps:** update tods-competition-factory to 6.12.0 ([15d8131](https://github.com/CourtHive/epixodic/commit/15d81318a601560e924fae6b70470bfc73d1a652))
+* **deps:** update tods-competition-factory to 6.13.0 ([9ce3e43](https://github.com/CourtHive/epixodic/commit/9ce3e438c0e6a982c4b7df706a003af6d1c34faa))
+* **deps:** update tods-competition-factory to 6.13.1 ([05ed92d](https://github.com/CourtHive/epixodic/commit/05ed92dcaabbe43f64af9d306b8cc03883f5e2bf))
+* **deps:** update tods-competition-factory to 6.13.2 ([aab2008](https://github.com/CourtHive/epixodic/commit/aab2008e4057e55cce606e080695516ba9fb609a))
+* **deps:** update tods-competition-factory to 6.14.0 ([4691b6d](https://github.com/CourtHive/epixodic/commit/4691b6da3d17c6708b43cf571d2c5c2462c98d81))
+* **deps:** update tods-competition-factory to 6.14.1 ([76044b5](https://github.com/CourtHive/epixodic/commit/76044b53fb196eb725b4590f9ece556d28a4f8eb))
+* **deps:** update tods-competition-factory to 6.15.0 ([e8d2e37](https://github.com/CourtHive/epixodic/commit/e8d2e374b5d9f2f27b3ca3f02c46cbdb1dcf6ee3))
+* **deps:** update tods-competition-factory to 6.16.0 ([b9864cc](https://github.com/CourtHive/epixodic/commit/b9864cce277ac6ad8fa5f1bb16ad4dd0a2674716))
+* **deps:** update tods-competition-factory to 6.17.0 ([7edca1a](https://github.com/CourtHive/epixodic/commit/7edca1a62a8b9d7ae8bc57efa7eef0e4be0dcd0f))
+* **deps:** update tods-competition-factory to 6.18.0 ([f7b76b6](https://github.com/CourtHive/epixodic/commit/f7b76b680e50426b9bd6455689e797077f7eb759))
+* **deps:** update tods-competition-factory to 6.19.0 ([ccdaff0](https://github.com/CourtHive/epixodic/commit/ccdaff0d79da7fe61fa372357acea730ebb34efa))
+* **intennse:** render play/pause control in non-compact landscape ([d54c4a0](https://github.com/CourtHive/epixodic/commit/d54c4a025d8adc57b1b7190f7f376348aeeff18e))
+* **relay:** CORS headers on hand-rolled REST endpoints ([ee59e68](https://github.com/CourtHive/epixodic/commit/ee59e688d7633343c33d8edb973814ed8855c947))
+* **security:** override fast-uri to ^3.1.4 (GHSA-v2hh-gcrm-f6hx) ([49f2e9d](https://github.com/CourtHive/epixodic/commit/49f2e9d5d7b2a29cd4452ff48f8228b74f8cea58))
+
 ## [2.4.0](https://github.com/CourtHive/epixodic/compare/v2.3.1...v2.4.0) (2026-07-21)
 
 
