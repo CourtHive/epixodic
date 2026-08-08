@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.5.0](https://github.com/CourtHive/epixodic/compare/score-relay-v0.4.0...score-relay-v0.5.0) (2026-08-07)
+
+
+### Features
+
+* **point-history:** materialize promoted crowd points to courthive-query (S6) ([9a5d0db](https://github.com/CourtHive/epixodic/commit/9a5d0db963b327e9a70fdff06ef6b19bd4b94f14))
+* **point-history:** relay per-point write path to courthive-query (S3) ([0a93164](https://github.com/CourtHive/epixodic/commit/0a93164b03eaa7e825ee90b47ca66048954714f7))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.12.0 ([15d8131](https://github.com/CourtHive/epixodic/commit/15d81318a601560e924fae6b70470bfc73d1a652))
+* **deps:** update tods-competition-factory to 6.13.0 ([9ce3e43](https://github.com/CourtHive/epixodic/commit/9ce3e438c0e6a982c4b7df706a003af6d1c34faa))
+* **deps:** update tods-competition-factory to 6.13.1 ([05ed92d](https://github.com/CourtHive/epixodic/commit/05ed92dcaabbe43f64af9d306b8cc03883f5e2bf))
+* **deps:** update tods-competition-factory to 6.13.2 ([aab2008](https://github.com/CourtHive/epixodic/commit/aab2008e4057e55cce606e080695516ba9fb609a))
+* **deps:** update tods-competition-factory to 6.14.0 ([4691b6d](https://github.com/CourtHive/epixodic/commit/4691b6da3d17c6708b43cf571d2c5c2462c98d81))
+* **deps:** update tods-competition-factory to 6.14.1 ([76044b5](https://github.com/CourtHive/epixodic/commit/76044b53fb196eb725b4590f9ece556d28a4f8eb))
+* **deps:** update tods-competition-factory to 6.15.0 ([e8d2e37](https://github.com/CourtHive/epixodic/commit/e8d2e374b5d9f2f27b3ca3f02c46cbdb1dcf6ee3))
+* **deps:** update tods-competition-factory to 6.16.0 ([b9864cc](https://github.com/CourtHive/epixodic/commit/b9864cce277ac6ad8fa5f1bb16ad4dd0a2674716))
+* **deps:** update tods-competition-factory to 6.17.0 ([7edca1a](https://github.com/CourtHive/epixodic/commit/7edca1a62a8b9d7ae8bc57efa7eef0e4be0dcd0f))
+* **deps:** update tods-competition-factory to 6.18.0 ([f7b76b6](https://github.com/CourtHive/epixodic/commit/f7b76b680e50426b9bd6455689e797077f7eb759))
+* **deps:** update tods-competition-factory to 6.19.0 ([ccdaff0](https://github.com/CourtHive/epixodic/commit/ccdaff0d79da7fe61fa372357acea730ebb34efa))
+* **relay:** CORS headers on hand-rolled REST endpoints ([ee59e68](https://github.com/CourtHive/epixodic/commit/ee59e688d7633343c33d8edb973814ed8855c947))
+
 ## [0.4.0](https://github.com/CourtHive/epixodic/compare/score-relay-v0.3.1...score-relay-v0.4.0) (2026-07-21)
 
 
