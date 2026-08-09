@@ -2,7 +2,7 @@
   "name": "epixodic",
   "packageManager": "pnpm@11.20.0",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.5.1",
   "type": "module",
   "engines": {
     "node": ">=20",
