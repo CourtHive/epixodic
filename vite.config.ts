@@ -63,7 +63,10 @@ export default ({ mode }) => {
     plugins: [svelte(), emitVersionJson(), stampServiceWorkerVersion()],
     base: BASE_URL,
     test: {
-      exclude: ['e2e/**', '**/node_modules/**', 'score-relay/**'],
+      // '.claude/**' keeps a git worktree checked out under .claude/worktrees/ from being
+      // discovered as a second copy of the entire suite — Vitest's default `include` globs
+      // from the project root, and its default `exclude` does not cover .claude.
+      exclude: ['e2e/**', '**/node_modules/**', 'score-relay/**', '**/.claude/**'],
     },
     resolve: {
       tsconfigPaths: true,
