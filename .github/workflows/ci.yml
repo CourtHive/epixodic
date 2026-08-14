@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+# Scope: the epixodic client app only. The `score-relay` subpackage is versioned
+# and tested independently (`cd score-relay && pnpm test`) and the root vitest run
+# excludes it — adding it here would need its own install + Postgres service, so
+# it is deliberately out of scope for this first gate.
+
+jobs:
+  verify:
+    name: lint · types · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # pnpm-workspace.yaml `link:` overrides win over package.json pins, and the
+      # GitHub runner has no sibling clones at ../factory, ../courthive-components
+      # or ../scoringVisualizations, so those overrides would produce dangling
+      # symlinks. Strip them so CI installs the published versions the package.json
+      # pins name. Mirrors TMX ci.yml.
+      - name: 'Strip link: overrides for CI'
+        run: |
+          node -e "
+          const fs = require('fs');
+          if (fs.existsSync('pnpm-workspace.yaml')) {
+            const before = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
+            const after = before.split('\n').filter(line => !/:\s*link:\S+\s*\$/.test(line)).join('\n');
+            if (after !== before) fs.writeFileSync('pnpm-workspace.yaml', after);
+          }
+          "
+          rm -f pnpm-lock.yaml
+
+      - run: pnpm install
+      - run: pnpm lint
+      - run: pnpm check-types
+
+      # `pnpm test` is `TZ=UTC vitest`, which is watch mode. Vitest does switch to a
+      # single run when CI=true, but pass --run explicitly so this cannot hang if
+      # that detection ever changes.
+      - run: pnpm test --run
+
+      - run: pnpm build
