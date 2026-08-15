@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.5.2](https://github.com/CourtHive/epixodic/compare/v2.5.1...v2.5.2) (2026-08-15)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 3.12.3 ([108cbcf](https://github.com/CourtHive/epixodic/commit/108cbcfceb660529c042ee0e9eeec100e3ea518f))
+* **deps:** update courthive-components to 3.13.0 ([dfc8f49](https://github.com/CourtHive/epixodic/commit/dfc8f49ab8c344500f3845ad2036183c639c55d4))
+* **deps:** update courthive-components to 3.13.1 ([14c208f](https://github.com/CourtHive/epixodic/commit/14c208f9aa2c9b57ee085498abd465982f7de6c5))
+* **deps:** update courthive-components to 3.13.2 ([7905f2c](https://github.com/CourtHive/epixodic/commit/7905f2c47eef8fbd3e1f170bef96d7a695e42585))
+* **deps:** update tods-competition-factory to 6.21.0 ([d24d3fa](https://github.com/CourtHive/epixodic/commit/d24d3fa74d3420349dc9b73e2c1576e78ac57a41))
+* **deps:** update tods-competition-factory to 6.22.0 ([c6c058d](https://github.com/CourtHive/epixodic/commit/c6c058d6606c1dd4c238e4a3707ad301ed0e1d10))
+* **deps:** update tods-competition-factory to 6.22.1 ([c60b8c5](https://github.com/CourtHive/epixodic/commit/c60b8c52f7ff1cdac91e6ec5af7a65699e0b602c))
+* **deps:** update tods-competition-factory to 6.23.0 ([d3caefe](https://github.com/CourtHive/epixodic/commit/d3caefeb69a6f145b5d8e5b6531c149d2b5676b8))
+* **deps:** update tods-competition-factory to 6.24.0 ([cc2a450](https://github.com/CourtHive/epixodic/commit/cc2a450a30985173665be85ec646cd744ec06424))
+* **deps:** update tods-competition-factory to 6.25.0 ([fcc0200](https://github.com/CourtHive/epixodic/commit/fcc0200124fd9a95566b72af7921095c5248ebed))
+
 ## [2.5.1](https://github.com/CourtHive/epixodic/compare/v2.5.0...v2.5.1) (2026-08-09)
 
 
