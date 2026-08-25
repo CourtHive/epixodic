@@ -66,11 +66,11 @@
   "dependencies": {
     "@courthive/scoring-visualizations": "^0.2.2",
     "axios": "^1.6.5",
-    "courthive-components": "3.15.0",
+    "courthive-components": "3.15.1",
     "d3": "^7.9.0",
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "svelte": "^5.53.6",
-    "tods-competition-factory": "6.30.0"
+    "tods-competition-factory": "6.31.0"
   }
 }
