@@ -6,7 +6,13 @@ allowBuilds:
 
 overrides:
   typescript: 6.0.3 # block native TS7 (no classic JS API — crashes tsc/nest/sonarjs); pairs with renovate TS-major block
-  '@tennisvisuals/scoring-visualizations': link:../scoringVisualizations
+  # Was '@tennisvisuals/scoring-visualizations' — the package's OLD scope. The
+  # dependency has been '@courthive/scoring-visualizations' for some time, so the
+  # override named a package epixodic does not depend on and silently did nothing:
+  # this repo resolved scoring-visualizations from npm (0.2.12 on disk) while every
+  # sibling built it from source. The failure mode is the quiet one — the override
+  # still LOOKS present, and the package still resolves, just not to the checkout.
+  '@courthive/scoring-visualizations': link:../scoringVisualizations
   courthive-components: link:../courthive-components
   tods-competition-factory: link:../factory
   # Security overrides for transitive deps (all dev/CI-scope; epixodic is not
