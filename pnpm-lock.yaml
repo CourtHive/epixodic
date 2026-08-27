@@ -22,7 +22,7 @@ importers:
     dependencies:
       '@courthive/scoring-visualizations':
         specifier: ^0.2.2
-        version: 0.2.14(tods-competition-factory@factory)
+        version: 0.2.16(tods-competition-factory@factory)
       axios:
         specifier: ^1.6.5
         version: 1.19.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
@@ -236,8 +236,8 @@ packages:
     resolution: {integrity: sha512-TzlTVpKPjaqW6qOYjQcYUDuGsLCNsvFHVBXkYGTAnf5V37jCWrE5haKNXzz0WZUtVHjrpV76L1buANjwXMfT8w==}
     engines: {node: '>=22'}
 
-  '@courthive/scoring-visualizations@0.2.14':
-    resolution: {integrity: sha512-RsGp5kANWJrfzqZwvHAhkN9mL37RnKL+wDl8BpAeh2U5DOT2CtGNjNI2sufwnt8fqaHJWwzOYwAqndRRZZgNkw==}
+  '@courthive/scoring-visualizations@0.2.16':
+    resolution: {integrity: sha512-4N5wHQ+zhnLBYY6uectmH2pk3qq86DYux5yMegRIjp6R1RlJ4YFEwlXiUl3C83itcDf7r6ZF6oK9wsxErGay6g==}
     peerDependencies:
       tods-competition-factory: '>=5.0.0'
 
@@ -2232,7 +2232,7 @@ snapshots:
 
   '@conventional-changelog/template@1.2.1': {}
 
-  '@courthive/scoring-visualizations@0.2.14(tods-competition-factory@factory)':
+  '@courthive/scoring-visualizations@0.2.16(tods-competition-factory@factory)':
     dependencies:
       d3: 7.9.0
       tippy.js: 6.3.7
