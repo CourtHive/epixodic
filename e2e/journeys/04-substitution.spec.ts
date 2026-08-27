@@ -23,6 +23,15 @@ async function setupActiveBolt(page: import('@playwright/test').Page) {
 }
 
 test.describe('Journey 4 — Substitution during play', () => {
+  // Horizontal layout only. The substitution controls live in HorizontalBolt.svelte; VerticalBolt has none,
+  // so in portrait `.intennse-footer-btn--*` never appears and every test here burns the full
+  // per-test timeout before failing — minutes of pure noise per run. Measured 2026-08-27: 4/4 pass
+  // on the `tablet` project (1024x768), 4/4 fail on `mobile` (390x844).
+  test.skip(
+    ({ viewport }) => !!viewport && viewport.height > viewport.width,
+    'portrait renders VerticalBolt, which has no substitution controls',
+  );
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/#/archive');
     await waitForApp(page);
