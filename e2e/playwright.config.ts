@@ -1,4 +1,13 @@
 import { defineConfig } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+// Repo root — this config lives in `<root>/e2e/`. Playwright runs `webServer.command` with
+// cwd = the CONFIG'S directory, not the repo root, so vite roots itself in `e2e/`, finds no
+// index.html, binds the port and serves 404 forever. The readiness poll never resolves and the
+// run dies on the webServer timeout — which reads like a slow boot rather than a wrong cwd.
+// courthive-public hit this and documented it; epixodic never got the same fix.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 export default defineConfig({
   testDir: './journeys',
@@ -16,7 +25,12 @@ export default defineConfig({
     { name: 'tablet', use: { viewport: { width: 1024, height: 768 } } },
   ],
   webServer: {
-    command: 'npx vite --port 5175',
+    // `pnpm exec`, not `npx`: npm is banned ecosystem-wide (it corrupts the pnpm store) and every
+    // other e2e config here uses pnpm. On a host whose .npmrc carries pnpm-only keys, `npx` emits
+    // "Unknown env config" warnings and never brings the server up — the suite then dies on the
+    // webServer timeout below, which reads like a slow boot rather than the wrong package manager.
+    command: 'pnpm exec vite --port 5175',
+    cwd: ROOT,
     url: 'http://localhost:5175',
     reuseExistingServer: !process.env.CI,
     // A cold vite boot pre-bundles the linked factory/courthive-components deps,
