@@ -6,7 +6,7 @@ settings:
 
 overrides:
   typescript: 6.0.3
-  '@tennisvisuals/scoring-visualizations': link:../scoringVisualizations
+  '@courthive/scoring-visualizations': link:../scoringVisualizations
   courthive-components: link:../courthive-components
   tods-competition-factory: link:../factory
   lodash: ^4.18.0
@@ -21,8 +21,8 @@ importers:
   .:
     dependencies:
       '@courthive/scoring-visualizations':
-        specifier: ^0.2.2
-        version: 0.2.14(tods-competition-factory@factory)
+        specifier: link:../scoringVisualizations
+        version: link:../scoringVisualizations
       axios:
         specifier: ^1.6.5
         version: 1.19.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
@@ -236,11 +236,6 @@ packages:
     resolution: {integrity: sha512-TzlTVpKPjaqW6qOYjQcYUDuGsLCNsvFHVBXkYGTAnf5V37jCWrE5haKNXzz0WZUtVHjrpV76L1buANjwXMfT8w==}
     engines: {node: '>=22'}
 
-  '@courthive/scoring-visualizations@0.2.14':
-    resolution: {integrity: sha512-RsGp5kANWJrfzqZwvHAhkN9mL37RnKL+wDl8BpAeh2U5DOT2CtGNjNI2sufwnt8fqaHJWwzOYwAqndRRZZgNkw==}
-    peerDependencies:
-      tods-competition-factory: '>=5.0.0'
-
   '@eslint-community/eslint-utils@4.10.1':
     resolution: {integrity: sha512-cuadcxVFE8sDK6iWJbs8Sn0av2Nrh2QSGQhVlBW9AaAHqHwjWsZHT8LJ4hFGPh7ASBV2deFdM7H/DPjulmh8rg==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
@@ -451,9 +446,6 @@ packages:
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
-
-  '@popperjs/core@2.11.8':
-    resolution: {integrity: sha512-P1st0aksCrn9sGZhp8GMYwBnQsbvAWsZAX44oXNNvLHGqAOcoVxmjZiohstwQ7SqKnbR47akdNi+uleWD8+g6A==}
 
   '@rolldown/binding-android-arm64@1.2.4':
     resolution: {integrity: sha512-jHC2cnyKz5xU2fhECtFl8OZ83cYNt13GZQD+0uMJ/X3o+ijmd56okHhTUwxVSHPx1IRVIJEZ1/1pPzeLCU6XKA==}
@@ -1897,9 +1889,6 @@ packages:
     resolution: {integrity: sha512-yau8yJdTt989Mm0Bd/236QnzEiPf2xLLTqUZRUJOo/3CB078LSwzei343DgtJVmfJKJE3TMINY1u42SQsP6mXw==}
     engines: {node: '>=14.0.0'}
 
-  tippy.js@6.3.7:
-    resolution: {integrity: sha512-E1d3oP2emgJ9dRQZdf3Kkn0qJgI6ZLpyS5z6ZkY1DF3kaQaBsGZsndEpHwx+eC+tYM41HaSNvNtLx8tU57FzTQ==}
-
   totalist@3.0.1:
     resolution: {integrity: sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ==}
     engines: {node: '>=6'}
@@ -2232,12 +2221,6 @@ snapshots:
 
   '@conventional-changelog/template@1.2.1': {}
 
-  '@courthive/scoring-visualizations@0.2.14(tods-competition-factory@factory)':
-    dependencies:
-      d3: 7.9.0
-      tippy.js: 6.3.7
-      tods-competition-factory: link:../factory
-
   '@eslint-community/eslint-utils@4.10.1(eslint@10.8.1(jiti@2.6.1)(supports-color@7.2.0))':
     dependencies:
       eslint: 10.8.1(jiti@2.6.1)(supports-color@7.2.0)
@@ -2429,8 +2412,6 @@ snapshots:
       playwright: 1.62.1
 
   '@polka/url@1.0.0-next.29': {}
-
-  '@popperjs/core@2.11.8': {}
 
   '@rolldown/binding-android-arm64@1.2.4':
     optional: true
@@ -3838,10 +3819,6 @@ snapshots:
       picomatch: 4.0.5
 
   tinyrainbow@3.1.1: {}
-
-  tippy.js@6.3.7:
-    dependencies:
-      '@popperjs/core': 2.11.8
 
   totalist@3.0.1: {}
 
