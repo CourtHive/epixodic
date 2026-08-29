@@ -41,7 +41,19 @@ export async function getEventData(
 ): Promise<ApiResult<any>> {
   try {
     console.log(`[factoryApi] POST /factory/eventdata`, { tournamentId, eventId });
-    const response = await baseApi.post('/factory/eventdata', { tournamentId, eventId });
+    // `hydrateParticipants: true` is stated EXPLICITLY, not inherited from the DTO default.
+    //
+    // This app renders `side.participant` straight through (MatchUpList passes `matchUp.sides` to the
+    // card) and resolves no `participantId` anywhere, so unhydrated sides render nameless. Relying on
+    // the server default meant sharing a cache entry with callers that ask for the opposite:
+    // courthive-public sends `hydrateParticipants: false`, and until CFS keys the cache by payload
+    // shape, whichever of us fills it first wins for the TTL. Asking for what we actually need is both
+    // the correct declaration and what earns us our own cache key.
+    const response = await baseApi.post('/factory/eventdata', {
+      hydrateParticipants: true,
+      tournamentId,
+      eventId,
+    });
     console.log('[factoryApi] getEventData response:', response.data);
     return { data: response.data };
   } catch (e: any) {
