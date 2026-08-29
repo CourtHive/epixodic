@@ -58,6 +58,20 @@ describe('factoryApi.getEventData', () => {
     expect(res.data).toEqual({ success: true, eventData: { drawsData: [] } });
   });
 
+  it('asks for hydrated participants EXPLICITLY — this app renders side.participant directly', async () => {
+    // hydrateParticipants is opt-OUT on getEventData, so omitting it happened to work. It also meant
+    // sharing a cache entry with callers that send `false` (courthive-public does), which serves this
+    // app sides carrying only a participantId and renders them nameless. Declare what we need.
+    post().mockResolvedValue({ data: { success: true, eventData: { drawsData: [] } } });
+    await getEventData('t1', 'e1');
+
+    expect(vi.mocked(baseApi.post)).toHaveBeenCalledWith('/factory/eventdata', {
+      hydrateParticipants: true,
+      tournamentId: 't1',
+      eventId: 'e1',
+    });
+  });
+
   it('maps a rejected request to { error }', async () => {
     post().mockRejectedValue(new Error('Network Error'));
     const res = await getEventData('t1', 'e1');
