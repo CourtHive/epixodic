@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.5.4](https://github.com/CourtHive/epixodic/compare/v2.5.3...v2.5.4) (2026-09-06)
+
+
+### Bug Fixes
+
+* **deps:** raise fast-uri to a patched version ([#322](https://github.com/CourtHive/epixodic/issues/322)) ([8b70908](https://github.com/CourtHive/epixodic/commit/8b70908d599e0c1d0406237e0a3b80133369bb97))
+* **deps:** repair the dead scoring-visualizations override, and bump published deps ([#313](https://github.com/CourtHive/epixodic/issues/313)) ([6a832aa](https://github.com/CourtHive/epixodic/commit/6a832aa138c06475f1c5d0e1ed39a86bb7a6779e))
+* **deps:** update courthive-components to 3.14.3 ([376ed3d](https://github.com/CourtHive/epixodic/commit/376ed3d463ae1646382ecf88e65ad35f3c2ea18f))
+* **deps:** update courthive-components to 3.15.0 ([498c742](https://github.com/CourtHive/epixodic/commit/498c742590ce184dacea15b46951e590b034364e))
+* **deps:** update dependency courthive-components to v4.0.1 ([bbb726a](https://github.com/CourtHive/epixodic/commit/bbb726aba5e557b23e62fe8cd2a73d61de259d3f))
+* **deps:** update dependency courthive-components to v4.1.0 ([#323](https://github.com/CourtHive/epixodic/issues/323)) ([89dc038](https://github.com/CourtHive/epixodic/commit/89dc0381ff049d970bc9ee6a06be67a24850b181))
+* **deps:** update tods-competition-factory to 6.29.0 ([77f542d](https://github.com/CourtHive/epixodic/commit/77f542d3fd8f8dcb9e4185d5fc804c2b5f9d018c))
+* **deps:** update tods-competition-factory to 6.29.1 ([77e1fa4](https://github.com/CourtHive/epixodic/commit/77e1fa4f6dfe1c7a52c1fa560dbedf4f79f05730))
+* **deps:** update tods-competition-factory to 6.30.0 ([2cd2026](https://github.com/CourtHive/epixodic/commit/2cd202608c37fdb0712b52098d550fff9401285e))
+* **deps:** update tods-competition-factory to 6.31.0 and courthive-components to 3.15.1 ([#308](https://github.com/CourtHive/epixodic/issues/308)) ([f546155](https://github.com/CourtHive/epixodic/commit/f5461556e703ce9baee90d90a2a6136b533cb17f))
+* **deps:** update tods-competition-factory to 6.32.0 ([2fb856f](https://github.com/CourtHive/epixodic/commit/2fb856f54a47c493732c6bf831ce8e45749960a4))
+* **deps:** update tods-competition-factory to 6.33.0 ([3a47037](https://github.com/CourtHive/epixodic/commit/3a470379a896bcfdce42d55e798dcd38556ac050))
+* **deps:** update tods-competition-factory to 6.35.0 ([a222dad](https://github.com/CourtHive/epixodic/commit/a222dad66fdb7f5569e8149f7013159b680d450e))
+* **deps:** update tods-competition-factory to 6.36.0 ([b27968e](https://github.com/CourtHive/epixodic/commit/b27968eaa92f2fceab01a28d44f027490169bc3d))
+* **deps:** update tods-competition-factory to 6.37.1 ([ef9be99](https://github.com/CourtHive/epixodic/commit/ef9be9908d924285d69c90bd6e921dee01b5f6ec))
+* **deps:** update tods-competition-factory to 6.37.2 ([2c4cd57](https://github.com/CourtHive/epixodic/commit/2c4cd57f4f28165fb5131a3c7a548558bc42d5b0))
+* **e2e:** root the Playwright webServer at the repo, and use pnpm not npx ([#311](https://github.com/CourtHive/epixodic/issues/311)) ([3247d49](https://github.com/CourtHive/epixodic/commit/3247d4962a7adaaabab5f624329606b08f51f2a8))
+* **scoring:** declare the hydration this app needs, and refuse to score without a format ([#314](https://github.com/CourtHive/epixodic/issues/314)) ([37472c9](https://github.com/CourtHive/epixodic/commit/37472c90be7b69cf258543eefbec0dd20afba49f))
+
 ## [2.5.3](https://github.com/CourtHive/epixodic/compare/v2.5.2...v2.5.3) (2026-08-18)
 
 
