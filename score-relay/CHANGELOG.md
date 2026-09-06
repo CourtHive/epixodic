@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.4](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.3...score-relay-v0.5.4) (2026-09-06)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 6.29.0 ([77f542d](https://github.com/CourtHive/epixodic/commit/77f542d3fd8f8dcb9e4185d5fc804c2b5f9d018c))
+* **deps:** update tods-competition-factory to 6.29.1 ([77e1fa4](https://github.com/CourtHive/epixodic/commit/77e1fa4f6dfe1c7a52c1fa560dbedf4f79f05730))
+* **deps:** update tods-competition-factory to 6.30.0 ([2cd2026](https://github.com/CourtHive/epixodic/commit/2cd202608c37fdb0712b52098d550fff9401285e))
+* **deps:** update tods-competition-factory to 6.32.0 ([2fb856f](https://github.com/CourtHive/epixodic/commit/2fb856f54a47c493732c6bf831ce8e45749960a4))
+* **deps:** update tods-competition-factory to 6.33.0 ([3a47037](https://github.com/CourtHive/epixodic/commit/3a470379a896bcfdce42d55e798dcd38556ac050))
+* **deps:** update tods-competition-factory to 6.35.0 ([a222dad](https://github.com/CourtHive/epixodic/commit/a222dad66fdb7f5569e8149f7013159b680d450e))
+* **deps:** update tods-competition-factory to 6.36.0 ([b27968e](https://github.com/CourtHive/epixodic/commit/b27968eaa92f2fceab01a28d44f027490169bc3d))
+* **deps:** update tods-competition-factory to 6.37.1 ([ef9be99](https://github.com/CourtHive/epixodic/commit/ef9be9908d924285d69c90bd6e921dee01b5f6ec))
+* **deps:** update tods-competition-factory to 6.37.2 ([2c4cd57](https://github.com/CourtHive/epixodic/commit/2c4cd57f4f28165fb5131a3c7a548558bc42d5b0))
+
 ## [0.5.3](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.2...score-relay-v0.5.3) (2026-08-18)
 
 
