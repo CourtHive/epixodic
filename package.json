@@ -43,8 +43,8 @@
     "@types/node": "24.13.3",
     "@typescript-eslint/eslint-plugin": "8.69.0",
     "@typescript-eslint/parser": "8.69.0",
-    "@vitest/coverage-v8": "4.1.11",
-    "@vitest/ui": "4.1.11",
+    "@vitest/coverage-v8": "5.0.0",
+    "@vitest/ui": "5.0.0",
     "clipboard": "2.0.11",
     "cz-git": "1.14.0",
     "envfile": "7.1.0",
@@ -60,7 +60,7 @@
     "source-map-explorer": "2.5.3",
     "typescript": "6.0.3",
     "vite": "8.2.2",
-    "vitest": "4.1.11",
+    "vitest": "5.0.0",
     "yargs": "18.1.0"
   },
   "dependencies": {
