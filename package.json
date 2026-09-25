@@ -1,6 +1,6 @@
 {
   "name": "epixodic",
-  "packageManager": "pnpm@12.5.1",
+  "packageManager": "pnpm@12.6.0",
   "private": true,
   "version": "2.5.4",
   "type": "module",
