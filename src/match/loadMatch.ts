@@ -89,6 +89,19 @@ function loadLegacyData(match_data: any) {
 }
 
 function loadTODSData(match_data: any) {
+  // Read-back of data this app already stored. The entry point (MatchUpList.saveMatchData) now
+  // REFUSES to stage a tournament matchUp without a format, so anything saved from here on carries
+  // one and this fallback is reachable only by records written before that gate existed.
+  //
+  // Kept, and made visible, rather than removed: refusing here would not prevent a bad record — it is
+  // already written — it would only lock a scorer out of a match they are part-way through. The
+  // warning is what stops that being silent.
+  if (!match_data.matchUpFormat) {
+    console.warn(
+      `[loadMatch] stored match ${match_data.matchUpId ?? '(unknown)'} has no matchUpFormat; ` +
+        `falling back to SET3-S:6/TB7. Its score may be misinterpreted.`,
+    );
+  }
   const savedFormat = match_data.matchUpFormat || 'SET3-S:6/TB7';
   initializeTODSMatch(savedFormat);
   if (match_data.matchUpType) env.matchUpType = match_data.matchUpType;

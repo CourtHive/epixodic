@@ -5,13 +5,18 @@
  *   - same-origin static assets (JS/CSS/fonts/images): stale-while-revalidate.
  *   - cross-origin requests: pass through.
  *
- * The cache name is bumped whenever this file changes so old clients roll over
- * on the next activate. Keep the logic minimal — Epixodic's real caching story
- * lives in the app, this SW exists so Chrome/Android/iOS treat the site as a
- * real PWA and honour `display: standalone`.
+ * CACHE_VERSION is replaced at build time with the build commit short-SHA
+ * (see vite.config.ts `stampServiceWorkerVersion`). Each prod build emits
+ * a different SW byte stream and a different SHELL_CACHE name, so:
+ *   1. Browsers detect the SW change and install + activate the new worker.
+ *   2. The activate handler's existing sweep deletes the previous
+ *      `epixodic-shell-*` cache so stale JS/CSS hashes don't linger.
+ * Without the stamp the cache key was the literal string 'v1', which
+ * never changed across deploys and could trap users on old assets until
+ * they manually cleared site data.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = '__EPIXODIC_BUILD_COMMIT__';
 const SHELL_CACHE = `epixodic-shell-${CACHE_VERSION}`;
 const SHELL_URLS = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 

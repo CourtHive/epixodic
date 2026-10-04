@@ -92,7 +92,10 @@ export function deleteLocalMatchUp(matchUpId: string) {
   refreshLocalMatchUps();
 }
 
-// Auto-refresh when vanilla JS scoring saves a match
+// Auto-refresh when vanilla JS scoring saves a match. `matcharchive:updated`
+// covers same-window saves + scoring-modal close; `storage` covers writes made
+// inside the desktop scoring iframe (whose in-frame events never reach us).
 if (typeof window !== 'undefined') {
   window.addEventListener('matcharchive:updated', () => refreshLocalMatchUps());
+  window.addEventListener('storage', () => refreshLocalMatchUps());
 }

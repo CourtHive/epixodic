@@ -20,7 +20,14 @@ export default [
     },
     rules: {
       // Reasonable TS baseline (you can tighten later)
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      // `_`-prefix marks a deliberately-unused binding. `argsIgnorePattern` alone only covers
+      // function parameters, so the same convention failed on a destructured binding
+      // (`const { point: _omit, ...rest } = update` — the omit-a-key idiom). `ignoreRestSiblings`
+      // is the option built for that idiom; `varsIgnorePattern` extends `_` to plain locals.
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
 
       // SonarJS recommended rules
       ...sonarjs.configs.recommended.rules,
@@ -34,6 +41,11 @@ export default [
       'sonarjs/no-alphabetical-sort': 'off', // .sort() on string arrays is correct
       'sonarjs/prefer-regexp-exec': 'off', // .match() is fine for simple patterns
       'sonarjs/argument-type': 'off', // false positives on .includes() with string arrays
+      // Redundant with @typescript-eslint/no-unused-vars above, which is the authoritative
+      // rule here because it honours this repo's `_`-prefix / rest-sibling conventions.
+      // Unused bindings are still caught — and now actually gate, since `pnpm lint` runs
+      // --max-warnings 0, which promotes that rule's `warn` to a build failure.
+      'sonarjs/no-unused-vars': 'off',
     },
   },
 ];

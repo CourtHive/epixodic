@@ -52,12 +52,17 @@ npx tsx test-manual.ts       # E2E manual test (requires running server)
 
 ## Deploying to courthive-nest
 
+The score-relay is bundled into `competition-factory-server`'s release tarball
+and promotes atomically with the server. Build it locally, then promote the
+server bundle:
+
 ```bash
-cd ~/Development/GitHub/CourtHive/deploy
-./deploy-relay.sh
+~/Development/GitHub/CourtHive/Mentat/scripts/mentat-push-server.sh
 ```
 
-This builds locally and rsyncs `dist/` to the remote. See the deploy script for details.
+See `Mentat/planning/DEPLOY_PROMOTE_PIPELINE.md` for the unified-PM2 release
+flow (single `pm2 start ecosystem.config.js` launches Factory-Server +
+Score-Relay + Audit-Worker).
 
 ### nginx (manual, one-time)
 

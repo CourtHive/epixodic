@@ -9,6 +9,8 @@ import {
   getNextServer,
 } from '../state/env';
 import { FORMAT_NAMES, isLegacyFormat, migrateFormat } from '../services/matchObject/formatMigration';
+import { finalizeMatchOutcome } from '../match/finalizeMatchOutcome';
+import { relayCrowdScoreIfLaunched } from '../services/messaging/crowdScoreRelay';
 import { sendScore } from '../services/messaging/scoreRelay';
 import { browserStorage } from '../state/browserStorage';
 import { groupGames } from '../engine/groupGames';
@@ -110,9 +112,32 @@ export function stateChangeEvent() {
 
     // Broadcast live score to relay
     broadcastScore();
+
+    // Standalone (mobile) scoring page: submit the final outcome to CFS when the
+    // match completes. The desktop modal runs this scorer in an iframe and
+    // finalizes from the parent on close, so skip when framed to avoid a double
+    // submit.
+    maybeFinalizeStandalone();
   } finally {
     inStateChange = false;
   }
+}
+
+let lastFinalizeKey: string | undefined;
+
+function maybeFinalizeStandalone(): void {
+  if (typeof globalThis === 'undefined' || globalThis.self !== globalThis.top) return;
+  if (!env.engine?.isComplete?.()) return;
+  const matchUpId = env.metadata?.match?.matchUpId;
+  if (!matchUpId) return;
+
+  // Fire once per unique completed outcome (re-fires on a correction).
+  const state = env.engine.getState();
+  const key = `${matchUpId}|${state?.winningSide ?? ''}|${JSON.stringify(state?.score?.sets ?? [])}`;
+  if (key === lastFinalizeKey) return;
+  lastFinalizeKey = key;
+
+  void finalizeMatchOutcome(matchUpId);
 }
 
 export function visibleButtons() {
@@ -405,15 +430,34 @@ function broadcastScore(): void {
   const score = state.score || {};
   const scoreDisplay = getScoreForDisplay();
 
+  const tournamentId = env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId;
+  const isComplete = env.engine.isComplete();
+  const winningSide = isComplete ? state.winningSide : undefined;
+
+  const points = state.history?.points;
+  const lastPoint = points?.length ? points[points.length - 1] : undefined;
+
   sendScore({
     matchUpId,
-    tournamentId: env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId,
+    tournamentId,
     score: {
       sets: score.sets,
       scoreStringSide1: scoreDisplay,
       scoreStringSide2: scoreDisplay,
     },
-    matchUpStatus: env.engine.isComplete() ? 'COMPLETED' : 'IN_PROGRESS',
-    winningSide: env.engine.isComplete() ? state.winningSide : undefined,
+    matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
+    winningSide,
+    // The full CODES `Point` so the relay persists point-by-point to
+    // courthive-query; sendScore dedups per pointNumber.
+    point: lastPoint,
+  });
+
+  // When launched from courthive-public with a HiveID identity, also relay to
+  // the /crowd namespace as that scorer (Phase D) — no-op otherwise.
+  relayCrowdScoreIfLaunched({
+    matchUpId,
+    tournamentId,
+    currentScore: { sets: score.sets, winningSide, scoreboard: scoreDisplay, matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS' },
+    formatHint: env.metadata.match?.matchUpFormat,
   });
 }

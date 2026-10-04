@@ -9,4 +9,4 @@ export {
   ptsHorizon,
   rallyTree,
   statView,
-} from '@tennisvisuals/scoring-visualizations';
+} from '@courthive/scoring-visualizations';

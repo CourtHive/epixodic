@@ -13,6 +13,15 @@ import {
 } from './matchUpStore.js';
 import { connectUpstream } from './upstreamFederation.js';
 import { persistMatchHistory } from './persistence.js';
+import { persistPoint } from './pointHistoryPersistence.js';
+import {
+  extractTrackerToken,
+  TrackerAuthError,
+  verifyTrackerToken,
+  type TrackerSocketData,
+} from './trackerAuth.js';
+import { TrackerLimits } from './trackerLimits.js';
+import { ConnectLimits } from './connectLimits.js';
 import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
 
 // Metrics counters
@@ -44,15 +53,76 @@ export function createRelay(io: Server, config: RelayConfig): void {
   // --- Tracker namespace: mobile trackers push scores here ---
   const tracker = io.of('/tracker');
 
-  tracker.on('connection', (socket: Socket) => {
-    trackerCount++;
-    console.log(`[tracker] connected: ${socket.id} (${trackerCount} active)`);
+  // Per-IP connect-rate cap. Runs BEFORE token validation so a flood
+  // of bad-token connects can't dominate the auth path either. The
+  // default ceiling (60/min) is well above any legitimate reconnect
+  // storm; abuse looks like hundreds.
+  const connectLimits = new ConnectLimits({
+    maxConnectsPerMinute: config.trackerMaxConnectsPerMinute ?? 60,
+  });
+  setInterval(() => connectLimits.prune(), pruneIntervalMs).unref();
 
-    socket.on('score', (data: ScoreUpdate) => {
-      if (!data?.matchUpId) {
-        socket.emit('error', { message: 'matchUpId required' });
+  tracker.use((socket, next) => {
+    const ip = socket.handshake.address || 'unknown';
+    if (!connectLimits.tryConnect(ip)) {
+      console.warn(`[tracker] reject ${socket.id}: connect-rate-limited (ip=${ip})`);
+      next(new Error('connect-rate-limited'));
+      return;
+    }
+    next();
+  });
+
+  // Auth + ownership gate. Transitional during the IONSport rollout —
+  // see types.ts RelayConfig.trackerJwtSecret / trackerRequireAuth.
+  tracker.use((socket, next) => {
+    const token = extractTrackerToken(socket);
+    if (!config.trackerJwtSecret) {
+      // Legacy permissive mode — relay was deployed without a secret.
+      (socket.data as TrackerSocketData) = { userId: 'anonymous', audience: 'admin' };
+      next();
+      return;
+    }
+    if (!token) {
+      if (config.trackerRequireAuth) {
+        console.warn(`[tracker] reject ${socket.id}: missing-token`);
+        next(new Error('missing-token'));
         return;
       }
+      console.warn(`[tracker] DEPRECATED: ${socket.id} connected without token; tighten before IONSport go-live`);
+      (socket.data as TrackerSocketData) = { userId: 'anonymous', audience: 'admin' };
+      next();
+      return;
+    }
+    try {
+      (socket.data as TrackerSocketData) = verifyTrackerToken(token, config.trackerJwtSecret, {
+        es256Keys: config.es256Keys,
+      });
+      next();
+    } catch (err) {
+      const reason = err instanceof TrackerAuthError ? err.reason : 'bad-token';
+      console.warn(`[tracker] reject ${socket.id}: ${reason}`);
+      next(new Error(reason));
+    }
+  });
+
+  // Per-matchUp + per-user rate limits. The per-user ceiling (default
+  // 5× the per-matchUp cap) closes the cross-matchUp fan-out bypass.
+  const trackerLimits = new TrackerLimits({
+    eventsPerSecond: config.trackerMaxEventsPerSecond ?? 10,
+    userFanoutMultiplier: config.trackerUserFanoutMultiplier ?? 5,
+  });
+  // Prune idle buckets on the same cadence as stale matches. `.unref()`
+  // so the timer doesn't keep Node alive on SIGTERM — the relay process
+  // is expected to exit cleanly without `--force-exit` during deploys.
+  setInterval(() => trackerLimits.prune(), pruneIntervalMs).unref();
+
+  tracker.on('connection', (socket: Socket) => {
+    trackerCount++;
+    const socketData = socket.data as TrackerSocketData;
+    console.log(`[tracker] connected: ${socket.id} user=${socketData.userId} aud=${socketData.audience} (${trackerCount} active)`);
+
+    socket.on('score', (data: ScoreUpdate) => {
+      if (!guardFrame(socket, data, trackerLimits)) return;
 
       updateMatch(data);
       scoresRelayed++;
@@ -68,6 +138,10 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Also emit to the "all" room for dashboards
       listeners.to('all').emit('score', data);
+
+      // Durably persist the point to courthive-query (S3). Fire-and-forget — a
+      // persistence failure must never block the broadcast/ack path above.
+      if (data.point) void persistPoint(data);
 
       // Anchor clock ticks from the score event if it carries clock
       // fields. This is the reliable baseline — the intennse event
@@ -100,11 +174,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
     // INTENNSE enriched snapshots: fan out to listeners + anchor clocks
     // for relay-native tick generation.
     socket.on('intennse', (data: any) => {
-      if (!data?.matchUpId) {
-        socket.emit('error', { message: 'matchUpId required' });
-        return;
-      }
-
+      if (!guardFrame(socket, data, trackerLimits)) return;
       socket.emit('ack', { matchUpId: data.matchUpId, received: true });
 
       // Fan out the event payload (full stats, score, penalty box, etc.)
@@ -149,8 +219,11 @@ export function createRelay(io: Server, config: RelayConfig): void {
     // pause, timeout, break, navigation away). Re-anchors or stops
     // the relay's ticker so the scorebug display matches reality.
     socket.on('clockSync', (data: any) => {
-      if (!data?.matchUpId) {
-        socket.emit('error', { message: 'matchUpId required' });
+      // clockSync ownership-checked but not rate-limited — there are
+      // never more than a handful per match (pause/resume/break), and
+      // rate-limiting them would risk dropping a transition.
+      if (!guardOwnership(socket, data)) {
+        socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
         return;
       }
 
@@ -193,8 +266,10 @@ export function createRelay(io: Server, config: RelayConfig): void {
     });
 
     socket.on('history', async (data: MatchHistory) => {
-      if (!data?.matchUpId) {
-        socket.emit('error', { message: 'matchUpId required' });
+      // history is the final-state event — ownership-checked, but
+      // rate-limit-exempt because it fires at most once per match.
+      if (!guardOwnership(socket, data)) {
+        socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
         return;
       }
 
@@ -284,6 +359,10 @@ export function createRelay(io: Server, config: RelayConfig): void {
     // Idempotent — clears any existing timer for this match first.
     clearClockTimer(matchUpId);
 
+    // .unref() the 10 Hz clock ticker so leftover running anchors at
+    // SIGTERM don't keep Node alive past graceful shutdown. The ticker
+    // is auto-cleared when the clock completes, but a relay restart in
+    // the middle of an active match must not hang waiting for that.
     const timer = setInterval(() => {
       const anchor = getClockAnchor(matchUpId);
       if (!anchor?.running) {
@@ -344,15 +423,74 @@ export function createRelay(io: Server, config: RelayConfig): void {
         clearClockTimer(matchUpId);
       }
     }, 100); // 10 Hz
+    timer.unref();
 
     setClockTimer(matchUpId, timer);
   }
 
-  // Periodically prune stale matches (also clears any orphaned timers)
+  // Periodically prune stale matches (also clears any orphaned timers).
+  // `.unref()` so the relay process exits cleanly on SIGTERM without
+  // needing `--force-exit` — see also the rate-limit-prune timer above.
   setInterval(() => {
     const pruned = pruneStaleMatches(staleMatchAgeMs);
     if (pruned > 0) {
       console.log(`[relay] pruned ${pruned} stale matches`);
     }
-  }, pruneIntervalMs);
+  }, pruneIntervalMs).unref();
+}
+
+/**
+ * Validate matchUpId presence + tournament ownership (for score-aud
+ * tokens) and consume one rate-limit token. Returns true to proceed;
+ * on failure, the socket has already been signaled and the caller
+ * should just `return`.
+ *
+ * Passes the token's `userId` into the limiter so the per-user
+ * fan-out ceiling kicks in — the per-matchUp bucket alone leaves a
+ * bypass where N matchUps × per-match cap = N× total throughput.
+ */
+function guardFrame(
+  socket: Socket,
+  data: { matchUpId?: string; tournamentId?: string } | undefined,
+  limits: TrackerLimits,
+): boolean {
+  if (!guardOwnership(socket, data)) {
+    socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
+    return false;
+  }
+  const socketData = socket.data as TrackerSocketData | undefined;
+  const limit = limits.tryConsume(data!.matchUpId!, socketData?.userId);
+  if (!limit.allowed) {
+    socket.emit('rejected', {
+      matchUpId: data!.matchUpId,
+      reason: limit.scope === 'user' ? 'user-rate-limited' : 'rate-limited',
+      retryAfter: limit.retryAfter,
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Ownership-only check, no rate limit. Used for clockSync and history
+ * which are low-frequency transitions that shouldn't be dropped under
+ * rate pressure.
+ *
+ * For `score`-audience tokens, the tournament binding lives in the JWT,
+ * not the frame. If the frame omits `tournamentId`, we stamp the token's
+ * value onto the frame so downstream persistence and fan-out are scoped
+ * to that tournament — otherwise an omit-tournamentId frame would slip
+ * the mismatch check and reach `listeners.to('all')` as if global.
+ */
+function guardOwnership(
+  socket: Socket,
+  data: { matchUpId?: string; tournamentId?: string } | undefined,
+): boolean {
+  if (!data?.matchUpId) return false;
+  const socketData = socket.data as TrackerSocketData | undefined;
+  if (socketData?.audience === 'score' && socketData.tournamentId) {
+    if (data.tournamentId && data.tournamentId !== socketData.tournamentId) return false;
+    data.tournamentId = socketData.tournamentId;
+  }
+  return true;
 }

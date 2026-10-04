@@ -95,7 +95,7 @@ describe('Score Relay Integration', () => {
       tracker.emit('score', { score: {} });
 
       const error = await errorPromise;
-      expect(error.message).toBe('matchUpId required');
+      expect(error.message).toMatch(/matchUpId required/);
 
       tracker.disconnect();
     });
@@ -400,7 +400,7 @@ describe('Score Relay Integration', () => {
       tracker.emit('intennse', { boltScore: {} });
 
       const error = await errorPromise;
-      expect(error.message).toBe('matchUpId required');
+      expect(error.message).toMatch(/matchUpId required/);
 
       tracker.disconnect();
     });

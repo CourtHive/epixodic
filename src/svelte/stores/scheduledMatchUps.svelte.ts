@@ -55,6 +55,19 @@ export function clearScheduledMatchUps() {
   error = undefined;
 }
 
+// `dateMatchUps` is a FLAT array of matchUps (the factory shape), not a map keyed
+// by date — so filter by each matchUp's scheduled date rather than indexing.
 export function getMatchUpsForDate(date: string): HydratedMatchUp[] {
-  return data?.dateMatchUps?.[date] ?? [];
+  return (data?.dateMatchUps ?? []).filter((matchUp) => matchUp.schedule?.scheduledDate === date);
+}
+
+// Distinct scheduled dates present in the current data, ascending — for driving a
+// date filter/selector in the matchUps view.
+export function getScheduledDates(): string[] {
+  const dates = new Set<string>();
+  for (const matchUp of data?.dateMatchUps ?? []) {
+    const scheduledDate = matchUp.schedule?.scheduledDate;
+    if (scheduledDate) dates.add(scheduledDate);
+  }
+  return [...dates].sort();
 }

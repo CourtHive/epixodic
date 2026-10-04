@@ -23,6 +23,15 @@ async function setupActiveBolt(page: import('@playwright/test').Page) {
 }
 
 test.describe('Journey 5 — Penalty flow', () => {
+  // Horizontal layout only. The penalty controls live in HorizontalBolt.svelte; VerticalBolt has none,
+  // so in portrait `.intennse-footer-btn--*` never appears and every test here burns the full
+  // per-test timeout before failing — minutes of pure noise per run. Measured 2026-08-27: 4/4 pass
+  // on the `tablet` project (1024x768), 4/4 fail on `mobile` (390x844).
+  test.skip(
+    ({ viewport }) => !!viewport && viewport.height > viewport.width,
+    'portrait renders VerticalBolt, which has no penalty controls',
+  );
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/#/archive');
     await waitForApp(page);
@@ -78,7 +87,10 @@ test.describe('Journey 5 — Penalty flow', () => {
 
     // Either penalty indicator should appear, or sub modal should open
     // (auto-sub modal opens when penalized player was on court)
-    const hasPenaltyIndicator = await page.locator(S.PENALTY_INDICATOR).isVisible().catch(() => false);
+    const hasPenaltyIndicator = await page
+      .locator(S.PENALTY_INDICATOR)
+      .isVisible()
+      .catch(() => false);
     const hasSubModal = await bolt.subModal.isVisible().catch(() => false);
     expect(hasPenaltyIndicator || hasSubModal).toBeTruthy();
   });
@@ -97,7 +109,10 @@ test.describe('Journey 5 — Penalty flow', () => {
     // If auto-sub modal opens, dismiss it
     if (await bolt.subModal.isVisible().catch(() => false)) {
       // Close the sub modal by clicking overlay or close button
-      await page.locator('.sub-close').click().catch(() => {});
+      await page
+        .locator('.sub-close')
+        .click()
+        .catch(() => {});
       await page.waitForTimeout(500);
     }
 

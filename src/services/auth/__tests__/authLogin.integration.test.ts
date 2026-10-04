@@ -29,6 +29,7 @@ describe('POST /auth/login (integration)', async () => {
   if (!available) {
     it('skips — server not reachable at ' + SERVER_URL, () => {
       console.log('[auth integration] server not reachable — skipping live tests');
+      expect(available).toBe(false);
     });
     return;
   }

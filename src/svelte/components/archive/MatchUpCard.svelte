@@ -10,6 +10,13 @@
 
   const hasGamePoints = $derived(!matchUp.winningSide || matchUp.matchUpStatus === 'RETIRED');
 
+  // Re-mount the vanilla render whenever the score itself changes — the status/
+  // winningSide key alone misses in-progress point-by-point updates (e.g. local
+  // scores overlaid onto the server-sourced draw).
+  const scoreKey = $derived(
+    (matchUp.score?.scoreStringSide1 ?? '') + '|' + JSON.stringify(matchUp.score?.sets ?? []),
+  );
+
   const archiveComposition = $derived({
     theme: '',
     configuration: {
@@ -44,8 +51,8 @@
   }
 </script>
 
-{#key matchUp.matchUpStatus + '|' + (matchUp.winningSide ?? '')}
-  <div class="matchup-card" use:mountRenderMatchUp></div>
+{#key matchUp.matchUpStatus + '|' + (matchUp.winningSide ?? '') + '|' + scoreKey}
+  <div class="matchup-card" class:has-local-score={matchUp.hasLocalScore} use:mountRenderMatchUp></div>
 {/key}
 
 <style>
@@ -54,5 +61,19 @@
   }
   .matchup-card :global(.matchUp) {
     cursor: pointer;
+  }
+  /* Local, not-yet-submitted score: subtle left accent so it reads as pending. */
+  .matchup-card.has-local-score {
+    position: relative;
+  }
+  .matchup-card.has-local-score::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--chc-accent, #e0a400);
   }
 </style>
