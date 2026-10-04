@@ -6,6 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Before doing anything else, read `../Mentat/CLAUDE.md`, `../Mentat/TASKS.md`, `../Mentat/standards/coding-standards.md`, and every file in `../Mentat/in-flight/`. Mentat is the orchestration layer for the entire CourtHive ecosystem; its standards override per-repo conventions when they conflict. If you are about to start **building** (not just planning), you must claim a surface in `../Mentat/in-flight/` and run the air-traffic-control conflict check first. See the parent `../CLAUDE.md` "Mentat Orchestration" section for the full protocol.
 
+## Branching — cut from `dev`, not `master` (CA, 2026-10-04)
+
+`dev` is this repo's integration branch, as in the factory, courthive-components and TMX. **Branch from
+`origin/dev` and open PRs against `dev`.** `master` advances only at checkpoints, by merging `dev` into it
+by PR with a **merge commit, never a squash**. A checkpoint refreshes release-please's PR on `master`; it
+does not release. Merging that release PR is the separate, deliberate act that releases.
+
+After a release PR merges, merge `master` back into `dev` (a PR from `master` into `dev`, merge commit) so
+`dev` carries the version bump. `delete_branch_on_merge` is off so a checkpoint never deletes `dev`; prune
+merged feature branches yourself. Renovate targets `dev` (`baseBranches` in `renovate.json`). CI runs on
+every PR (`pull_request:` has no branch filter), so a PR into `dev` gets the full gate; a direct push to
+`dev` gets none, so land work by PR.
+
+Full rationale: `../Mentat/standards/coding-standards.md` § "Branch off `dev`, not `master`".
+
 ## Project Overview
 
 Epixodic is a Svelte 5 point-by-point match tracker for tennis. It provides interactive scoring interfaces, live match display, and integrates with D3 visualizations from `@courthive/scoring-visualizations`. It supports standard tennis scoring and the INTENNSE team tennis format.
