@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.5](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.4...score-relay-v0.5.5) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** update socket.io packages to v4.8.4 ([#340](https://github.com/CourtHive/epixodic/issues/340)) ([489c8d0](https://github.com/CourtHive/epixodic/commit/489c8d074895f6ffdbcc97db5b6332bba7439fb9))
+* **deps:** update tods-competition-factory to 7.1.1 ([8d97868](https://github.com/CourtHive/epixodic/commit/8d9786835d6bd7ebd94e6a0c08424b0eb5542654))
+* **deps:** update tods-competition-factory to 7.2.0 ([2287f66](https://github.com/CourtHive/epixodic/commit/2287f66bbfb66499f7edfb5eb750a274f1bebd88))
+* **deps:** update tods-competition-factory to 7.3.1 ([cf76e84](https://github.com/CourtHive/epixodic/commit/cf76e84df74e8e3a78fcfebb46f5351679ccb242))
+* **deps:** update tods-competition-factory to 7.4.0 ([655d29f](https://github.com/CourtHive/epixodic/commit/655d29f9fcfdb3a712c3cf5d019a1702e3844bf0))
+* **deps:** update tods-competition-factory to 7.6.0 ([5c931c2](https://github.com/CourtHive/epixodic/commit/5c931c293979c5f999a4f0b9506cbb501f753614))
+
 ## [0.5.4](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.3...score-relay-v0.5.4) (2026-09-07)
 
 
