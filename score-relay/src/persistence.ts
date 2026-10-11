@@ -1,4 +1,7 @@
+import { governors, matchUpFormatCode } from 'tods-competition-factory';
 import axios from 'axios';
+
+// constants and types
 import type { MatchHistory } from './types.js';
 
 let factoryServerUrl: string | undefined;
@@ -74,6 +77,20 @@ export async function persistMatchHistory(history: MatchHistory): Promise<void> 
  * wrapper resolves it from `tournamentId + matchUpId` via the factory
  * `findMatchUp` brute-force lookup.
  */
+/**
+ * A level combined-point total whose format lets the tie stand, and that the factory says is over
+ * (`checkSetIsComplete` hands a combined-point set to its own `analyzeCombinedPointSet`). A deciding-point or
+ * win-by format (P32DP, P32WB2) never ends level, so it is never a completed tie.
+ */
+function isCompletedCombinedPointTie(sets: any[] | undefined, matchUpFormat?: string): boolean {
+  const setFormat = matchUpFormatCode.parse(matchUpFormat ?? '')?.setFormat;
+  if (!setFormat?.combinedPointTotal || setFormat.tieResolution !== 'ALLOW') return false;
+  if (sets?.length !== 1) return false;
+  const [set] = sets;
+  if (set.side1Score === undefined || set.side1Score !== set.side2Score) return false;
+  return governors.scoreGovernor.checkSetIsComplete({ set, matchUpFormat, isDecidingSet: true }) === true;
+}
+
 export function buildScorePayload(history: MatchHistory): {
   tournamentId: string;
   matchUpId: string;
@@ -82,7 +99,9 @@ export function buildScorePayload(history: MatchHistory): {
 } {
   const sets = history.score?.sets;
   const winningSide = history.score?.winningSide;
-  const matchUpStatus = winningSide ? 'COMPLETED' : 'IN_PROGRESS';
+  // A combined-point total that allows a tie (SET1-S:P32) ends 16-16 with no winner: finished all the same.
+  const finished = !!winningSide || isCompletedCombinedPointTie(sets, history.matchUpFormat);
+  const matchUpStatus = finished ? 'COMPLETED' : 'IN_PROGRESS';
   return {
     tournamentId: history.tournamentId!,
     matchUpId: history.matchUpId,
