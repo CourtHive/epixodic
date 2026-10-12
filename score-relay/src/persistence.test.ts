@@ -1,6 +1,8 @@
+import { buildScorePayload, configurePersistence, persistMatchHistory } from './persistence.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
-import { buildScorePayload, configurePersistence, persistMatchHistory } from './persistence.js';
+
+// constants and types
 import type { MatchHistory } from './types.js';
 
 vi.mock('axios', () => ({
@@ -39,6 +41,25 @@ describe('buildScorePayload', () => {
     const payload = buildScorePayload({ ...baseHistory, score: { sets: [{ setNumber: 1, side1Score: 3, side2Score: 2 }] } });
     expect(payload.outcome.matchUpStatus).toBe('IN_PROGRESS');
     expect(payload.outcome.winningSide).toBeUndefined();
+  });
+
+  it('marks a completed points-total tie COMPLETED, with no winningSide', () => {
+    // SET1-S:P32 can end 16-16: COMPLETED with no winner (ties are valid in combined-point scoring)
+    const tied = { setNumber: 1, side1Score: 16, side2Score: 16 };
+    const payload = buildScorePayload({ ...baseHistory, matchUpFormat: 'SET1-S:P32', score: { sets: [tied] } });
+    expect(payload.outcome.matchUpStatus).toBe('COMPLETED');
+    expect(payload.outcome.winningSide).toBeUndefined();
+  });
+
+  it('control: an unfinished level total, and a level total that must be resolved, stay IN_PROGRESS', () => {
+    const level = (side: number) => ({ sets: [{ setNumber: 1, side1Score: side, side2Score: side }] });
+    expect(buildScorePayload({ ...baseHistory, matchUpFormat: 'SET1-S:P32', score: level(10) }).outcome.matchUpStatus).toBe(
+      'IN_PROGRESS',
+    );
+    expect(buildScorePayload({ ...baseHistory, matchUpFormat: 'SET1-S:P32DP', score: level(16) }).outcome.matchUpStatus).toBe(
+      'IN_PROGRESS',
+    );
+    expect(buildScorePayload({ ...baseHistory, score: level(6) }).outcome.matchUpStatus).toBe('IN_PROGRESS');
   });
 
   it('omits outcome.score when no sets are present', () => {
