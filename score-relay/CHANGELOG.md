@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.5](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.4...score-relay-v0.5.5) (2026-10-12)
+
+
+### Bug Fixes
+
+* **deps:** update socket.io packages to v4.8.4 ([#340](https://github.com/CourtHive/epixodic/issues/340)) ([489c8d0](https://github.com/CourtHive/epixodic/commit/489c8d074895f6ffdbcc97db5b6332bba7439fb9))
+* **deps:** update tods-competition-factory to 7.1.1 ([8d97868](https://github.com/CourtHive/epixodic/commit/8d9786835d6bd7ebd94e6a0c08424b0eb5542654))
+* **deps:** update tods-competition-factory to 7.10.0 ([#358](https://github.com/CourtHive/epixodic/issues/358)) ([2a4533d](https://github.com/CourtHive/epixodic/commit/2a4533deeccb52021079e9e8e1f62fbe7d9ef63e))
+* **deps:** update tods-competition-factory to 7.11.0 ([#359](https://github.com/CourtHive/epixodic/issues/359)) ([f93e819](https://github.com/CourtHive/epixodic/commit/f93e819691dfb3b545a4ac29f398f62125adbaa7))
+* **deps:** update tods-competition-factory to 7.12.0 ([#362](https://github.com/CourtHive/epixodic/issues/362)) ([cb7061f](https://github.com/CourtHive/epixodic/commit/cb7061f5ccced597e9855e5cb538886dd6d89172))
+* **deps:** update tods-competition-factory to 7.2.0 ([2287f66](https://github.com/CourtHive/epixodic/commit/2287f66bbfb66499f7edfb5eb750a274f1bebd88))
+* **deps:** update tods-competition-factory to 7.3.1 ([cf76e84](https://github.com/CourtHive/epixodic/commit/cf76e84df74e8e3a78fcfebb46f5351679ccb242))
+* **deps:** update tods-competition-factory to 7.4.0 ([655d29f](https://github.com/CourtHive/epixodic/commit/655d29f9fcfdb3a712c3cf5d019a1702e3844bf0))
+* **deps:** update tods-competition-factory to 7.6.0 ([5c931c2](https://github.com/CourtHive/epixodic/commit/5c931c293979c5f999a4f0b9506cbb501f753614))
+* **deps:** update tods-competition-factory to 7.7.0 ([#352](https://github.com/CourtHive/epixodic/issues/352)) ([194b996](https://github.com/CourtHive/epixodic/commit/194b996436a9fcd4a479b2dd8131f9fd9d014161))
+* **deps:** update tods-competition-factory to 7.8.0 ([#354](https://github.com/CourtHive/epixodic/issues/354)) ([676c99c](https://github.com/CourtHive/epixodic/commit/676c99c78152d59474b69b49fd8418f31a4fd58b))
+* **deps:** update tods-competition-factory to 7.9.0 ([#357](https://github.com/CourtHive/epixodic/issues/357)) ([7c2d1d7](https://github.com/CourtHive/epixodic/commit/7c2d1d748420fd5a67b03024832c9b9760077f10))
+* **score-relay:** a completed points-total tie is persisted as COMPLETED ([#360](https://github.com/CourtHive/epixodic/issues/360)) ([20f351f](https://github.com/CourtHive/epixodic/commit/20f351f804395870316aea39a79a44800ce407c0))
+
 ## [0.5.4](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.3...score-relay-v0.5.4) (2026-09-07)
 
 
