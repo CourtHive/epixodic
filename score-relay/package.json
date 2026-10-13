@@ -1,7 +1,7 @@
 {
   "name": "@epixodic/score-relay",
   "packageManager": "pnpm@12.9.1",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "private": true,
   "type": "module",
   "engines": {
