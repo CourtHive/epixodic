@@ -302,6 +302,38 @@ suite('/crowd namespace', () => {
     client.disconnect();
   });
 
+  // CFS's admin login token carries `userId` and NO `sub` (auth.service signAccessToken). Refusing it as
+  // `missing-sub` locked every TMX-signed-in visitor out of Track sharing; found by Guidon's crowd journey.
+  it('accepts a CFS admin login token (userId, no sub) and owns the session by its userId', async () => {
+    const token = signHs256({ userId: 'cfs-user-7', email: 'td@example.com', aud: 'admin' }, JWT_SECRET);
+    const client = connect(token);
+    await new Promise<void>((resolve, reject) => {
+      client.on('connect', resolve);
+      client.on('connect_error', reject);
+    });
+
+    client.emit('submitCrowdScore', {
+      sessionId: 'sess-admin-userid',
+      matchUpId: 'mu-1',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-1',
+      point: mkPoint(1),
+      currentScore: {},
+    });
+    await nextEvent(client, 'acked');
+    expect((await storage.getById('sess-admin-userid'))?.userId).toBe('cfs-user-7');
+
+    client.disconnect();
+  });
+
+  it('still rejects a token naming no principal at all', async () => {
+    const token = signHs256({ email: 'nobody@example.com', aud: 'admin' }, JWT_SECRET);
+    const client = connect(token);
+    const err = await new Promise<Error>((resolve) => client.on('connect_error', resolve));
+    expect(err.message).toMatch(/missing-sub/);
+    client.disconnect();
+  });
+
   // HiveID Phase 5 — verify hiveid-aud JWTs, stamp crowdScoredBy.
 
   it('rejects a hiveid-aud token without a personId claim', async () => {

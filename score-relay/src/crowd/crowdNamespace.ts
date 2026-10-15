@@ -27,7 +27,7 @@
  */
 
 import type { Namespace, Server, Socket } from 'socket.io';
-import { verifyJwt, JwtVerificationError, normalizeAudiences, type JwtPayload } from './jwtVerify.js';
+import { verifyJwt, JwtVerificationError, normalizeAudiences, resolvePrincipal, type JwtPayload } from './jwtVerify.js';
 import type { KeyObject } from 'node:crypto';
 import {
   SessionNotFoundError,
@@ -123,7 +123,7 @@ export function attachCrowdNamespace(opts: CrowdNamespaceOptions): Namespace {
       next(new Error(reason));
       return;
     }
-    const userId = typeof payload.sub === 'string' ? payload.sub : undefined;
+    const userId = resolvePrincipal(payload);
     if (!userId) {
       log(`reject ${socket.id}: missing-sub`);
       next(new Error('missing-sub'));
