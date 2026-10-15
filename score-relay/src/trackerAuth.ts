@@ -13,7 +13,7 @@
 
 import type { Socket } from 'socket.io';
 import type { KeyObject } from 'node:crypto';
-import { verifyJwt, JwtVerificationError, normalizeAudiences } from './crowd/jwtVerify.js';
+import { verifyJwt, JwtVerificationError, normalizeAudiences, resolvePrincipal } from './crowd/jwtVerify.js';
 
 export type TrackerAudience = 'admin' | 'score';
 
@@ -63,15 +63,9 @@ export function verifyTrackerToken(
     throw new TrackerAuthError(reason);
   }
 
-  // CFS's admin login tokens use `userId` (no JWT `sub` standard claim).
-  // Score-aud tokens minted by /auth/tracker-token use `sub: provider:<id>`.
-  // Accept either — both identify the principal for the relay's purposes.
-  const userId =
-    typeof payload.sub === 'string'
-      ? payload.sub
-      : typeof payload.userId === 'string'
-        ? payload.userId
-        : undefined;
+  // CFS's admin login tokens use `userId` (no JWT `sub` standard claim); score-aud tokens minted by
+  // /auth/tracker-token use `sub: provider:<id>`. One rule for every relay surface: resolvePrincipal.
+  const userId = resolvePrincipal(payload);
   if (!userId) throw new TrackerAuthError('missing-subject');
 
   const audience = resolveTrackerAudience(payload.aud);

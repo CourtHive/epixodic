@@ -9,6 +9,7 @@ import {
   verifyEs256,
   verifyJwt,
   loadEs256Keys,
+  resolvePrincipal,
 } from './jwtVerify.js';
 
 const SECRET = 'test-shared-secret';
@@ -241,5 +242,21 @@ describe('ES256 dual-accept (signing migration)', () => {
       const loaded = loadEs256Keys({ JWT_PUBLIC_KEY: 'not-a-pem', JWT_KID: 'bad' } as NodeJS.ProcessEnv);
       expect(loaded.size).toBe(0);
     });
+  });
+});
+
+describe('resolvePrincipal — one rule for /tracker, /crowd and the crowd REST API', () => {
+  it('prefers sub', () => {
+    expect(resolvePrincipal({ sub: 'provider:p1', userId: 'u1' })).toBe('provider:p1');
+  });
+
+  it("falls back to userId: CFS's admin login tokens carry no sub", () => {
+    expect(resolvePrincipal({ userId: 'u1', email: 'td@example.com', aud: 'admin' })).toBe('u1');
+  });
+
+  it('names no principal for a token with neither, or with empty or non-string values', () => {
+    expect(resolvePrincipal({ email: 'x@example.com' })).toBeUndefined();
+    expect(resolvePrincipal({ sub: '', userId: '' })).toBeUndefined();
+    expect(resolvePrincipal({ sub: 7 as any, userId: 8 as any })).toBeUndefined();
   });
 });

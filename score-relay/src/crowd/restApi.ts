@@ -21,7 +21,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { URL } from 'node:url';
-import { JwtVerificationError, verifyJwt, type JwtPayload } from './jwtVerify.js';
+import { JwtVerificationError, resolvePrincipal, verifyJwt, type JwtPayload } from './jwtVerify.js';
 import { persistCrowdPromotedPoints } from '../pointHistoryPersistence.js';
 import { SessionNotFoundError } from './types.js';
 import type { CrowdScoringStorage } from './storage.js';
@@ -110,7 +110,7 @@ async function handle(
     const [, sessionId, action] = sessionMatch;
 
     if (method === 'POST' && action === 'promote') {
-      const trustedBy = typeof _payload.sub === 'string' ? _payload.sub : 'unknown';
+      const trustedBy = resolvePrincipal(_payload) ?? 'unknown';
       // Provider-scoped tokens (a `tournamentId` claim) may only nominate within
       // their tournament scope — enforced from the token, so the relay needs no
       // tournament→provider mapping.
