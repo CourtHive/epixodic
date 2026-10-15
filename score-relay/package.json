@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-migrations.mjs",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
