@@ -171,6 +171,20 @@ export interface DualAcceptKeys {
 }
 
 /**
+ * The principal a verified token identifies — one rule for every relay surface.
+ *
+ * CFS's admin login tokens carry `userId` and no JWT `sub` (auth.service `signAccessToken` signs the session
+ * payload as-is); tracker/score and HiveID tokens carry `sub`. `/tracker` accepted both from the start, `/crowd`
+ * and the crowd REST API read `sub` alone — so every TMX-signed-in visitor sharing a Track score was refused with
+ * `missing-sub` (found by Guidon's crowd journey, 2026-10-15). Resolved here so the three cannot drift again.
+ */
+export function resolvePrincipal(payload: JwtPayload): string | undefined {
+  if (typeof payload.sub === 'string' && payload.sub.length > 0) return payload.sub;
+  if (typeof payload.userId === 'string' && payload.userId.length > 0) return payload.userId;
+  return undefined;
+}
+
+/**
  * Dual-accept verifier for the HS256 → ES256 migration: dispatch by the token's
  * `alg` header — ES256 against the JWKS public keys, HS256 against the legacy
  * secret — and hard-reject `alg: none` / any other algorithm (downgrade guard).

@@ -8,10 +8,10 @@ on:
 permissions:
   contents: read
 
-# Scope: the epixodic client app only. The `score-relay` subpackage is versioned
-# and tested independently (`cd score-relay && pnpm test`) and the root vitest run
-# excludes it — adding it here would need its own install + Postgres service, so
-# it is deliberately out of scope for this first gate.
+# Two jobs. `verify` gates the epixodic client app; the root vitest run excludes
+# `score-relay/**`. `score-relay` gates the relay subpackage on its own install,
+# against a Postgres service, because its crowd suites are integration tests.
+# (Postgres-backed CI runs only in PUBLIC repos, which carry no Actions charges.)
 
 jobs:
   verify:
@@ -104,3 +104,78 @@ jobs:
 
       - run: pnpm build
         if: steps.scope.outputs.light != 'true'
+
+  score-relay:
+    name: score-relay · types · build · test (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      # The image Guidon and competition-factory-server pin, so "the same world" is one definition.
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: relay
+          POSTGRES_PASSWORD: relay
+          POSTGRES_DB: crowd_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U relay"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: score-relay
+    env:
+      # The crowd suites (storage, /crowd namespace, REST API, webhook) skip without it.
+      CROWD_POSTGRES_URL_TEST: postgresql://relay:relay@localhost:5432/crowd_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Release-path scope
+        id: scope
+        working-directory: .
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: bash .github/scripts/release-scope.sh
+
+      - uses: pnpm/action-setup@v6
+        if: steps.scope.outputs.light != 'true'
+        with:
+          package_json_file: score-relay/package.json
+      - uses: actions/setup-node@v7
+        if: steps.scope.outputs.light != 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: score-relay/pnpm-lock.yaml
+
+      # score-relay is its own workspace root (`packages: []`) with its own lockfile and no
+      # `link:` overrides, so it installs exactly what it deploys.
+      - run: pnpm install --frozen-lockfile
+        if: steps.scope.outputs.light != 'true'
+      - run: pnpm check-types
+        if: steps.scope.outputs.light != 'true'
+      # The build is what copies the crowd SQL migrations into dist/; it fails without them.
+      - run: pnpm build
+        if: steps.scope.outputs.light != 'true'
+
+      # A skipped crowd suite means the database never reached it, and the job would pass on the
+      # unit tests alone. The JSON report is read back and any skipped test fails the job.
+      - name: test (no skipped suites)
+        if: steps.scope.outputs.light != 'true'
+        run: |
+          pnpm exec vitest run --reporter=default --reporter=json --outputFile=vitest-results.json
+          node -e "
+          const r = require('./vitest-results.json');
+          const skipped = r.numPendingTests + r.numTodoTests;
+          console.log('tests: ' + r.numTotalTests + ' total, ' + r.numPassedTests + ' passed, ' + skipped + ' skipped');
+          if (r.numTotalTests === 0) { console.error('::error::no tests ran'); process.exit(1); }
+          if (skipped > 0) { console.error('::error::' + skipped + ' test(s) skipped — is CROWD_POSTGRES_URL_TEST reaching the suites?'); process.exit(1); }
+          "
