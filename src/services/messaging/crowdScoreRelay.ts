@@ -4,9 +4,9 @@
  * (crowd-scoring Phase D). No identity → no-op, so normal epixodic scoring is
  * unaffected.
  *
- * A stable per-matchUp sessionId accumulates points into one crowd session, so
- * the relay's optimistic versioning + TMX's classifyScorer/Accept see a single
- * evolving session (identical to courthive-public inline scoring).
+ * A stable per-scorer, per-matchUp sessionId accumulates points into one crowd
+ * session, so the relay's optimistic versioning + TMX's classifyScorer/Accept
+ * see a single evolving session per scorer (as courthive-public does).
  */
 
 import { getCrowdScorerIdentity } from './crowdScorerIdentity';
@@ -36,6 +36,19 @@ function getClientId(): string {
   return clientId;
 }
 
+/**
+ * The crowd session a scorer's points for one matchUp accumulate into.
+ *
+ * The relay binds a session to the user who created it and rejects anyone else
+ * with `not-owner`, so the id must differ per scorer: a bare `epx-crowd-<matchUpId>`
+ * let the first scorer of a matchUp lock out every other. Keyed on the scorer's
+ * personId (stable across reloads and devices, so one person keeps one session),
+ * falling back to this device's client id when the token carries none.
+ */
+export function crowdSessionId(matchUpId: string, scorerKey: string): string {
+  return `epx-crowd-${scorerKey}-${matchUpId}`;
+}
+
 /** Whether this epixodic session was launched to crowd-score as a HiveID person. */
 export function isCrowdScoringLaunch(): boolean {
   return !!getCrowdScorerIdentity()?.token;
@@ -57,7 +70,7 @@ export function relayCrowdScoreIfLaunched(args: {
 
   submitCrowdScore({
     token: identity.token,
-    sessionId: `epx-crowd-${args.matchUpId}`,
+    sessionId: crowdSessionId(args.matchUpId, identity.personId ?? getClientId()),
     matchUpId: args.matchUpId,
     tournamentId: args.tournamentId,
     clientId: getClientId(),
