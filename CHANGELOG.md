@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.5.7](https://github.com/CourtHive/epixodic/compare/v2.5.6...v2.5.7) (2026-10-15)
+
+
+### Bug Fixes
+
+* **crowd:** key the Epixodic crowd session on the scorer, not only the matchUp ([#375](https://github.com/CourtHive/epixodic/issues/375)) ([b0087ce](https://github.com/CourtHive/epixodic/commit/b0087ceca102768e94c4239c101a1cbd45753ad7))
+* **deps:** update courthive-components to 6.7.0 ([#373](https://github.com/CourtHive/epixodic/issues/373)) ([4ee06a7](https://github.com/CourtHive/epixodic/commit/4ee06a7758259663e8ab81cb4d1fd790f5df8453))
+* **deps:** update tods-competition-factory to 7.14.0 ([#372](https://github.com/CourtHive/epixodic/issues/372)) ([2250167](https://github.com/CourtHive/epixodic/commit/225016718faa679c599322e1f0c0437a268e1db1))
+* **score-relay:** ship crowd SQL migrations in dist and fail closed without them ([#374](https://github.com/CourtHive/epixodic/issues/374)) ([86f3d51](https://github.com/CourtHive/epixodic/commit/86f3d519a24ec7fbcff6806b1ac97c2be5a0706f))
+
 ## [2.5.6](https://github.com/CourtHive/epixodic/compare/v2.5.5...v2.5.6) (2026-10-13)
 
 
