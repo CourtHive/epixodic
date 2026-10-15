@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.8](https://github.com/CourtHive/epixodic/compare/v2.5.7...v2.5.8) (2026-10-15)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 6.8.0 ([#379](https://github.com/CourtHive/epixodic/issues/379)) ([49e7e54](https://github.com/CourtHive/epixodic/commit/49e7e5469e9e5a6176f2d0bc22594f298c6c55b3))
+* **score-relay:** /crowd accepts CFS admin login tokens, which carry userId and no sub ([#380](https://github.com/CourtHive/epixodic/issues/380)) ([522d529](https://github.com/CourtHive/epixodic/commit/522d5296ff20e27695db7cd0458265ecc67b8473))
+
 ## [2.5.7](https://github.com/CourtHive/epixodic/compare/v2.5.6...v2.5.7) (2026-10-15)
 
 
