@@ -6,7 +6,8 @@
  * `.sql` file in `migrations/`, tracks applied migrations in a
  * `crowd.schema_migrations` table, and applies pending ones in
  * filename order. Each migration runs in its own transaction; failure
- * aborts startup loudly.
+ * aborts startup loudly, as does a missing or empty `migrations/`
+ * directory (the build copies it into `dist/crowd/migrations`).
  */
 
 import { readFile, readdir } from 'node:fs/promises';
@@ -71,19 +72,23 @@ async function getPendingMigrations(
   applied: Set<string>,
   log: (message: string) => void,
 ): Promise<PendingMigration[]> {
+  // Fail closed: a missing or empty directory means the build did not ship
+  // the SQL (tsc does not copy it). Returning [] here once let the relay
+  // report crowd storage "ready" with no tables behind it.
   let files: string[];
   try {
     files = await readdir(migrationsDir);
   } catch {
-    log(`migrations directory not found: ${migrationsDir}`);
-    return [];
+    throw new Error(`crowd migrations directory not found: ${migrationsDir} — server cannot start`);
   }
 
-  return files
-    .filter((f) => f.endsWith('.sql'))
-    .sort()
-    .filter((f) => !applied.has(f))
-    .map((f) => ({ name: f, path: join(migrationsDir, f) }));
+  const sqlFiles = files.filter((f) => f.endsWith('.sql')).sort((a, b) => a.localeCompare(b));
+  if (sqlFiles.length === 0) {
+    throw new Error(`crowd migrations directory has no .sql files: ${migrationsDir} — server cannot start`);
+  }
+  log(`found ${sqlFiles.length} migration file(s), ${applied.size} applied`);
+
+  return sqlFiles.filter((f) => !applied.has(f)).map((f) => ({ name: f, path: join(migrationsDir, f) }));
 }
 
 async function applyMigration(pool: Pool, migration: PendingMigration, log: (message: string) => void): Promise<void> {
@@ -92,10 +97,9 @@ async function applyMigration(pool: Pool, migration: PendingMigration, log: (mes
   try {
     await client.query('BEGIN');
     await client.query(sql);
-    await client.query(
-      'INSERT INTO crowd.schema_migrations (name) VALUES ($1) ON CONFLICT DO NOTHING',
-      [migration.name],
-    );
+    await client.query('INSERT INTO crowd.schema_migrations (name) VALUES ($1) ON CONFLICT DO NOTHING', [
+      migration.name,
+    ]);
     await client.query('COMMIT');
     log(`applied: ${migration.name}`);
   } catch (err) {
