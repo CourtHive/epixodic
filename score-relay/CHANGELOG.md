@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.7](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.6...score-relay-v0.5.7) (2026-10-15)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.14.0 ([#372](https://github.com/CourtHive/epixodic/issues/372)) ([2250167](https://github.com/CourtHive/epixodic/commit/225016718faa679c599322e1f0c0437a268e1db1))
+* **score-relay:** ship crowd SQL migrations in dist and fail closed without them ([#374](https://github.com/CourtHive/epixodic/issues/374)) ([86f3d51](https://github.com/CourtHive/epixodic/commit/86f3d519a24ec7fbcff6806b1ac97c2be5a0706f))
+
 ## [0.5.6](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.5...score-relay-v0.5.6) (2026-10-13)
 
 
