@@ -4,7 +4,7 @@
  * with a real socket.io-client. Requires CROWD_POSTGRES_URL_TEST.
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { Server as IoServer } from 'socket.io';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
@@ -51,7 +51,23 @@ suite('/crowd namespace', () => {
     pool = new Pool({ connectionString: TEST_URL });
     await runMigrations(pool, { logger: () => {} });
     storage = new CrowdScoringStorage(pool);
+  });
 
+  afterAll(async () => {
+    await pool.end();
+  });
+
+  /**
+   * A FRESH Socket.IO server per test, with the namespace attached exactly once — as production attaches it.
+   *
+   * The harness used to attach to one shared server in every beforeEach. `io.of('/crowd')` returns the same
+   * namespace each time, so by the Nth test N connection handlers (and N auth middlewares) processed every
+   * submission concurrently: the first submit raced itself, one handler acking while another hit the duplicate
+   * session id and emitted `rejected: internal-error`, which a later `nextEvent('rejected')` could catch. It
+   * failed in CI ("rejects when the expectedVersion is stale": internal-error, not version-conflict) the first
+   * time the relay's suite ran there, and passed locally on timing alone.
+   */
+  async function startNamespace(userLimits: UserLimits): Promise<void> {
     httpServer = createServer();
     io = new IoServer(httpServer);
     port = await new Promise<number>((resolve) => {
@@ -60,18 +76,29 @@ suite('/crowd namespace', () => {
         if (addr && typeof addr === 'object') resolve(addr.port);
       });
     });
-  });
+    attachCrowdNamespace({ io, storage, userLimits, jwtSecret: JWT_SECRET, logger: () => {} });
+  }
 
-  afterAll(async () => {
+  async function stopNamespace(): Promise<void> {
     io.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    await pool.end();
-  });
+  }
+
+  /** Swap the limits for one test: a new server, never a second attach to the old one. */
+  async function restartWith(userLimits: UserLimits): Promise<void> {
+    await stopNamespace();
+    limits = userLimits;
+    await startNamespace(userLimits);
+  }
 
   beforeEach(async () => {
     await pool.query('TRUNCATE crowd.crowd_scoring_sessions');
     limits = new UserLimits({ eventsPerSecond: 5, maxConcurrentSessions: 3 });
-    attachCrowdNamespace({ io, storage, userLimits: limits, jwtSecret: JWT_SECRET, logger: () => {} });
+    await startNamespace(limits);
+  });
+
+  afterEach(async () => {
+    await stopNamespace();
   });
 
   function connect(token: string | undefined): ClientSocket {
@@ -241,9 +268,7 @@ suite('/crowd namespace', () => {
   });
 
   it('enforces the per-user concurrent-session cap', async () => {
-    limits = new UserLimits({ eventsPerSecond: 5, maxConcurrentSessions: 1 });
-    io.of('/crowd').removeAllListeners();
-    attachCrowdNamespace({ io, storage, userLimits: limits, jwtSecret: JWT_SECRET, logger: () => {} });
+    await restartWith(new UserLimits({ eventsPerSecond: 5, maxConcurrentSessions: 1 }));
 
     const client = connect(mkToken('user-cap'));
     await new Promise<void>((resolve) => client.on('connect', resolve));
@@ -273,9 +298,7 @@ suite('/crowd namespace', () => {
   });
 
   it('enforces the events/sec rate limit', async () => {
-    limits = new UserLimits({ eventsPerSecond: 2, maxConcurrentSessions: 5 });
-    io.of('/crowd').removeAllListeners();
-    attachCrowdNamespace({ io, storage, userLimits: limits, jwtSecret: JWT_SECRET, logger: () => {} });
+    await restartWith(new UserLimits({ eventsPerSecond: 2, maxConcurrentSessions: 5 }));
 
     const client = connect(mkToken('user-burst'));
     await new Promise<void>((resolve) => client.on('connect', resolve));
