@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.8](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.7...score-relay-v0.5.8) (2026-10-15)
+
+
+### Bug Fixes
+
+* **score-relay:** /crowd accepts CFS admin login tokens, which carry userId and no sub ([#380](https://github.com/CourtHive/epixodic/issues/380)) ([522d529](https://github.com/CourtHive/epixodic/commit/522d5296ff20e27695db7cd0458265ecc67b8473))
+
 ## [0.5.7](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.6...score-relay-v0.5.7) (2026-10-15)
 
 
