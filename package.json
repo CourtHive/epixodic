@@ -64,7 +64,7 @@
     "yargs": "18.2.0"
   },
   "dependencies": {
-    "@courthive/scoring-visualizations": "^0.2.19",
+    "@courthive/scoring-visualizations": "^0.2.21",
     "axios": "^1.6.5",
     "courthive-components": "6.9.0",
     "d3": "^7.9.0",
