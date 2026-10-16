@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.10](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.9...score-relay-v0.5.10) (2026-10-16)
+
+
+### Bug Fixes
+
+* **points:** send corrections whole and replace the durable history ([#394](https://github.com/CourtHive/epixodic/issues/394)) ([40b50bd](https://github.com/CourtHive/epixodic/commit/40b50bdb14a01ad042d594de781c084bbcd60444))
+* relay hardening and client state ordering (scoring assessment phase 1) ([#392](https://github.com/CourtHive/epixodic/issues/392)) ([beba219](https://github.com/CourtHive/epixodic/commit/beba21974adc4e1bea7aac427976441770f09f6a))
+
 ## [0.5.9](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.8...score-relay-v0.5.9) (2026-10-16)
 
 
