@@ -1553,8 +1553,10 @@
       matchUpStatus,
       // The full CODES `Point` (winningSide, serverSideNumber, serverParticipantId
       // for doubles, …) so the relay persists point-by-point to courthive-query.
-      // sendScore dedups per pointNumber, so re-broadcasts don't duplicate it.
+      // With `points`, sendScore sends `point` only when it is new, and sends the
+      // whole array when an undo or an edit corrected it.
       point: lastPoint,
+      points: points ?? [],
       // Clock fields so the relay can anchor countdown ticks directly
       // from the score event. The intennse event carries richer data
       // but score is the reliable baseline flow.

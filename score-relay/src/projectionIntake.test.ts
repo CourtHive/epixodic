@@ -197,6 +197,19 @@ describe('projectionIntake', () => {
     client.disconnect();
   });
 
+  it('rejects a body over the size cap with 413 instead of buffering it', async () => {
+    const result = await postJson(harness.port, '/api/projection/scorebug', {
+      matchUpId: 'tie-1',
+      padding: 'x'.repeat(300 * 1024),
+    });
+    expect(result.status).toBe(413);
+  });
+
+  it('rejects a non-string matchUpId', async () => {
+    const result = await postJson(harness.port, '/api/projection/scorebug', { matchUpId: { a: 1 } });
+    expect(result.status).toBe(400);
+  });
+
   it('rejects payloads missing matchUpId', async () => {
     const result = await postJson(harness.port, '/api/projection/scorebug', { format: 'INTENNSE' });
     expect(result.status).toBe(400);

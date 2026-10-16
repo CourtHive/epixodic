@@ -13,7 +13,7 @@ import {
 } from './matchUpStore.js';
 import { connectUpstream } from './upstreamFederation.js';
 import { persistMatchHistory } from './persistence.js';
-import { persistPoint } from './pointHistoryPersistence.js';
+import { persistPoint, persistPointCorrection } from './pointHistoryPersistence.js';
 import {
   extractTrackerToken,
   TrackerAuthError,
@@ -22,7 +22,10 @@ import {
 } from './trackerAuth.js';
 import { TrackerLimits } from './trackerLimits.js';
 import { ConnectLimits } from './connectLimits.js';
-import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
+import type { ScoreUpdate, MatchHistory, PointsCorrection, RelayConfig, RelayMetrics } from './types.js';
+
+/** Far above any match's point count, so the cap only bounds a hostile frame. */
+const MAX_CORRECTION_POINTS = 5000;
 
 // Metrics counters
 let trackerCount = 0;
@@ -47,7 +50,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
   // Upstream federation: forward tracker events to the cloud relay
   const forward = config.upstreamRelayUrl
-    ? connectUpstream(config.upstreamRelayUrl)
+    ? connectUpstream(config.upstreamRelayUrl, config.upstreamRelayToken)
     : null;
 
   // --- Tracker namespace: mobile trackers push scores here ---
@@ -116,12 +119,27 @@ export function createRelay(io: Server, config: RelayConfig): void {
   // is expected to exit cleanly without `--force-exit` during deploys.
   setInterval(() => trackerLimits.prune(), pruneIntervalMs).unref();
 
+  // clockSync and history used to be exempt from rate limiting because a
+  // well-behaved tracker sends few of them; nothing obliges a client to be
+  // well-behaved. They get their own bucket, at the same rate, so a burst of
+  // score frames can never starve a clock transition and vice versa.
+  const controlLimits = new TrackerLimits({
+    eventsPerSecond: config.trackerMaxEventsPerSecond ?? 10,
+    userFanoutMultiplier: config.trackerUserFanoutMultiplier ?? 5,
+  });
+  setInterval(() => controlLimits.prune(), pruneIntervalMs).unref();
+
+  // One canonical persistence per match at a time; frames that arrive while it
+  // runs collapse to the latest, so repeated history frames cannot launch
+  // unbounded work against CFS.
+  const persistHistoryLatest = latestOnlyPerKey<MatchHistory>((history) => persistMatchHistory(history));
+
   tracker.on('connection', (socket: Socket) => {
     trackerCount++;
     const socketData = socket.data as TrackerSocketData;
     console.log(`[tracker] connected: ${socket.id} user=${socketData.userId} aud=${socketData.audience} (${trackerCount} active)`);
 
-    socket.on('score', (data: ScoreUpdate) => {
+    onFrame(socket, 'score', (data: ScoreUpdate) => {
       if (!guardFrame(socket, data, trackerLimits)) return;
 
       updateMatch(data);
@@ -141,7 +159,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Durably persist the point to courthive-query (S3). Fire-and-forget — a
       // persistence failure must never block the broadcast/ack path above.
-      if (data.point) void persistPoint(data);
+      if (data.point) persistPoint(data);
 
       // Anchor clock ticks from the score event if it carries clock
       // fields. This is the reliable baseline — the intennse event
@@ -150,8 +168,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
       const boltMs = typeof anyData.boltTimerRemainingMs === 'number' ? anyData.boltTimerRemainingMs : undefined;
       const serveMs = typeof anyData.serveClockRemainingMs === 'number' ? anyData.serveClockRemainingMs : undefined;
       if (boltMs !== undefined) {
-        const status = ((data as any).matchUpStatus ?? '').toUpperCase();
-        const running = boltMs > 0 && status !== 'COMPLETED';
+        const running = boltMs > 0 && readStatus(data) !== 'COMPLETED';
         setClockAnchor(data.matchUpId, {
           boltRemainingMs: boltMs,
           serveRemainingMs: serveMs ?? 0,
@@ -173,7 +190,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
     // INTENNSE enriched snapshots: fan out to listeners + anchor clocks
     // for relay-native tick generation.
-    socket.on('intennse', (data: any) => {
+    onFrame(socket, 'intennse', (data: any) => {
       if (!guardFrame(socket, data, trackerLimits)) return;
       socket.emit('ack', { matchUpId: data.matchUpId, received: true });
 
@@ -192,8 +209,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
       const matchUpId = data.matchUpId;
       const boltMs = typeof data.boltTimerRemainingMs === 'number' ? data.boltTimerRemainingMs : 0;
       const serveMs = typeof data.serveClockRemainingMs === 'number' ? data.serveClockRemainingMs : 0;
-      const status = (data.matchUpStatus ?? '').toUpperCase();
-      const running = boltMs > 0 && status !== 'COMPLETED';
+      const running = boltMs > 0 && readStatus(data) !== 'COMPLETED';
 
       setClockAnchor(matchUpId, {
         boltRemainingMs: boltMs,
@@ -218,14 +234,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
     // pauses/resumes/completes WITHOUT a point being scored (official
     // pause, timeout, break, navigation away). Re-anchors or stops
     // the relay's ticker so the scorebug display matches reality.
-    socket.on('clockSync', (data: any) => {
-      // clockSync ownership-checked but not rate-limited — there are
-      // never more than a handful per match (pause/resume/break), and
-      // rate-limiting them would risk dropping a transition.
-      if (!guardOwnership(socket, data)) {
-        socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
-        return;
-      }
+    onFrame(socket, 'clockSync', (data: any) => {
+      if (!guardFrame(socket, data, controlLimits)) return;
 
       socket.emit('ack', { matchUpId: data.matchUpId, received: true });
 
@@ -265,24 +275,44 @@ export function createRelay(io: Server, config: RelayConfig): void {
       forward?.('clockSync', data);
     });
 
-    socket.on('history', async (data: MatchHistory) => {
-      // history is the final-state event — ownership-checked, but
-      // rate-limit-exempt because it fires at most once per match.
-      if (!guardOwnership(socket, data)) {
-        socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
-        return;
-      }
+    onFrame(socket, 'history', (data: MatchHistory) => {
+      if (!guardFrame(socket, data, controlLimits)) return;
 
       setMatchHistory(data);
       socket.emit('ack', { matchUpId: data.matchUpId, received: true });
 
-      // Persist to factory server if configured
-      await persistMatchHistory(data);
-
-      // Notify listeners
+      // Listeners first: persistence is a durable side effect and must not
+      // delay the live broadcast.
       listeners.to(data.matchUpId).emit('history', data);
-
       forward?.('history', data);
+
+      // Canonical persistence writes to CFS under the RELAY's service
+      // identity, so it is only ever done on behalf of a verified principal.
+      // An anonymous socket (permissive mode) gets fan-out, never a write.
+      if (socketData.userId === 'anonymous') {
+        console.warn(`[tracker] ${socket.id}: anonymous history for ${data.matchUpId} not persisted`);
+        return;
+      }
+      persistHistoryLatest(data.matchUpId, data);
+    });
+
+    // A scorer's authoritative point array, after an undo, an edit or a removal
+    // changed points already sent. It REPLACES the durable history, so unlike an
+    // append (which courthive-query's monotonic dedup bounds) it is accepted only
+    // from a verified principal.
+    onFrame(socket, 'correctPoints', (data: PointsCorrection) => {
+      if (!guardFrame(socket, data, controlLimits)) return;
+      if (!isPointArray(data.points)) {
+        socket.emit('error', { message: 'invalid-frame' });
+        return;
+      }
+      if (socketData.userId === 'anonymous') {
+        socket.emit('rejected', { matchUpId: data.matchUpId, reason: 'unauthenticated' });
+        return;
+      }
+      socket.emit('ack', { matchUpId: data.matchUpId, received: true });
+      forward?.('correctPoints', data);
+      persistPointCorrection(data);
     });
 
     socket.on('disconnect', () => {
@@ -299,7 +329,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
     console.log(`[live] connected: ${socket.id} (${listenerCount} active)`);
 
     // Subscribe to score updates for a specific match
-    socket.on('subscribe', (matchUpId: string) => {
+    onFrame(socket, 'subscribe', (matchUpId: string) => {
+      if (!isId(matchUpId)) return;
       socket.join(matchUpId);
 
       // Send current state if available
@@ -310,12 +341,14 @@ export function createRelay(io: Server, config: RelayConfig): void {
     });
 
     // Unsubscribe from a match
-    socket.on('unsubscribe', (matchUpId: string) => {
+    onFrame(socket, 'unsubscribe', (matchUpId: string) => {
+      if (!isId(matchUpId)) return;
       socket.leave(matchUpId);
     });
 
     // Subscribe to all matches for a tournament
-    socket.on('subscribe:tournament', (tournamentId: string) => {
+    onFrame(socket, 'subscribe:tournament', (tournamentId: string) => {
+      if (!isId(tournamentId)) return;
       socket.join(`tournament:${tournamentId}`);
 
       // Send all current matches for this tournament
@@ -325,19 +358,20 @@ export function createRelay(io: Server, config: RelayConfig): void {
       }
     });
 
-    socket.on('unsubscribe:tournament', (tournamentId: string) => {
+    onFrame(socket, 'unsubscribe:tournament', (tournamentId: string) => {
+      if (!isId(tournamentId)) return;
       socket.leave(`tournament:${tournamentId}`);
     });
 
     // Subscribe to all score updates (for dashboards/schedule views)
-    socket.on('subscribe:all', () => {
+    onFrame(socket, 'subscribe:all', () => {
       socket.join('all');
 
       // Send list of active matches
       socket.emit('active', getActiveMatchIds());
     });
 
-    socket.on('unsubscribe:all', () => {
+    onFrame(socket, 'unsubscribe:all', () => {
       socket.leave('all');
     });
 
@@ -458,6 +492,9 @@ function guardFrame(
     socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
     return false;
   }
+  // Shape-check before any state changes: a frame that would fail later in the
+  // handler must not be half-applied (stored and fanned out) first.
+  readStatus(data as { matchUpStatus?: unknown });
   const socketData = socket.data as TrackerSocketData | undefined;
   const limit = limits.tryConsume(data!.matchUpId!, socketData?.userId);
   if (!limit.allowed) {
@@ -472,9 +509,7 @@ function guardFrame(
 }
 
 /**
- * Ownership-only check, no rate limit. Used for clockSync and history
- * which are low-frequency transitions that shouldn't be dropped under
- * rate pressure.
+ * Shape + ownership check, no rate limit (the caller picks the bucket).
  *
  * For `score`-audience tokens, the tournament binding lives in the JWT,
  * not the frame. If the frame omits `tournamentId`, we stamp the token's
@@ -486,11 +521,85 @@ function guardOwnership(
   socket: Socket,
   data: { matchUpId?: string; tournamentId?: string } | undefined,
 ): boolean {
-  if (!data?.matchUpId) return false;
+  if (!data || typeof data !== 'object' || !isId(data.matchUpId)) return false;
+  if (data.tournamentId !== undefined && !isId(data.tournamentId)) return false;
   const socketData = socket.data as TrackerSocketData | undefined;
   if (socketData?.audience === 'score' && socketData.tournamentId) {
     if (data.tournamentId && data.tournamentId !== socketData.tournamentId) return false;
     data.tournamentId = socketData.tournamentId;
   }
   return true;
+}
+
+function isPointArray(value: unknown): value is PointsCorrection['points'] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_CORRECTION_POINTS &&
+    value.every((point) => !!point && typeof point === 'object' && !Array.isArray(point))
+  );
+}
+
+class InvalidFrameError extends Error {}
+
+function isId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+/** A frame's matchUpStatus, upper-cased. Absent reads as ''; anything but a string is a malformed frame. */
+function readStatus(data: { matchUpStatus?: unknown }): string {
+  const status = data.matchUpStatus;
+  if (status === undefined || status === null) return '';
+  if (typeof status !== 'string') throw new InvalidFrameError('matchUpStatus must be a string');
+  return status.toUpperCase();
+}
+
+/**
+ * Register a socket handler behind an error boundary. Socket.IO 4 dispatches
+ * handlers inside `process.nextTick`, so a throw there is an uncaught exception
+ * that ends the relay: one malformed frame from any client would restart it.
+ */
+function onFrame<T>(socket: Socket, event: string, handler: (data: T) => unknown): void {
+  socket.on(event, (data: T) => {
+    try {
+      const result = handler(data);
+      if (result instanceof Promise) result.catch((err) => reportFrameError(socket, event, err));
+    } catch (err) {
+      reportFrameError(socket, event, err);
+    }
+  });
+}
+
+function reportFrameError(socket: Socket, event: string, err: unknown): void {
+  const invalid = err instanceof InvalidFrameError;
+  if (!invalid) console.error(`[relay] ${event} handler failed for ${socket.id}:`, err);
+  socket.emit('error', { message: 'invalid-frame' });
+}
+
+/**
+ * Run `task` for at most one value per key at a time. A value that arrives while
+ * its key is busy replaces any value already waiting, and runs when the current
+ * one settles, so the work per key is bounded at one running plus one waiting.
+ */
+export function latestOnlyPerKey<T>(task: (value: T) => Promise<unknown>): (key: string, value: T) => void {
+  const running = new Set<string>();
+  const waiting = new Map<string, T>();
+
+  const run = (key: string, value: T): void => {
+    running.add(key);
+    task(value)
+      .catch((err) => console.error(`[relay] persistence failed for ${key}:`, err))
+      .finally(() => {
+        running.delete(key);
+        const next = waiting.get(key);
+        if (next !== undefined) {
+          waiting.delete(key);
+          run(key, next);
+        }
+      });
+  };
+
+  return (key, value) => {
+    if (running.has(key)) waiting.set(key, value);
+    else run(key, value);
+  };
 }

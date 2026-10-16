@@ -12,7 +12,7 @@
 // Design: Mentat/planning/MATCHUP_HISTORY_PERSISTENCE.md.
 
 import axios from 'axios';
-import type { ScoreUpdate } from './types.js';
+import type { PointsCorrection, ScoreUpdate } from './types.js';
 import type { CrowdScoringSession } from './crowd/types.js';
 
 let baseUrl: string | undefined;
@@ -20,6 +20,15 @@ let serviceJwt: string | undefined;
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 500;
+/** Per request. Without it a hung connection would hold its match's queue forever. */
+const REQUEST_TIMEOUT_MS = 10_000;
+
+// The tail of each match's write queue. courthive-query keeps an append only
+// when its pointNumber is above the last stored one, so two concurrent POSTs for
+// one match that commit out of order would drop the earlier point as a duplicate.
+// Corrections share the queue: an append still in flight must not land after the
+// replace that supersedes it.
+const writeQueues = new Map<string, Promise<void>>();
 
 export function configurePointHistoryPersistence(url?: string, jwt?: string): void {
   baseUrl = url?.replace(/\/+$/, '') || undefined;
@@ -39,9 +48,10 @@ export function isPointHistoryPersistenceEnabled(): boolean {
  * when the event carries no point.
  */
 export function toStoredPoint(update: ScoreUpdate): Record<string, unknown> | null {
-  const p = update.point;
-  if (!p) return null;
+  return update.point ? storedPointFrom(update.point) : null;
+}
 
+function storedPointFrom(p: NonNullable<ScoreUpdate['point']>): Record<string, unknown> {
   const winningSide = typeof p.winningSide === 'number' ? p.winningSide : numOrUndef(p.winner, +1);
   const serverSideNumber =
     typeof p.serverSideNumber === 'number' ? p.serverSideNumber : numOrUndef(p.server, +1);
@@ -84,11 +94,11 @@ function crowdPointsToStored(session: CrowdScoringSession): Record<string, unkno
  * sequence, tagged `provenance:'crowd-promoted'`. No-op when disabled or the
  * session lacks identity/points. Fire-and-forget; never throws.
  */
-export async function persistCrowdPromotedPoints(session: CrowdScoringSession): Promise<void> {
-  if (!baseUrl) return;
-  if (!session?.matchUpId || !session.tournamentId) return;
+export function persistCrowdPromotedPoints(session: CrowdScoringSession): Promise<void> {
+  if (!baseUrl) return Promise.resolve();
+  if (!session?.matchUpId || !session.tournamentId) return Promise.resolve();
   const points = crowdPointsToStored(session);
-  if (points.length === 0) return;
+  if (points.length === 0) return Promise.resolve();
 
   const body = {
     tournamentId: session.tournamentId,
@@ -96,55 +106,85 @@ export async function persistCrowdPromotedPoints(session: CrowdScoringSession): 
     points,
     provenance: 'crowd-promoted' as const,
   };
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (serviceJwt) headers.Authorization = `Bearer ${serviceJwt}`;
-  const url = `${baseUrl}/match-up-point-history/${encodeURIComponent(session.matchUpId)}/points`;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      await axios.put(url, body, { headers });
-      return;
-    } catch (err: any) {
-      if (attempt === MAX_RETRIES) {
-        console.error(
-          `[point-history] failed to materialize crowd-promoted points for ${session.matchUpId} ` +
-            `after ${MAX_RETRIES} attempts (status=${err?.response?.status ?? 'n/a'}): ${err?.message}`,
-        );
-      } else {
-        await new Promise((resolve) => setTimeout(resolve, BASE_DELAY_MS * Math.pow(2, attempt - 1)));
-      }
-    }
-  }
+  const matchUpId = session.matchUpId;
+  return enqueue(matchUpId, () =>
+    sendWithRetry('put', matchUpId, body, `materialize crowd-promoted points for ${matchUpId}`),
+  );
 }
 
 /**
  * Persist one point. No-op when disabled, when the event omits a point, or when
- * it lacks the tournamentId/matchUpId the store requires. Bounded exponential
- * retry; never throws.
+ * it lacks the tournamentId/matchUpId the store requires. Points of one match
+ * are sent one at a time, in arrival order; different matches do not wait on
+ * each other. Bounded exponential retry; never throws.
  */
-export async function persistPoint(update: ScoreUpdate): Promise<void> {
-  if (!baseUrl) return;
-  if (!update.matchUpId || !update.tournamentId) return;
+export function persistPoint(update: ScoreUpdate): Promise<void> {
+  if (!baseUrl) return Promise.resolve();
+  if (!update.matchUpId || !update.tournamentId) return Promise.resolve();
   const point = toStoredPoint(update);
-  if (!point) return;
+  if (!point) return Promise.resolve();
+  return enqueue(update.matchUpId, () => postPoint(update, point));
+}
 
+/**
+ * Replace a match's durable points with a scorer's correction (courthive-query
+ * PUT /points, which keeps the stored runtime envelope). Queued behind the
+ * match's pending appends. No-op when disabled or without a tournamentId.
+ * Bounded retry; never throws. The caller decides who may correct.
+ */
+export function persistPointCorrection(correction: PointsCorrection): Promise<void> {
+  if (!baseUrl) return Promise.resolve();
+  if (!correction.matchUpId || !correction.tournamentId) return Promise.resolve();
+  const points = correction.points.map(storedPointFrom);
+  const body = {
+    tournamentId: correction.tournamentId,
+    matchUpFormat: correction.matchUpFormat,
+    points,
+    provenance: 'official' as const,
+  };
+  return enqueue(correction.matchUpId, () =>
+    sendWithRetry('put', correction.matchUpId, body, `replace the points of ${correction.matchUpId}`),
+  );
+}
+
+/** Run `task` after every write already queued for `matchUpId`. */
+function enqueue(matchUpId: string, task: () => Promise<void>): Promise<void> {
+  const previous = writeQueues.get(matchUpId) ?? Promise.resolve();
+  const sent: Promise<void> = previous.then(task).then(() => {
+    // Drop the entry once this is the last queued write, so idle matches hold nothing.
+    if (writeQueues.get(matchUpId) === sent) writeQueues.delete(matchUpId);
+  });
+  writeQueues.set(matchUpId, sent);
+  return sent;
+}
+
+function postPoint(update: ScoreUpdate, point: Record<string, unknown>): Promise<void> {
   const body = {
     tournamentId: update.tournamentId,
     matchUpFormat: update.matchUpFormat,
     point,
   };
+  return sendWithRetry('post', update.matchUpId, body, `persist a point for ${update.matchUpId}`);
+}
+
+async function sendWithRetry(
+  method: 'post' | 'put',
+  matchUpId: string,
+  body: Record<string, unknown>,
+  what: string,
+): Promise<void> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (serviceJwt) headers.Authorization = `Bearer ${serviceJwt}`;
-  const url = `${baseUrl}/match-up-point-history/${encodeURIComponent(update.matchUpId)}/points`;
+  const url = `${baseUrl}/match-up-point-history/${encodeURIComponent(matchUpId)}/points`;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      await axios.post(url, body, { headers });
+      await axios[method](url, body, { headers, timeout: REQUEST_TIMEOUT_MS });
       return;
     } catch (err: any) {
       if (attempt === MAX_RETRIES) {
         console.error(
-          `[point-history] failed to persist a point for ${update.matchUpId} after ${MAX_RETRIES} attempts ` +
+          `[point-history] failed to ${what} after ${MAX_RETRIES} attempts ` +
             `(status=${err?.response?.status ?? 'n/a'}): ${err?.message}`,
         );
       } else {

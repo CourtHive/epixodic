@@ -9,6 +9,8 @@ let serviceJwt: string | undefined;
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
+/** Per request; without it the retry count bounds nothing when a connection hangs. */
+const REQUEST_TIMEOUT_MS = 15_000;
 
 /**
  * Configure the canonical persistence target.
@@ -52,7 +54,7 @@ export async function persistMatchHistory(history: MatchHistory): Promise<void> 
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      await axios.post(`${factoryServerUrl}/factory/score`, payload, { headers });
+      await axios.post(`${factoryServerUrl}/factory/score`, payload, { headers, timeout: REQUEST_TIMEOUT_MS });
       return;
     } catch (err: any) {
       const isLastAttempt = attempt === MAX_RETRIES;

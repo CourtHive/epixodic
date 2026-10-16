@@ -11,7 +11,7 @@ import {
 import { FORMAT_NAMES, isLegacyFormat, migrateFormat } from '../services/matchObject/formatMigration';
 import { finalizeMatchOutcome } from '../match/finalizeMatchOutcome';
 import { relayCrowdScoreIfLaunched } from '../services/messaging/crowdScoreRelay';
-import { sendScore } from '../services/messaging/scoreRelay';
+import { sendScore, syncPoints } from '../services/messaging/scoreRelay';
 import { browserStorage } from '../state/browserStorage';
 import { groupGames } from '../engine/groupGames';
 import { cModal, renderForm } from 'courthive-components';
@@ -424,13 +424,18 @@ export function editMatchDetails() {
 function broadcastScore(): void {
   const matchUpId = env.metadata?.match?.matchUpId;
   if (!matchUpId) return;
-  if (!env.engine?.getPointCount()) return;
+  const tournamentId = env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId;
+  const matchUpFormat = env.metadata.match?.matchUpFormat;
+  if (!env.engine?.getPointCount()) {
+    // Nothing to show, but an undo back to the first point still corrects the stored history.
+    syncPoints({ matchUpId, tournamentId, matchUpFormat, points: [] });
+    return;
+  }
 
   const state = env.engine.getState();
   const score = state.score || {};
   const scoreDisplay = getScoreForDisplay();
 
-  const tournamentId = env.metadata.tournament?.tournamentId || env.metadata.match?.tournamentId;
   const isComplete = env.engine.isComplete();
   const winningSide = isComplete ? state.winningSide : undefined;
 
@@ -440,6 +445,7 @@ function broadcastScore(): void {
   sendScore({
     matchUpId,
     tournamentId,
+    matchUpFormat,
     score: {
       sets: score.sets,
       scoreStringSide1: scoreDisplay,
@@ -448,8 +454,10 @@ function broadcastScore(): void {
     matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS',
     winningSide,
     // The full CODES `Point` so the relay persists point-by-point to
-    // courthive-query; sendScore dedups per pointNumber.
+    // courthive-query. With `points`, sendScore sends `point` only when it is
+    // new, and sends the whole array when an undo or an edit corrected it.
     point: lastPoint,
+    points,
   });
 
   // When launched from courthive-public with a HiveID identity, also relay to
@@ -458,6 +466,8 @@ function broadcastScore(): void {
     matchUpId,
     tournamentId,
     currentScore: { sets: score.sets, winningSide, scoreboard: scoreDisplay, matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS' },
-    formatHint: env.metadata.match?.matchUpFormat,
+    // The engine point; the bridge maps it to a CrowdPoint and sends only a new one.
+    point: lastPoint,
+    formatHint: matchUpFormat,
   });
 }

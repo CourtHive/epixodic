@@ -5,6 +5,7 @@ import {
   isPointHistoryPersistenceEnabled,
   persistCrowdPromotedPoints,
   persistPoint,
+  persistPointCorrection,
   toStoredPoint,
 } from './pointHistoryPersistence.js';
 import type { ScoreUpdate } from './types.js';
@@ -98,6 +99,44 @@ describe('persistPoint', () => {
     await expect(persistPoint(update())).resolves.toBeUndefined();
     expect(mockedPost).toHaveBeenCalledTimes(3);
   });
+
+  it('sends a timeout so a hung request cannot hold the match queue forever', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', undefined);
+    await persistPoint(update());
+    expect((mockedPost.mock.calls[0][2] as any).timeout).toBeGreaterThan(0);
+  });
+
+  // courthive-query drops an append whose pointNumber is not above the last stored
+  // one, so point 1 landing after point 2 is discarded as a duplicate.
+  it('commits the points of one match in the order they were scored', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', undefined);
+    const committed: number[] = [];
+    let releaseFirst!: () => void;
+    mockedPost.mockImplementationOnce(
+      (_url, body: any) =>
+        new Promise((resolve) => {
+          releaseFirst = () => {
+            committed.push(body.point.pointNumber);
+            resolve({ data: {} } as any);
+          };
+        }),
+    );
+    mockedPost.mockImplementation(async (_url, body: any) => {
+      committed.push(body.point.pointNumber);
+      return { data: {} } as any;
+    });
+
+    const first = persistPoint(update({ point: { winner: 0, pointNumber: 1 } }));
+    const second = persistPoint(update({ point: { winner: 1, pointNumber: 2 } }));
+    const otherMatch = persistPoint(update({ matchUpId: 'mu-2', point: { winner: 1, pointNumber: 1 } }));
+    await otherMatch;
+    await new Promise((r) => setTimeout(r, 10));
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    // mu-2 is independent and does not wait; mu-1's point 2 waits for point 1.
+    expect(committed).toEqual([1, 1, 2]);
+  });
 });
 
 describe('persistCrowdPromotedPoints (S6)', () => {
@@ -146,5 +185,82 @@ describe('persistCrowdPromotedPoints (S6)', () => {
     configurePointHistoryPersistence('http://localhost:3150', 'svc');
     await persistCrowdPromotedPoints(session({ pointHistory: [] }));
     expect(mockedPut).not.toHaveBeenCalled();
+  });
+});
+
+describe('persistPointCorrection (E3)', () => {
+  beforeEach(() => {
+    mockedPost.mockReset();
+    mockedPut.mockReset();
+    mockedPut.mockResolvedValue({ data: { version: 2 } } as any);
+  });
+  afterEach(() => configurePointHistoryPersistence(undefined, undefined));
+
+  it('PUTs the mapped array as official points', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', 'svc');
+    await persistPointCorrection({
+      matchUpId: 'mu-x',
+      tournamentId: 't-x',
+      matchUpFormat: 'SET3-S:6/TB7',
+      points: [
+        { winner: 0, server: 0, pointNumber: 1 },
+        { winner: 1, server: 0, pointNumber: 2, result: 'Winner' },
+      ],
+    });
+
+    expect(mockedPut).toHaveBeenCalledTimes(1);
+    const [url, body, cfg] = mockedPut.mock.calls[0] as any[];
+    expect(url).toBe('http://localhost:3150/match-up-point-history/mu-x/points');
+    expect(body).toEqual({
+      tournamentId: 't-x',
+      matchUpFormat: 'SET3-S:6/TB7',
+      provenance: 'official',
+      points: [
+        { pointNumber: 1, winningSide: 1, serverSideNumber: 1 },
+        { pointNumber: 2, winningSide: 2, serverSideNumber: 1, result: 'Winner' },
+      ],
+    });
+    expect(cfg.headers.Authorization).toBe('Bearer svc');
+  });
+
+  it('no-ops when disabled or without a tournamentId', async () => {
+    await persistPointCorrection({ matchUpId: 'mu-x', tournamentId: 't-x', points: [] });
+    configurePointHistoryPersistence('http://localhost:3150', 'svc');
+    await persistPointCorrection({ matchUpId: 'mu-x', points: [] });
+    expect(mockedPut).not.toHaveBeenCalled();
+  });
+
+  // An append still in flight that landed after the replace would put a
+  // superseded point back on top of the corrected array.
+  it('waits for the appends already queued for its match', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', undefined);
+    const order: string[] = [];
+    let releaseAppend!: () => void;
+    mockedPost.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseAppend = () => {
+            order.push('append 3');
+            resolve({ data: {} } as any);
+          };
+        }),
+    );
+    mockedPut.mockImplementation(async () => {
+      order.push('replace');
+      return { data: {} } as any;
+    });
+
+    const append = persistPoint(update({ matchUpId: 'mu-q', point: { winner: 0, pointNumber: 3 } }));
+    const replace = persistPointCorrection({
+      matchUpId: 'mu-q',
+      tournamentId: 't-1',
+      points: [{ winner: 1, pointNumber: 1 }],
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(order).toEqual([]);
+    releaseAppend();
+    await Promise.all([append, replace]);
+
+    expect(order).toEqual(['append 3', 'replace']);
   });
 });

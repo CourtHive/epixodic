@@ -32,6 +32,7 @@ const config: RelayConfig = {
   pruneIntervalMinutes: parseFloat(process.env.PRUNE_INTERVAL_MINUTES || '30'),
   tickerIdleTimeoutSeconds: parseInt(process.env.TICKER_IDLE_TIMEOUT_SECONDS || '1800', 10),
   upstreamRelayUrl: process.env.UPSTREAM_RELAY_URL?.trim() || undefined,
+  upstreamRelayToken: process.env.UPSTREAM_RELAY_TOKEN?.trim() || undefined,
   trackerJwtSecret: process.env.TRACKER_JWT_SECRET?.trim() || undefined,
   es256Keys,
   trackerRequireAuth: process.env.TRACKER_REQUIRE_AUTH === 'true',

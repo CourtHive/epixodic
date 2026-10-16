@@ -1,4 +1,7 @@
+import { getJwtTokenStorageKey } from '../../config/getJwtTokenStorageKey';
+import { browserStorage } from '../../state/browserStorage';
 import { io, Socket } from 'socket.io-client';
+import { jwtDecode } from 'jwt-decode';
 
 /**
  * Determine the relay server origin and Socket.IO path.
@@ -85,56 +88,163 @@ function attachStatusHandlers(socket: Socket, label: string) {
 
 // --- Tracker connection (for sending scores from epixodic as a mobile tracker) ---
 
-export function connectTracker(): Socket {
-  if (trackerSocket?.connected) return trackerSocket;
+/** How long to wait before retrying a handshake the relay refused. */
+const HANDSHAKE_RETRY_MS = 5_000;
 
-  trackerSocket = io(`${relayConfig.origin}/tracker`, {
+/**
+ * The tracker handshake credential: the signed-in user's JWT, read afresh at
+ * every (re)connect so a login or token refresh is picked up. Only an unexpired
+ * token is sent: a relay with a secret but strict mode off admits a socket with
+ * no token, yet refuses one whose token fails verification.
+ */
+function trackerAuth(): Record<string, string> {
+  const token = browserStorage.get(getJwtTokenStorageKey());
+  if (!token || token === 'undefined') return {};
+  try {
+    const { exp } = jwtDecode(token);
+    if (typeof exp === 'number' && exp <= Date.now() / 1000) return {};
+  } catch {
+    return {};
+  }
+  return { token };
+}
+
+/**
+ * The tracker socket. One instance for the module's lifetime (until
+ * `disconnectAll`): Socket.IO reconnects it and buffers emits while it is down,
+ * so a frame sent while it is connecting must reuse it, not build another.
+ */
+export function connectTracker(): Socket {
+  if (trackerSocket) return trackerSocket;
+
+  const socket = io(`${relayConfig.origin}/tracker`, {
     path: relayConfig.path,
     transports: ['websocket'],
     autoConnect: true,
+    auth: (cb) => cb(trackerAuth()),
+  });
+  trackerSocket = socket;
+
+  attachStatusHandlers(socket, 'tracker');
+
+  // A refusal by the relay's auth middleware leaves the socket inactive, and
+  // Socket.IO does not retry it. Retry on a delay; the handshake re-reads the
+  // token, so an expired one is dropped and a fresh login is used.
+  socket.on('connect_error', () => {
+    if (socket.active) return;
+    setTimeout(() => {
+      if (trackerSocket === socket && !socket.connected) socket.connect();
+    }, HANDSHAKE_RETRY_MS);
   });
 
-  attachStatusHandlers(trackerSocket, 'tracker');
-
-  trackerSocket.on('ack', (data: any) => {
+  socket.on('ack', (data: any) => {
     if (logAck) console.log('[scoreRelay] ack:', data);
   });
 
-  return trackerSocket;
+  return socket;
 }
 
-// Last point number forwarded per matchUp — so a `point` is emitted once per
-// scored point even though the scoring UI re-broadcasts on many non-point
-// transitions (timeout, challenge, substitution, exit). courthive-query also
-// dedups monotonically by pointNumber as the safety net across reloads/handoffs
-// (this in-memory map resets on reload). See MATCHUP_HISTORY_PERSISTENCE.md (S5b).
+// Last point number forwarded per matchUp, for a caller that sends only the
+// latest point: a `point` is emitted once per scored point even though the scoring
+// UI re-broadcasts on many non-point transitions (timeout, challenge,
+// substitution, exit). courthive-query also dedups monotonically by pointNumber as
+// the safety net across reloads/handoffs (this in-memory map resets on reload).
+// See MATCHUP_HISTORY_PERSISTENCE.md (S5b).
 const lastSentPointNumber = new Map<string, number>();
+
+// For a caller that sends the full point array: one key per point last sent, in
+// order. Points are numbered by position, so comparing the arrays tells a new
+// point from a re-broadcast and from a correction (an undo, an edit, a removal).
+const sentPointKeys = new Map<string, string[]>();
+
+type PointChange = 'first' | 'same' | 'append' | 'correction';
+
+function pointKey(point: any): string {
+  const p = point ?? {};
+  return JSON.stringify([
+    p.winner,
+    p.server,
+    p.winningSide,
+    p.serverSideNumber,
+    p.serverParticipantId,
+    p.result,
+    p.code,
+    p.hand,
+    p.stroke,
+    p.rallyLength,
+  ]);
+}
+
+function classifyPoints(previous: string[] | undefined, next: string[]): PointChange {
+  if (!previous) return 'first';
+  const unchangedPrefix = previous.every((key, i) => key === next[i]);
+  if (unchangedPrefix && next.length === previous.length) return 'same';
+  if (unchangedPrefix && next.length === previous.length + 1) return 'append';
+  return 'correction';
+}
+
+/**
+ * Record the scorer's current point array and, when it corrects points already
+ * sent, send it whole so the relay replaces the durable history. The first array
+ * seen for a matchUp in this page session is taken as the baseline: it cannot
+ * be told apart from a resume. Returns what changed.
+ */
+export function syncPoints(sync: {
+  matchUpId: string;
+  tournamentId?: string;
+  matchUpFormat?: string;
+  points: any[];
+}): PointChange {
+  const keys = sync.points.map(pointKey);
+  const change = classifyPoints(sentPointKeys.get(sync.matchUpId), keys);
+  sentPointKeys.set(sync.matchUpId, keys);
+  if (change === 'correction') {
+    const correction = {
+      matchUpId: sync.matchUpId,
+      tournamentId: sync.tournamentId,
+      matchUpFormat: sync.matchUpFormat,
+      points: sync.points,
+    };
+    if (logEmit) console.log('[scoreRelay] emit correctPoints:', correction);
+    connectTracker().emit('correctPoints', correction);
+  }
+  return change;
+}
 
 export function sendScore(update: {
   matchUpId: string;
   tournamentId?: string;
+  matchUpFormat?: string;
   score: any;
   point?: any;
+  /** The full point array. When given, `point` is sent only for a new point, and a correction is sent whole. */
+  points?: any[];
   matchUpStatus?: string;
   winningSide?: number;
 }): void {
-  if (!trackerSocket?.connected) {
-    connectTracker();
-  }
-  // Forward `point` only when it is a NEW, identifiable point for this matchUp;
-  // otherwise strip it so the relay/store don't append a duplicate.
-  let payload = update;
-  const pointNumber = typeof update.point?.pointNumber === 'number' ? update.point.pointNumber : undefined;
-  if (update.point) {
-    if (pointNumber === undefined || lastSentPointNumber.get(update.matchUpId) === pointNumber) {
-      const { point: _omit, ...rest } = update;
-      payload = rest;
+  const tracker = connectTracker();
+  const { points, ...frame } = update;
+  let payload: Record<string, any> = frame;
+  if (points) {
+    const change = syncPoints({ ...frame, points });
+    if (change !== 'append' && change !== 'first') payload = withoutPoint(frame);
+  } else if (frame.point) {
+    // Forward `point` only when it is a NEW, identifiable point for this matchUp;
+    // otherwise strip it so the relay/store don't append a duplicate.
+    const pointNumber = typeof frame.point.pointNumber === 'number' ? frame.point.pointNumber : undefined;
+    if (pointNumber === undefined || lastSentPointNumber.get(frame.matchUpId) === pointNumber) {
+      payload = withoutPoint(frame);
     } else {
-      lastSentPointNumber.set(update.matchUpId, pointNumber);
+      lastSentPointNumber.set(frame.matchUpId, pointNumber);
     }
   }
   if (logEmit) console.log('[scoreRelay] emit score:', payload);
-  trackerSocket?.emit('score', payload);
+  tracker.emit('score', payload);
+}
+
+function withoutPoint<T extends { point?: any }>(frame: T): Omit<T, 'point'> {
+  const { point: _omit, ...rest } = frame;
+  return rest;
 }
 
 export function sendHistory(history: {
@@ -146,11 +256,9 @@ export function sendHistory(history: {
   score?: any;
   sides?: any[];
 }): void {
-  if (!trackerSocket?.connected) {
-    connectTracker();
-  }
+  const tracker = connectTracker();
   if (logEmit) console.log('[scoreRelay] emit history:', history);
-  trackerSocket?.emit('history', history);
+  tracker.emit('history', history);
 }
 
 /**
@@ -175,11 +283,9 @@ export function sendClockSync(data: {
   /** 'running' | 'paused' | 'completed' */
   clockState: string;
 }): void {
-  if (!trackerSocket?.connected) {
-    connectTracker();
-  }
+  const tracker = connectTracker();
   if (logEmit) console.log('[scoreRelay] emit clockSync:', data);
-  trackerSocket?.emit('clockSync', data);
+  tracker.emit('clockSync', data);
 }
 
 /**
@@ -188,27 +294,65 @@ export function sendClockSync(data: {
  * for rich scoreboard rendering.
  */
 export function sendIntennseUpdate(snapshot: any): void {
-  if (!trackerSocket?.connected) {
-    connectTracker();
-  }
+  const tracker = connectTracker();
   if (logEmit) console.log('[scoreRelay] emit intennse:', snapshot);
-  trackerSocket?.emit('intennse', snapshot);
+  tracker.emit('intennse', snapshot);
 }
 
 // --- Listener connection (for receiving live scores as a display/dashboard) ---
 
-export function connectListener(): Socket {
-  if (listenerSocket?.connected) return listenerSocket;
+type ScoreCallback = (update: any) => void;
+interface MatchSubscriber {
+  onScore: ScoreCallback;
+  onHistory?: (history: any) => void;
+}
+interface AllSubscriber {
+  onScore: ScoreCallback;
+  onActive?: (matchIds: string[]) => void;
+}
 
-  listenerSocket = io(`${relayConfig.origin}/live`, {
+// Room membership belongs to a Socket.IO connection and is lost on reconnect, so
+// the registry is the source of truth and every `connect` rejoins from it.
+const matchSubscribers = new Map<string, Set<MatchSubscriber>>();
+const allSubscribers = new Set<AllSubscriber>();
+
+function rejoinRooms(socket: Socket): void {
+  for (const matchUpId of matchSubscribers.keys()) socket.emit('subscribe', matchUpId);
+  if (allSubscribers.size) socket.emit('subscribe:all');
+}
+
+// One dispatcher per event, routing by matchUpId: a callback per subscription
+// on the shared socket would hand every subscriber every joined match's frames.
+function dispatchScore(update: any): void {
+  for (const subscriber of matchSubscribers.get(update?.matchUpId) ?? []) subscriber.onScore(update);
+  for (const subscriber of allSubscribers) subscriber.onScore(update);
+}
+
+function dispatchHistory(history: any): void {
+  for (const subscriber of matchSubscribers.get(history?.matchUpId) ?? []) subscriber.onHistory?.(history);
+}
+
+function dispatchActive(matchIds: string[]): void {
+  for (const subscriber of allSubscribers) subscriber.onActive?.(matchIds);
+}
+
+export function connectListener(): Socket {
+  if (listenerSocket) return listenerSocket;
+
+  const socket = io(`${relayConfig.origin}/live`, {
     path: relayConfig.path,
     transports: ['websocket'],
     autoConnect: true,
   });
+  listenerSocket = socket;
 
-  attachStatusHandlers(listenerSocket, 'listener');
+  attachStatusHandlers(socket, 'listener');
+  socket.on('connect', () => rejoinRooms(socket));
+  socket.on('score', dispatchScore);
+  socket.on('history', dispatchHistory);
+  socket.on('active', dispatchActive);
 
-  return listenerSocket;
+  return socket;
 }
 
 export function subscribeToMatch(
@@ -217,16 +361,22 @@ export function subscribeToMatch(
   onHistory?: (history: any) => void,
 ): () => void {
   const socket = connectListener();
+  const subscriber: MatchSubscriber = { onScore, onHistory };
 
-  socket.emit('subscribe', matchUpId);
-  socket.on('score', onScore);
-  if (onHistory) socket.on('history', onHistory);
+  let subscribers = matchSubscribers.get(matchUpId);
+  if (!subscribers) {
+    subscribers = new Set();
+    matchSubscribers.set(matchUpId, subscribers);
+    // A socket that is not yet connected joins in its `connect` handler.
+    if (socket.connected) socket.emit('subscribe', matchUpId);
+  }
+  subscribers.add(subscriber);
 
-  // Return unsubscribe function
   return () => {
-    socket.emit('unsubscribe', matchUpId);
-    socket.off('score', onScore);
-    if (onHistory) socket.off('history', onHistory);
+    const current = matchSubscribers.get(matchUpId);
+    if (!current?.delete(subscriber) || current.size) return;
+    matchSubscribers.delete(matchUpId);
+    if (listenerSocket?.connected) listenerSocket.emit('unsubscribe', matchUpId);
   };
 }
 
@@ -235,15 +385,14 @@ export function subscribeToAll(
   onActive?: (matchIds: string[]) => void,
 ): () => void {
   const socket = connectListener();
+  const subscriber: AllSubscriber = { onScore, onActive };
 
-  socket.emit('subscribe:all');
-  socket.on('score', onScore);
-  if (onActive) socket.on('active', onActive);
+  if (!allSubscribers.size && socket.connected) socket.emit('subscribe:all');
+  allSubscribers.add(subscriber);
 
   return () => {
-    socket.emit('unsubscribe:all');
-    socket.off('score', onScore);
-    if (onActive) socket.off('active', onActive);
+    if (!allSubscribers.delete(subscriber) || allSubscribers.size) return;
+    if (listenerSocket?.connected) listenerSocket.emit('unsubscribe:all');
   };
 }
 
@@ -252,5 +401,7 @@ export function disconnectAll(): void {
   listenerSocket?.disconnect();
   trackerSocket = null;
   listenerSocket = null;
+  matchSubscribers.clear();
+  allSubscribers.clear();
   setStatus('disconnected');
 }

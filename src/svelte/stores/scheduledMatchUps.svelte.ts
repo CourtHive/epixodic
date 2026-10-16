@@ -25,14 +25,20 @@ export function getScheduledMatchUpsState() {
   };
 }
 
+// Bumped by every fetch and by clear; a response applies only if no later fetch
+// or clear happened while it was in flight.
+let loadGeneration = 0;
+
 export async function fetchScheduledMatchUps(
   tournamentId: string,
   options?: Record<string, any>,
 ): Promise<ScheduledMatchUpsResponse | undefined> {
+  const generation = ++loadGeneration;
   loading = true;
   error = undefined;
 
   const result = await getScheduledMatchUps(tournamentId, options);
+  if (generation !== loadGeneration) return undefined;
 
   if (result.error) {
     error = result.error;
@@ -51,6 +57,8 @@ export async function fetchScheduledMatchUps(
 }
 
 export function clearScheduledMatchUps() {
+  loadGeneration += 1;
+  loading = false;
   data = undefined;
   error = undefined;
 }

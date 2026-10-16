@@ -32,6 +32,19 @@ export interface ScoreUpdate {
   winningSide?: number;
 }
 
+/**
+ * A scorer's authoritative point array, sent when an undo, an edit or a removal
+ * changed points it had already sent. Points use the same on-wire shape as
+ * `ScoreUpdate.point`, numbered by position. The relay replaces the durable
+ * history with it.
+ */
+export interface PointsCorrection {
+  matchUpId: string;
+  tournamentId?: string;
+  matchUpFormat?: string;
+  points: NonNullable<ScoreUpdate['point']>[];
+}
+
 export interface MatchHistory {
   matchUpId: string;
   tournamentId?: string;
@@ -58,6 +71,10 @@ export interface RelayConfig {
    *  relay's /tracker namespace. Fire-and-forget — local processing is
    *  never delayed. */
   upstreamRelayUrl?: string;
+  /** JWT the relay presents to the upstream relay's /tracker namespace — its own
+   *  federation identity (`UPSTREAM_RELAY_TOKEN`). Required when the upstream
+   *  runs with TRACKER_REQUIRE_AUTH. */
+  upstreamRelayToken?: string;
   /** Shared HS256 secret (CFS `JWT_SECRET`). When set, /tracker handshake
    *  verifies a JWT and stashes audience + tournamentId on the socket.
    *  Unset = legacy permissive mode (existing epixodic + TMX trackers
