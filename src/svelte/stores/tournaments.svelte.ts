@@ -7,6 +7,8 @@ const STORAGE_KEY = 'saved_tournament_ids';
 let list = $state<TournamentInfo[]>([]);
 let loading = $state(false);
 let error = $state<string | undefined>(undefined);
+// Bumped by clear; a fetch that started before a clear does not write after it.
+let listGeneration = 0;
 
 export function getTournamentsState() {
   return {
@@ -27,10 +29,13 @@ export async function fetchTournamentInfo(tournamentId: string): Promise<Tournam
   const existing = list.find((t) => t.tournamentId === tournamentId);
   if (existing) return existing;
 
+  const generation = listGeneration;
   loading = true;
   error = undefined;
 
   const result = await getTournamentInfo(tournamentId);
+  // The list was cleared while this was in flight: do not repopulate it.
+  if (generation !== listGeneration) return undefined;
 
   if (result.error) {
     error = result.error;
@@ -41,6 +46,12 @@ export async function fetchTournamentInfo(tournamentId: string): Promise<Tournam
   if (result.data) {
     // Ensure tournamentId is set (server may nest it differently)
     const info: TournamentInfo = { ...result.data, tournamentId: result.data.tournamentId || tournamentId };
+    // A concurrent fetch of the same id may have added it while this one waited.
+    const added = list.find((t) => t.tournamentId === info.tournamentId);
+    if (added) {
+      loading = false;
+      return added;
+    }
     console.log('[tournaments] adding tournament:', info.tournamentId, info);
     list = [...list, info];
     saveTournamentIds();
@@ -54,10 +65,12 @@ export async function fetchTournamentInfo(tournamentId: string): Promise<Tournam
 }
 
 export async function refreshTournamentInfo(tournamentId: string): Promise<TournamentInfo | undefined> {
+  const generation = listGeneration;
   loading = true;
   error = undefined;
 
   const result = await getTournamentInfo(tournamentId);
+  if (generation !== listGeneration) return undefined;
 
   if (result.error) {
     error = result.error;
@@ -77,6 +90,8 @@ export async function refreshTournamentInfo(tournamentId: string): Promise<Tourn
 }
 
 export function clearTournaments() {
+  listGeneration += 1;
+  loading = false;
   list = [];
   error = undefined;
   browserStorage.remove(STORAGE_KEY);

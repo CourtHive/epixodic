@@ -128,9 +128,11 @@ The relay (`score-relay/`) is a Socket.IO + hand-rolled-HTTP server that broadca
 - **`/tracker` namespace** — score producers (epixodic scorers, mobile trackers) push events here. Two Socket.IO middlewares run before `connection`: a per-IP connect-rate cap (`ConnectLimits`, default 60 connects/min, `src/connectLimits.ts`) then a JWT auth/ownership gate (`src/trackerAuth.ts`).
 - **`/live` namespace** — listeners (TMX, scoreboards, dashboards, epixodic displays) subscribe per-match (`subscribe`), per-tournament (`subscribe:tournament`), or globally (`subscribe:all`). The relay replays current state on subscribe.
 - **In-memory match store** (`src/matchUpStore.ts`) — last-update + history + clock anchors per matchUp; stale matches pruned on an interval (`STALE_MATCH_HOURS`, default 6h).
-- **Upstream federation** (`src/upstreamFederation.ts`) — a local relay can set `UPSTREAM_RELAY_URL` to forward every tracker event to a cloud relay's `/tracker` namespace over a reconnecting client, using `volatile.emit` (fire-and-forget; ephemeral data, durable delivery handled by persistence). This is the local↔cloud federation path.
-- **Persistence** (`src/persistence.ts`) — when `FACTORY_SERVER_URL` + `PERSIST_SCORES` are set, final match history is POSTed to CFS `POST /factory/score` (SCORE-role endpoint), authenticated with `RELAY_SERVICE_JWT`. Anonymous posts are rejected by CFS's RolesGuard.
-- **Projection intake** (`src/projectionIntake.ts`) — CFS's projector POSTs to `POST /api/projection/{scorebug,video-board}`; the video-board forwarder (`src/videoBoardForwarder.ts`) can relay to a UDP target.
+- **Upstream federation** (`src/upstreamFederation.ts`) — a local relay can set `UPSTREAM_RELAY_URL` to forward every tracker event to a cloud relay's `/tracker` namespace over a reconnecting client, using `volatile.emit` (fire-and-forget; ephemeral data, durable delivery handled by persistence). This is the local↔cloud federation path. It presents `UPSTREAM_RELAY_TOKEN` as its own federation identity; an upstream in strict mode refuses it without one.
+- **Persistence** (`src/persistence.ts`) — when `FACTORY_SERVER_URL` + `PERSIST_SCORES` are set, final match history is POSTed to CFS `POST /factory/score` (SCORE-role endpoint), authenticated with `RELAY_SERVICE_JWT`. That is the relay's own identity, so it persists a `history` only from a **verified** tracker: an anonymous socket (permissive mode) gets fan-out and no write. Listeners are notified before persistence runs, and at most one persistence per match runs at a time.
+- **Point history** (`src/pointHistoryPersistence.ts`) — a `score` frame carrying a `point` is appended to courthive-query (`POINT_HISTORY_URL`). Appends of one match are sent one at a time, in order: the store drops a pointNumber not above the last stored one.
+- **Projection intake** (`src/projectionIntake.ts`) — CFS's projector POSTs to `POST /api/projection/{scorebug,video-board}`; the video-board forwarder (`src/videoBoardForwarder.ts`) can relay to a UDP target. Bodies over 256 KiB get 413. Bearer auth applies only when `PROJECTION_API_KEY` is set.
+- **Frame safety** — every handler runs behind an error boundary (`onFrame` in `relay.ts`). Socket.IO 4 dispatches handlers in `process.nextTick`, so a throw would otherwise end the process. A malformed frame gets `error: invalid-frame`.
 - **Rate limits** — per-matchUp + per-user token buckets (`src/trackerLimits.ts`, default 10 events/sec/matchUp with a 5× per-user fan-out ceiling that closes the cross-matchUp bypass); the `/crowd` namespace uses `UserLimits` (`src/crowd/userLimits.ts`, 5 events/sec/user, 3 concurrent sessions/user).
 - **Fail-closed startup** — `server.ts` exits if `TRACKER_REQUIRE_AUTH=true` but `TRACKER_JWT_SECRET` is unset (a strict-auth-without-secret config would otherwise admit every connection as anonymous-admin; see Mentat architectural-standards A3).
 
@@ -138,7 +140,7 @@ The relay (`score-relay/`) is a Socket.IO + hand-rolled-HTTP server that broadca
 
 The relay does **not** use a `liveBoltScores` event — that name is not present in the code. The real events are:
 
-Tracker → relay (all rate-limited via `guardFrame` except `clockSync`/`history` which are ownership-checked only):
+Tracker → relay (all shape- and ownership-checked and rate-limited via `guardFrame`; `clockSync`/`history` use a separate bucket from `score`/`intennse`, so neither starves the other):
 
 - **`score`** `{ matchUpId, tournamentId?, score, point?, matchUpStatus?, winningSide? }` — a scored point; may carry `boltTimerRemainingMs` / `serveClockRemainingMs` to anchor the clock ticker.
 - **`intennse`** — enriched INTENNSE snapshot (per-player stats, aggregate scores, penalty box, clock fields). Anchors clocks for relay-native ticks.
@@ -147,7 +149,7 @@ Tracker → relay (all rate-limited via `guardFrame` except `clockSync`/`history
 
 Relay → listeners (fanned out to `<matchUpId>`, `tournament:<id>`, and `all` rooms): **`score`**, **`intennse`**, **`clockSync`**, **`history`**, plus **`active`** (list of active matchUpIds on `subscribe:all`) and **`scorebug-tick`** (see Clock System). Trackers receive **`ack`** and, on limit breach, **`rejected`**.
 
-The epixodic client of this relay lives in `src/services/messaging/scoreRelay.ts` (`connectTracker`/`sendScore`/`sendIntennseUpdate`/`sendClockSync`/`sendHistory` and `connectListener`/`subscribeToMatch`/`subscribeToAll`). It targets `http://localhost:8384` in dev and the same-origin nginx `/relay/socket.io/` path in production.
+The epixodic client of this relay lives in `src/services/messaging/scoreRelay.ts` (`connectTracker`/`sendScore`/`sendIntennseUpdate`/`sendClockSync`/`sendHistory` and `connectListener`/`subscribeToMatch`/`subscribeToAll`). It targets `http://localhost:8384` in dev and the same-origin nginx `/relay/socket.io/` path in production. It owns one socket per namespace until `disconnectAll`. The tracker handshake presents the stored JWT only when it is unexpired: with a secret set and strict mode off, the relay admits no token but refuses a bad one. Listener subscriptions live in a registry, are rejoined on every `connect`, and their frames are routed by matchUpId.
 
 ### Crowd Scoring + HiveID Auth
 
@@ -158,7 +160,7 @@ The `/crowd` namespace (`score-relay/src/crowd/crowdNamespace.ts`) lets authenti
 - **REST API** (`src/crowd/restApi.ts`) — TMX-facing, same JWT secret (Bearer): `GET /api/crowd-sessions?matchUpId=… | ?tournamentId=…&trustedOnly=…&activeOnly=…`, `POST /api/crowd-sessions/:id/promote`, `POST …/demote`, `DELETE …/:id`. Provider-scoped tokens (with a `tournamentId` claim) may only promote/nominate sessions within their tournament scope.
 - **Lifecycle** — an inactivity scheduler (`src/crowd/inactivityScheduler.ts`, 30-min sweep, 2h idle threshold) auto-cancels stale sessions; an internal webhook `POST /api/internal/matchup-finalized` (`src/crowd/webhookReceiver.ts`, `X-Internal-Secret` shared secret) cancels active crowd sessions when a TD finalizes a matchUp.
 
-Note: the epixodic client app itself does not connect to `/crowd`; it is a `/tracker` producer. Crowd consumers live in courthive-public / TMX.
+Note: the epixodic client connects to `/crowd` only when launched from courthive-public with a HiveID scorer identity (`src/services/messaging/crowdScoreRelay.ts` → `crowdRelay.ts`). It then submits one `CrowdPoint` per new point (`toCrowdPoint` maps the engine's 0-based winner/server to sides 1|2). Otherwise it is a `/tracker` producer only. Crowd consumers live in courthive-public / TMX.
 
 ### Clock System
 

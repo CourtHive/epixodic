@@ -81,13 +81,19 @@ function extractMatchUps(data: any): HydratedMatchUp[] {
   return allMatchUps;
 }
 
+// Bumped by every fetch and by clear; a response applies only if no later fetch
+// or clear happened while it was in flight.
+let loadGeneration = 0;
+
 export async function fetchEventMatchUps(tid: string, eid: string) {
+  const generation = ++loadGeneration;
   tournamentId = tid;
   eventId = eid;
   loading = true;
   error = undefined;
 
   const result = await getEventData(tid, eid);
+  if (generation !== loadGeneration) return;
 
   if (result.error) {
     error = result.error;
@@ -105,6 +111,8 @@ export async function fetchEventMatchUps(tid: string, eid: string) {
 }
 
 export function clearEventData() {
+  loadGeneration += 1;
+  loading = false;
   tournamentId = undefined;
   eventId = undefined;
   matchUps = [];

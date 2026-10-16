@@ -30,6 +30,11 @@ import {
   type VideoBoardPayload,
 } from './projectionTypes.js';
 
+/** Scorebug and video-board payloads are a few KB; anything near this is not one. */
+const MAX_BODY_BYTES = 256 * 1024;
+
+class PayloadTooLargeError extends Error {}
+
 export interface ProjectionIntakeOptions {
   io: Server;
   apiKey?: string;
@@ -62,11 +67,36 @@ export function createProjectionIntake(options: ProjectionIntakeOptions) {
     return provided === apiKey;
   }
 
+  function payloadTooLarge(res: ServerResponse): void {
+    res.writeHead(413, { 'Content-Type': 'application/json', Connection: 'close' });
+    res.end(JSON.stringify({ ok: false, error: 'payload too large' }));
+  }
+
+  function reply(res: ServerResponse, err: unknown): void {
+    if (err instanceof PayloadTooLargeError) return payloadTooLarge(res);
+    badRequest(res, (err as Error)?.message ?? 'parse error');
+  }
+
   function readBody(req: IncomingMessage): Promise<unknown> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
-      req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+      let size = 0;
+      let rejected = false;
+      req.on('data', (chunk) => {
+        if (rejected) return;
+        size += chunk.length;
+        if (size > MAX_BODY_BYTES) {
+          // Stop buffering; the 413 is written by the caller and the
+          // connection closes after it, so the rest of the upload is dropped.
+          rejected = true;
+          chunks.length = 0;
+          reject(new PayloadTooLargeError());
+          return;
+        }
+        chunks.push(Buffer.from(chunk));
+      });
       req.on('end', () => {
+        if (rejected) return;
         try {
           const raw = Buffer.concat(chunks).toString('utf8');
           resolve(raw ? JSON.parse(raw) : {});
@@ -82,7 +112,7 @@ export function createProjectionIntake(options: ProjectionIntakeOptions) {
     if (!checkAuth(req)) return unauthorized(res, 'invalid api key');
     try {
       const body = (await readBody(req)) as Partial<ScorebugInputPayload>;
-      if (!body?.matchUpId) return badRequest(res, 'matchUpId required');
+      if (!isId(body?.matchUpId)) return badRequest(res, 'matchUpId required');
 
       // Two streams over the same intake route, discriminated by `kind`:
       //   - tick payloads (sub-second) → 'scorebug-tick'
@@ -95,7 +125,7 @@ export function createProjectionIntake(options: ProjectionIntakeOptions) {
       }
       ok(res);
     } catch (err) {
-      badRequest(res, (err as Error)?.message ?? 'parse error');
+      reply(res, err);
     }
   }
 
@@ -103,12 +133,12 @@ export function createProjectionIntake(options: ProjectionIntakeOptions) {
     if (!checkAuth(req)) return unauthorized(res, 'invalid api key');
     try {
       const body = (await readBody(req)) as Partial<VideoBoardPayload>;
-      if (!body?.matchUpId) return badRequest(res, 'matchUpId required');
+      if (!isId(body?.matchUpId)) return badRequest(res, 'matchUpId required');
       live.to(`videoboard:${body.matchUpId}`).emit('videoboard', body);
       forwardVideoBoardPayload(body as VideoBoardPayload);
       ok(res);
     } catch (err) {
-      badRequest(res, (err as Error)?.message ?? 'parse error');
+      reply(res, err);
     }
   }
 
@@ -139,4 +169,8 @@ export function createProjectionIntake(options: ProjectionIntakeOptions) {
     handleScorebug,
     handleVideoBoard,
   };
+}
+
+function isId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
 }

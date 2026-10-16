@@ -16,8 +16,12 @@ function scorer(personId: string | null, token = `token-${personId}`): any {
   return { token, personId, displayName: `Scorer ${personId}`, verified: true };
 }
 
+let pointNumber = 0;
+
 function relay(): any {
-  relayCrowdScoreIfLaunched({ matchUpId: MATCHUP_ID, tournamentId: 't-1', currentScore: {} });
+  pointNumber += 1;
+  const point = { pointNumber, winner: 0 };
+  relayCrowdScoreIfLaunched({ matchUpId: MATCHUP_ID, tournamentId: 't-1', currentScore: {}, point });
   const calls = submitCrowdScore.mock.calls;
   return calls[calls.length - 1]?.[0];
 }
@@ -50,7 +54,7 @@ describe('relayCrowdScoreIfLaunched session ids', () => {
   });
 
   it('sends nothing without a launched scorer identity', () => {
-    relayCrowdScoreIfLaunched({ matchUpId: MATCHUP_ID, currentScore: {} });
+    relayCrowdScoreIfLaunched({ matchUpId: MATCHUP_ID, currentScore: {}, point: { pointNumber: 1, winner: 0 } });
     expect(submitCrowdScore).not.toHaveBeenCalled();
   });
 });

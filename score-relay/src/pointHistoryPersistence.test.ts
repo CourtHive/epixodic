@@ -98,6 +98,44 @@ describe('persistPoint', () => {
     await expect(persistPoint(update())).resolves.toBeUndefined();
     expect(mockedPost).toHaveBeenCalledTimes(3);
   });
+
+  it('sends a timeout so a hung request cannot hold the match queue forever', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', undefined);
+    await persistPoint(update());
+    expect((mockedPost.mock.calls[0][2] as any).timeout).toBeGreaterThan(0);
+  });
+
+  // courthive-query drops an append whose pointNumber is not above the last stored
+  // one, so point 1 landing after point 2 is discarded as a duplicate.
+  it('commits the points of one match in the order they were scored', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', undefined);
+    const committed: number[] = [];
+    let releaseFirst!: () => void;
+    mockedPost.mockImplementationOnce(
+      (_url, body: any) =>
+        new Promise((resolve) => {
+          releaseFirst = () => {
+            committed.push(body.point.pointNumber);
+            resolve({ data: {} } as any);
+          };
+        }),
+    );
+    mockedPost.mockImplementation(async (_url, body: any) => {
+      committed.push(body.point.pointNumber);
+      return { data: {} } as any;
+    });
+
+    const first = persistPoint(update({ point: { winner: 0, pointNumber: 1 } }));
+    const second = persistPoint(update({ point: { winner: 1, pointNumber: 2 } }));
+    const otherMatch = persistPoint(update({ matchUpId: 'mu-2', point: { winner: 1, pointNumber: 1 } }));
+    await otherMatch;
+    await new Promise((r) => setTimeout(r, 10));
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    // mu-2 is independent and does not wait; mu-1's point 2 waits for point 1.
+    expect(committed).toEqual([1, 1, 2]);
+  });
 });
 
 describe('persistCrowdPromotedPoints (S6)', () => {

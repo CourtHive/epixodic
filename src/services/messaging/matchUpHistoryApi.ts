@@ -19,6 +19,12 @@ import axios from 'axios';
  * therefore force-save (last-write-wins on the envelope) and resolve cross-device
  * "who is newer" at hydration via the envelope's `updatedAt`. The version cache is
  * kept for informational continuity only.
+ *
+ * Ordering: with no server-side version check, the CLIENT must never let an older
+ * envelope land after a newer one. Saves therefore run through one lane per
+ * matchUp: at most one request in flight, and only the latest snapshot waits
+ * behind it (a newer save replaces a waiting or failed older one). A snapshot that
+ * failed to send is parked in its lane until the next save or flush.
  */
 
 const JWT_TOKEN_STORAGE_NAME = getJwtTokenStorageKey();
@@ -42,11 +48,19 @@ queryApi.interceptors.request.use((config) => {
   return config;
 });
 
-// --- version cache + offline queue (contract-compatible with the old api) ---
+// --- version cache + per-matchUp save lanes ---
 
 const knownVersions = new Map<string, number>();
-const offlineQueue: BoltHistoryDocument[] = [];
-let flushing = false;
+
+interface SaveLane {
+  inFlight: boolean;
+  /** The latest snapshot not yet sent: newer than anything in flight, or parked after a failure. */
+  pending?: BoltHistoryDocument;
+  /** Callers whose snapshot is `pending`, or was replaced by it; they settle with its result. */
+  waiters: Array<(result: PushResult) => void>;
+}
+
+const lanes = new Map<string, SaveLane>();
 
 export function getKnownVersion(matchUpId: string): number {
   return knownVersions.get(matchUpId) ?? 0;
@@ -57,8 +71,11 @@ export function setKnownVersion(matchUpId: string, version: number): void {
 export function clearKnownVersion(matchUpId: string): void {
   knownVersions.delete(matchUpId);
 }
+/** Matches whose latest snapshot failed to send and waits for a retry. */
 export function getOfflineQueueDepth(): number {
-  return offlineQueue.length;
+  let parked = 0;
+  for (const lane of lanes.values()) if (lane.pending && !lane.inFlight) parked += 1;
+  return parked;
 }
 
 export interface PushResult {
@@ -82,23 +99,64 @@ function stateBody(document: BoltHistoryDocument) {
   };
 }
 
-export async function pushBoltHistory(document: BoltHistoryDocument): Promise<PushResult> {
-  try {
-    const response = await queryApi.put(
-      `/match-up-point-history/${encodeURIComponent(document.tieMatchUpId)}/state`,
-      stateBody(document),
-    );
-    const version = response?.data?.version;
-    if (typeof version === 'number') {
-      setKnownVersion(document.tieMatchUpId, version);
-      void flushOfflineQueue();
-      return { success: true, version };
-    }
-    return { error: 'unknown server response' };
-  } catch (err) {
-    enqueueOffline(document);
-    return { error: (err as Error)?.message ?? 'network error' };
+/**
+ * Save an envelope. Resolves when it, or a newer snapshot of the same matchUp
+ * that superseded it before it was sent, has been accepted or has failed.
+ */
+export function pushBoltHistory(document: BoltHistoryDocument): Promise<PushResult> {
+  const matchUpId = document.tieMatchUpId;
+  let lane = lanes.get(matchUpId);
+  if (!lane) {
+    lane = { inFlight: false, waiters: [] };
+    lanes.set(matchUpId, lane);
   }
+  lane.pending = document;
+  const settled = new Promise<PushResult>((resolve) => lane.waiters.push(resolve));
+  if (!lane.inFlight) sendLane(matchUpId, lane);
+  return settled;
+}
+
+/** Statuses that will fail the same way on retry; anything else may be transient. */
+const NON_RETRYABLE_STATUSES = new Set([400, 404, 409, 413, 422]);
+
+function isRetryable(err: any): boolean {
+  const status = err?.response?.status;
+  return typeof status !== 'number' || !NON_RETRYABLE_STATUSES.has(status);
+}
+
+/** Send the lane's pending snapshot; when it settles, send whatever newer one arrived meanwhile. */
+function sendLane(matchUpId: string, lane: SaveLane): Promise<PushResult> {
+  const document = lane.pending!;
+  const waiters = lane.waiters;
+  lane.pending = undefined;
+  lane.waiters = [];
+  lane.inFlight = true;
+
+  return queryApi
+    .put(`/match-up-point-history/${encodeURIComponent(matchUpId)}/state`, stateBody(document))
+    .then(
+      (response): PushResult => {
+        const version = response?.data?.version;
+        if (typeof version !== 'number') return { error: 'unknown server response' };
+        setKnownVersion(matchUpId, version);
+        return { success: true, version };
+      },
+      (err): PushResult => {
+        // Park the snapshot for a retry unless a newer one already replaced it.
+        if (isRetryable(err) && !lane.pending) lane.pending = document;
+        return { error: (err as Error)?.message ?? 'network error' };
+      },
+    )
+    .then((result) => {
+      lane.inFlight = false;
+      for (const settle of waiters) settle(result);
+      const newerArrived = lane.waiters.length > 0;
+      if (newerArrived) sendLane(matchUpId, lane);
+      else if (!lane.pending) lanes.delete(matchUpId);
+      // The server answered: retry other matches' parked snapshots.
+      if (result.success) flushOfflineQueue();
+      return result;
+    });
 }
 
 /**
@@ -181,46 +239,16 @@ export async function fetchParentMatchUp(
   return { teamMatchUp };
 }
 
+/** Retry every parked snapshot. Lanes already sending are left alone. */
 export async function flushOfflineQueue(): Promise<{ flushed: number; remaining: number }> {
-  if (flushing) return { flushed: 0, remaining: offlineQueue.length };
-  if (offlineQueue.length === 0) return { flushed: 0, remaining: 0 };
-
-  flushing = true;
-  let flushed = 0;
-  try {
-    while (offlineQueue.length > 0) {
-      const next = offlineQueue[0];
-      try {
-        const response = await queryApi.put(
-          `/match-up-point-history/${encodeURIComponent(next.tieMatchUpId)}/state`,
-          stateBody(next),
-        );
-        if (typeof response?.data?.version === 'number') {
-          offlineQueue.shift();
-          flushed += 1;
-          setKnownVersion(next.tieMatchUpId, response.data.version);
-        } else {
-          break;
-        }
-      } catch {
-        break; // still offline — retry later
-      }
-    }
-  } finally {
-    flushing = false;
-  }
-  return { flushed, remaining: offlineQueue.length };
-}
-
-function enqueueOffline(document: BoltHistoryDocument): void {
-  const idx = offlineQueue.findIndex((d) => d.tieMatchUpId === document.tieMatchUpId);
-  if (idx !== -1) offlineQueue[idx] = document;
-  else offlineQueue.push(document);
+  const parked = [...lanes.entries()].filter(([, lane]) => lane.pending && !lane.inFlight);
+  const results = await Promise.all(parked.map(([matchUpId, lane]) => sendLane(matchUpId, lane)));
+  const flushed = results.filter((result) => result.success).length;
+  return { flushed, remaining: getOfflineQueueDepth() };
 }
 
 // Test helper — clears all in-memory state. Not part of the public API.
 export function __resetMatchUpHistoryApiForTests(): void {
   knownVersions.clear();
-  offlineQueue.length = 0;
-  flushing = false;
+  lanes.clear();
 }
