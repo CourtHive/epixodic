@@ -274,12 +274,10 @@ function applyTieMatchUpPatch(tieMatchUpId: string, patch: TieMatchUpPatch): boo
  * Persist a tieMatchUp's full bolt scoring state directly on the team matchUp.
  * This is the single source of truth for bolt history (points, sets, flags).
  *
- * Triggers a fire-and-forget push to the server. Errors are captured by
- * boltHistoryApi (offline queue) so the local write path never blocks
- * on the network. On VERSION_CONFLICT the push goes through
- * pushBoltHistoryWithRetry which can surface SERVER_NEWER — when that
- * happens, the server's document is applied locally via
- * applyServerDocument so the UI converges automatically.
+ * Triggers a fire-and-forget push to the server. Failures are parked by
+ * matchUpHistoryApi (one save lane per matchUp) so the local write path never
+ * blocks on the network. Saves are last-write-wins: the server document is
+ * adopted only at hydration (hydrateBoltHistoryOnMount), never by a push.
  */
 export function persistTieMatchUpState(tieMatchUpId: string, patch: TieMatchUpPatch) {
   if (!applyTieMatchUpPatch(tieMatchUpId, patch)) return;
@@ -288,8 +286,7 @@ export function persistTieMatchUpState(tieMatchUpId: string, patch: TieMatchUpPa
 
 /**
  * Apply a BoltHistoryDocument fetched from the server to the local
- * tieMatchUp WITHOUT triggering a push. Used by hydration on mount and
- * by SERVER_NEWER recovery from pushBoltHistoryWithRetry.
+ * tieMatchUp WITHOUT triggering a push. Used by hydration on mount.
  *
  * After this call, the local store reflects the server's view and the
  * version cache is seeded with the server's version. The next user
@@ -360,7 +357,8 @@ function recalculateIntennseScore(matchUp: HydratedMatchUp) {
     scoreStringSide2: `${side2}-${side1}`,
     sets: [{ side1Score: side1, side2Score: side2, winningSide }],
   };
-  if (winningSide) matchUp.winningSide = winningSide;
+  // Unconditional: a result corrected from decided to undecided must lose its winner.
+  matchUp.winningSide = winningSide;
 }
 
 function sumBoltPoints(tieMatchUps: HydratedMatchUp[]): { side1: number; side2: number } {
@@ -385,7 +383,8 @@ function recalculateStandardScore(matchUp: HydratedMatchUp) {
       sets: [result.set],
     };
   }
-  if (result.winningSide) matchUp.winningSide = result.winningSide;
+  // Unconditional: a result corrected from decided to undecided must lose its winner.
+  matchUp.winningSide = result.winningSide;
 }
 
 function isIntennseMatchUp(matchUp: any): boolean {
