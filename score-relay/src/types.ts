@@ -58,6 +58,10 @@ export interface RelayConfig {
    *  relay's /tracker namespace. Fire-and-forget — local processing is
    *  never delayed. */
   upstreamRelayUrl?: string;
+  /** JWT the relay presents to the upstream relay's /tracker namespace — its own
+   *  federation identity (`UPSTREAM_RELAY_TOKEN`). Required when the upstream
+   *  runs with TRACKER_REQUIRE_AUTH. */
+  upstreamRelayToken?: string;
   /** Shared HS256 secret (CFS `JWT_SECRET`). When set, /tracker handshake
    *  verifies a JWT and stashes audience + tournamentId on the socket.
    *  Unset = legacy permissive mode (existing epixodic + TMX trackers

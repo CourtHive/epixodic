@@ -12,9 +12,14 @@ let upstream: Socket | null = null;
  *
  * The connection auto-reconnects with exponential backoff.
  * Returns null if no URL is configured.
+ *
+ * `token` is this relay's federation identity, presented in the handshake the
+ * same way a tracker presents its JWT. An upstream in strict mode refuses a
+ * connection without one, and no amount of reconnecting changes that.
  */
-export function connectUpstream(url: string): (event: string, data: any) => void {
+export function connectUpstream(url: string, token?: string): (event: string, data: any) => void {
   upstream = ioClient(`${url.replace(/\/$/, '')}/tracker`, {
+    auth: token ? { token } : {},
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: INITIAL_RETRY_MS,

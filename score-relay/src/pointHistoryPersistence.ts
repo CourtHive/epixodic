@@ -20,6 +20,13 @@ let serviceJwt: string | undefined;
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 500;
+/** Per request. Without it a hung connection would hold its match's queue forever. */
+const REQUEST_TIMEOUT_MS = 10_000;
+
+// The tail of each match's append queue. courthive-query keeps an append only
+// when its pointNumber is above the last stored one, so two concurrent POSTs for
+// one match that commit out of order would drop the earlier point as a duplicate.
+const appendQueues = new Map<string, Promise<void>>();
 
 export function configurePointHistoryPersistence(url?: string, jwt?: string): void {
   baseUrl = url?.replace(/\/+$/, '') || undefined;
@@ -102,7 +109,7 @@ export async function persistCrowdPromotedPoints(session: CrowdScoringSession): 
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      await axios.put(url, body, { headers });
+      await axios.put(url, body, { headers, timeout: REQUEST_TIMEOUT_MS });
       return;
     } catch (err: any) {
       if (attempt === MAX_RETRIES) {
@@ -119,14 +126,29 @@ export async function persistCrowdPromotedPoints(session: CrowdScoringSession): 
 
 /**
  * Persist one point. No-op when disabled, when the event omits a point, or when
- * it lacks the tournamentId/matchUpId the store requires. Bounded exponential
- * retry; never throws.
+ * it lacks the tournamentId/matchUpId the store requires. Points of one match
+ * are sent one at a time, in arrival order; different matches do not wait on
+ * each other. Bounded exponential retry; never throws.
  */
-export async function persistPoint(update: ScoreUpdate): Promise<void> {
-  if (!baseUrl) return;
-  if (!update.matchUpId || !update.tournamentId) return;
+export function persistPoint(update: ScoreUpdate): Promise<void> {
+  if (!baseUrl) return Promise.resolve();
+  if (!update.matchUpId || !update.tournamentId) return Promise.resolve();
   const point = toStoredPoint(update);
-  if (!point) return;
+  if (!point) return Promise.resolve();
+
+  const matchUpId = update.matchUpId;
+  const previous = appendQueues.get(matchUpId) ?? Promise.resolve();
+  const sent: Promise<void> = previous
+    .then(() => postPoint(update, point))
+    .then(() => {
+      // Drop the entry once this is the last queued append, so idle matches hold nothing.
+      if (appendQueues.get(matchUpId) === sent) appendQueues.delete(matchUpId);
+    });
+  appendQueues.set(matchUpId, sent);
+  return sent;
+}
+
+async function postPoint(update: ScoreUpdate, point: Record<string, unknown>): Promise<void> {
 
   const body = {
     tournamentId: update.tournamentId,
@@ -139,7 +161,7 @@ export async function persistPoint(update: ScoreUpdate): Promise<void> {
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      await axios.post(url, body, { headers });
+      await axios.post(url, body, { headers, timeout: REQUEST_TIMEOUT_MS });
       return;
     } catch (err: any) {
       if (attempt === MAX_RETRIES) {
