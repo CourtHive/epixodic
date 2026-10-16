@@ -49,8 +49,7 @@ import {
 } from '../scoreRelay';
 
 function jwt(payload: Record<string, unknown>): string {
-  const encode = (value: unknown) =>
-    btoa(JSON.stringify(value)).split('=')[0].replace(/\+/g, '-').replace(/\//g, '_');
+  const encode = (value: unknown) => btoa(JSON.stringify(value)).split('=')[0].replace(/\+/g, '-').replace(/\//g, '_');
   return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(payload)}.signature`;
 }
 
