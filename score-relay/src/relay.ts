@@ -13,7 +13,7 @@ import {
 } from './matchUpStore.js';
 import { connectUpstream } from './upstreamFederation.js';
 import { persistMatchHistory } from './persistence.js';
-import { persistPoint } from './pointHistoryPersistence.js';
+import { persistPoint, persistPointCorrection } from './pointHistoryPersistence.js';
 import {
   extractTrackerToken,
   TrackerAuthError,
@@ -22,7 +22,10 @@ import {
 } from './trackerAuth.js';
 import { TrackerLimits } from './trackerLimits.js';
 import { ConnectLimits } from './connectLimits.js';
-import type { ScoreUpdate, MatchHistory, RelayConfig, RelayMetrics } from './types.js';
+import type { ScoreUpdate, MatchHistory, PointsCorrection, RelayConfig, RelayMetrics } from './types.js';
+
+/** Far above any match's point count, so the cap only bounds a hostile frame. */
+const MAX_CORRECTION_POINTS = 5000;
 
 // Metrics counters
 let trackerCount = 0;
@@ -156,7 +159,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Durably persist the point to courthive-query (S3). Fire-and-forget — a
       // persistence failure must never block the broadcast/ack path above.
-      if (data.point) void persistPoint(data);
+      if (data.point) persistPoint(data);
 
       // Anchor clock ticks from the score event if it carries clock
       // fields. This is the reliable baseline — the intennse event
@@ -291,6 +294,25 @@ export function createRelay(io: Server, config: RelayConfig): void {
         return;
       }
       persistHistoryLatest(data.matchUpId, data);
+    });
+
+    // A scorer's authoritative point array, after an undo, an edit or a removal
+    // changed points already sent. It REPLACES the durable history, so unlike an
+    // append (which courthive-query's monotonic dedup bounds) it is accepted only
+    // from a verified principal.
+    onFrame(socket, 'correctPoints', (data: PointsCorrection) => {
+      if (!guardFrame(socket, data, controlLimits)) return;
+      if (!isPointArray(data.points)) {
+        socket.emit('error', { message: 'invalid-frame' });
+        return;
+      }
+      if (socketData.userId === 'anonymous') {
+        socket.emit('rejected', { matchUpId: data.matchUpId, reason: 'unauthenticated' });
+        return;
+      }
+      socket.emit('ack', { matchUpId: data.matchUpId, received: true });
+      forward?.('correctPoints', data);
+      persistPointCorrection(data);
     });
 
     socket.on('disconnect', () => {
@@ -507,6 +529,14 @@ function guardOwnership(
     data.tournamentId = socketData.tournamentId;
   }
   return true;
+}
+
+function isPointArray(value: unknown): value is PointsCorrection['points'] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_CORRECTION_POINTS &&
+    value.every((point) => !!point && typeof point === 'object' && !Array.isArray(point))
+  );
 }
 
 class InvalidFrameError extends Error {}

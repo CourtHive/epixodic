@@ -144,36 +144,107 @@ export function connectTracker(): Socket {
   return socket;
 }
 
-// Last point number forwarded per matchUp — so a `point` is emitted once per
-// scored point even though the scoring UI re-broadcasts on many non-point
-// transitions (timeout, challenge, substitution, exit). courthive-query also
-// dedups monotonically by pointNumber as the safety net across reloads/handoffs
-// (this in-memory map resets on reload). See MATCHUP_HISTORY_PERSISTENCE.md (S5b).
+// Last point number forwarded per matchUp, for a caller that sends only the
+// latest point: a `point` is emitted once per scored point even though the scoring
+// UI re-broadcasts on many non-point transitions (timeout, challenge,
+// substitution, exit). courthive-query also dedups monotonically by pointNumber as
+// the safety net across reloads/handoffs (this in-memory map resets on reload).
+// See MATCHUP_HISTORY_PERSISTENCE.md (S5b).
 const lastSentPointNumber = new Map<string, number>();
+
+// For a caller that sends the full point array: one key per point last sent, in
+// order. Points are numbered by position, so comparing the arrays tells a new
+// point from a re-broadcast and from a correction (an undo, an edit, a removal).
+const sentPointKeys = new Map<string, string[]>();
+
+type PointChange = 'first' | 'same' | 'append' | 'correction';
+
+function pointKey(point: any): string {
+  const p = point ?? {};
+  return JSON.stringify([
+    p.winner,
+    p.server,
+    p.winningSide,
+    p.serverSideNumber,
+    p.serverParticipantId,
+    p.result,
+    p.code,
+    p.hand,
+    p.stroke,
+    p.rallyLength,
+  ]);
+}
+
+function classifyPoints(previous: string[] | undefined, next: string[]): PointChange {
+  if (!previous) return 'first';
+  const unchangedPrefix = previous.every((key, i) => key === next[i]);
+  if (unchangedPrefix && next.length === previous.length) return 'same';
+  if (unchangedPrefix && next.length === previous.length + 1) return 'append';
+  return 'correction';
+}
+
+/**
+ * Record the scorer's current point array and, when it corrects points already
+ * sent, send it whole so the relay replaces the durable history. The first array
+ * seen for a matchUp in this page session is taken as the baseline: it cannot
+ * be told apart from a resume. Returns what changed.
+ */
+export function syncPoints(sync: {
+  matchUpId: string;
+  tournamentId?: string;
+  matchUpFormat?: string;
+  points: any[];
+}): PointChange {
+  const keys = sync.points.map(pointKey);
+  const change = classifyPoints(sentPointKeys.get(sync.matchUpId), keys);
+  sentPointKeys.set(sync.matchUpId, keys);
+  if (change === 'correction') {
+    const correction = {
+      matchUpId: sync.matchUpId,
+      tournamentId: sync.tournamentId,
+      matchUpFormat: sync.matchUpFormat,
+      points: sync.points,
+    };
+    if (logEmit) console.log('[scoreRelay] emit correctPoints:', correction);
+    connectTracker().emit('correctPoints', correction);
+  }
+  return change;
+}
 
 export function sendScore(update: {
   matchUpId: string;
   tournamentId?: string;
+  matchUpFormat?: string;
   score: any;
   point?: any;
+  /** The full point array. When given, `point` is sent only for a new point, and a correction is sent whole. */
+  points?: any[];
   matchUpStatus?: string;
   winningSide?: number;
 }): void {
   const tracker = connectTracker();
-  // Forward `point` only when it is a NEW, identifiable point for this matchUp;
-  // otherwise strip it so the relay/store don't append a duplicate.
-  let payload = update;
-  const pointNumber = typeof update.point?.pointNumber === 'number' ? update.point.pointNumber : undefined;
-  if (update.point) {
-    if (pointNumber === undefined || lastSentPointNumber.get(update.matchUpId) === pointNumber) {
-      const { point: _omit, ...rest } = update;
-      payload = rest;
+  const { points, ...frame } = update;
+  let payload: Record<string, any> = frame;
+  if (points) {
+    const change = syncPoints({ ...frame, points });
+    if (change !== 'append' && change !== 'first') payload = withoutPoint(frame);
+  } else if (frame.point) {
+    // Forward `point` only when it is a NEW, identifiable point for this matchUp;
+    // otherwise strip it so the relay/store don't append a duplicate.
+    const pointNumber = typeof frame.point.pointNumber === 'number' ? frame.point.pointNumber : undefined;
+    if (pointNumber === undefined || lastSentPointNumber.get(frame.matchUpId) === pointNumber) {
+      payload = withoutPoint(frame);
     } else {
-      lastSentPointNumber.set(update.matchUpId, pointNumber);
+      lastSentPointNumber.set(frame.matchUpId, pointNumber);
     }
   }
   if (logEmit) console.log('[scoreRelay] emit score:', payload);
   tracker.emit('score', payload);
+}
+
+function withoutPoint<T extends { point?: any }>(frame: T): Omit<T, 'point'> {
+  const { point: _omit, ...rest } = frame;
+  return rest;
 }
 
 export function sendHistory(history: {

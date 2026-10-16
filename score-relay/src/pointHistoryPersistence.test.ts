@@ -5,6 +5,7 @@ import {
   isPointHistoryPersistenceEnabled,
   persistCrowdPromotedPoints,
   persistPoint,
+  persistPointCorrection,
   toStoredPoint,
 } from './pointHistoryPersistence.js';
 import type { ScoreUpdate } from './types.js';
@@ -184,5 +185,82 @@ describe('persistCrowdPromotedPoints (S6)', () => {
     configurePointHistoryPersistence('http://localhost:3150', 'svc');
     await persistCrowdPromotedPoints(session({ pointHistory: [] }));
     expect(mockedPut).not.toHaveBeenCalled();
+  });
+});
+
+describe('persistPointCorrection (E3)', () => {
+  beforeEach(() => {
+    mockedPost.mockReset();
+    mockedPut.mockReset();
+    mockedPut.mockResolvedValue({ data: { version: 2 } } as any);
+  });
+  afterEach(() => configurePointHistoryPersistence(undefined, undefined));
+
+  it('PUTs the mapped array as official points', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', 'svc');
+    await persistPointCorrection({
+      matchUpId: 'mu-x',
+      tournamentId: 't-x',
+      matchUpFormat: 'SET3-S:6/TB7',
+      points: [
+        { winner: 0, server: 0, pointNumber: 1 },
+        { winner: 1, server: 0, pointNumber: 2, result: 'Winner' },
+      ],
+    });
+
+    expect(mockedPut).toHaveBeenCalledTimes(1);
+    const [url, body, cfg] = mockedPut.mock.calls[0] as any[];
+    expect(url).toBe('http://localhost:3150/match-up-point-history/mu-x/points');
+    expect(body).toEqual({
+      tournamentId: 't-x',
+      matchUpFormat: 'SET3-S:6/TB7',
+      provenance: 'official',
+      points: [
+        { pointNumber: 1, winningSide: 1, serverSideNumber: 1 },
+        { pointNumber: 2, winningSide: 2, serverSideNumber: 1, result: 'Winner' },
+      ],
+    });
+    expect(cfg.headers.Authorization).toBe('Bearer svc');
+  });
+
+  it('no-ops when disabled or without a tournamentId', async () => {
+    await persistPointCorrection({ matchUpId: 'mu-x', tournamentId: 't-x', points: [] });
+    configurePointHistoryPersistence('http://localhost:3150', 'svc');
+    await persistPointCorrection({ matchUpId: 'mu-x', points: [] });
+    expect(mockedPut).not.toHaveBeenCalled();
+  });
+
+  // An append still in flight that landed after the replace would put a
+  // superseded point back on top of the corrected array.
+  it('waits for the appends already queued for its match', async () => {
+    configurePointHistoryPersistence('http://localhost:3150', undefined);
+    const order: string[] = [];
+    let releaseAppend!: () => void;
+    mockedPost.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseAppend = () => {
+            order.push('append 3');
+            resolve({ data: {} } as any);
+          };
+        }),
+    );
+    mockedPut.mockImplementation(async () => {
+      order.push('replace');
+      return { data: {} } as any;
+    });
+
+    const append = persistPoint(update({ matchUpId: 'mu-q', point: { winner: 0, pointNumber: 3 } }));
+    const replace = persistPointCorrection({
+      matchUpId: 'mu-q',
+      tournamentId: 't-1',
+      points: [{ winner: 1, pointNumber: 1 }],
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(order).toEqual([]);
+    releaseAppend();
+    await Promise.all([append, replace]);
+
+    expect(order).toEqual(['append 3', 'replace']);
   });
 });
