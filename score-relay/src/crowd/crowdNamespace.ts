@@ -38,6 +38,7 @@ import {
 } from './types.js';
 import type { CrowdScoringStorage } from './storage.js';
 import type { UserLimits } from './userLimits.js';
+import { isValidSubmitPayload } from './submitPayload.js';
 
 type CrowdAudience = 'admin' | 'hiveid' | 'provider';
 
@@ -199,7 +200,7 @@ async function handleSubmit(
   opts: CrowdNamespaceOptions,
 ): Promise<void> {
   const data = socket.data as SocketData;
-  if (!isValidSubmitPayload(payload)) {
+  if (!isSubmitPayload(payload)) {
     const sessionId = (payload as { sessionId?: unknown } | undefined)?.sessionId;
     socket.emit('rejected', { sessionId, reason: 'invalid-payload' });
     return;
@@ -324,18 +325,8 @@ function extractToken(socket: Socket): string | undefined {
   return undefined;
 }
 
-function isValidSubmitPayload(payload: unknown): payload is SubmitCrowdScorePayload {
-  if (!payload || typeof payload !== 'object') return false;
-  const p = payload as Partial<SubmitCrowdScorePayload>;
-  return (
-    typeof p.sessionId === 'string' &&
-    typeof p.matchUpId === 'string' &&
-    typeof p.tournamentId === 'string' &&
-    typeof p.clientId === 'string' &&
-    p.point != null &&
-    typeof p.point === 'object' &&
-    (p.point.winner === 1 || p.point.winner === 2)
-  );
+function isSubmitPayload(payload: unknown): payload is SubmitCrowdScorePayload {
+  return isValidSubmitPayload(payload);
 }
 
 export function resolveAudience(payload: JwtPayload): CrowdAudience {

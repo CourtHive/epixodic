@@ -458,6 +458,8 @@ function broadcastScore(): void {
     matchUpId,
     tournamentId,
     currentScore: { sets: score.sets, winningSide, scoreboard: scoreDisplay, matchUpStatus: isComplete ? 'COMPLETED' : 'IN_PROGRESS' },
+    // The engine point; the bridge maps it to a CrowdPoint and sends only a new one.
+    point: lastPoint,
     formatHint: env.metadata.match?.matchUpFormat,
   });
 }
