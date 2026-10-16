@@ -32,6 +32,19 @@ export interface ScoreUpdate {
   winningSide?: number;
 }
 
+/**
+ * A scorer's authoritative point array, sent when an undo, an edit or a removal
+ * changed points it had already sent. Points use the same on-wire shape as
+ * `ScoreUpdate.point`, numbered by position. The relay replaces the durable
+ * history with it.
+ */
+export interface PointsCorrection {
+  matchUpId: string;
+  tournamentId?: string;
+  matchUpFormat?: string;
+  points: NonNullable<ScoreUpdate['point']>[];
+}
+
 export interface MatchHistory {
   matchUpId: string;
   tournamentId?: string;

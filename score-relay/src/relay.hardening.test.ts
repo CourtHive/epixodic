@@ -12,10 +12,13 @@ import { createServer, type Server as HttpServer } from 'node:http';
 import { Server as IoServer } from 'socket.io';
 
 vi.mock('./persistence.js', () => ({ persistMatchHistory: vi.fn(() => new Promise<void>(() => {})) }));
-vi.mock('./pointHistoryPersistence.js', () => ({ persistPoint: vi.fn(async () => {}) }));
+vi.mock('./pointHistoryPersistence.js', () => ({
+  persistPoint: vi.fn(async () => {}),
+  persistPointCorrection: vi.fn(async () => {}),
+}));
 
 import { persistMatchHistory } from './persistence.js';
-import { persistPoint } from './pointHistoryPersistence.js';
+import { persistPoint, persistPointCorrection } from './pointHistoryPersistence.js';
 import { signHs256 } from './crowd/jwtVerify.js';
 import { createRelay } from './relay.js';
 
@@ -79,6 +82,7 @@ afterAll(async () => {
 beforeEach(() => {
   vi.mocked(persistMatchHistory).mockClear();
   vi.mocked(persistPoint).mockClear();
+  vi.mocked(persistPointCorrection).mockClear();
 });
 
 describe('malformed tracker frames', () => {
@@ -182,5 +186,42 @@ describe('history and the relay service identity', () => {
     await new Promise((r) => setTimeout(r, 150));
     // The first is in flight (and never settles); the rest coalesce behind it.
     expect(persistMatchHistory).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('point corrections replace durable history', () => {
+  const correction = (matchUpId: string, points: unknown = [{ winner: 0, pointNumber: 1 }]) => ({
+    matchUpId,
+    tournamentId: 't-1',
+    points,
+  });
+
+  it('refuses a correction from an anonymous tracker', async () => {
+    const tracker = await connect('/tracker');
+    const rejected = nextEvent(tracker, 'rejected');
+    tracker.emit('correctPoints', correction('c-anon'));
+    expect(await rejected).toMatchObject({ matchUpId: 'c-anon', reason: 'unauthenticated' });
+    expect(persistPointCorrection).not.toHaveBeenCalled();
+  });
+
+  it('persists a correction from a verified tracker', async () => {
+    const token = signHs256({ userId: 'td-3', aud: 'admin' }, JWT_SECRET);
+    const tracker = await connect('/tracker', token);
+    const ack = nextEvent(tracker, 'ack');
+    tracker.emit('correctPoints', correction('c-auth'));
+    expect((await ack).matchUpId).toBe('c-auth');
+    expect(persistPointCorrection).toHaveBeenCalledWith(correction('c-auth'));
+  });
+
+  it('rejects a correction whose points are not an array of objects', async () => {
+    const token = signHs256({ userId: 'td-4', aud: 'admin' }, JWT_SECRET);
+    const tracker = await connect('/tracker', token);
+    // One match per case: the control bucket allows five frames a second per match.
+    for (const [i, points] of [undefined, 'x', [1], [null], [[]]].entries()) {
+      const error = nextEvent(tracker, 'error');
+      tracker.emit('correctPoints', { matchUpId: `c-bad-${i}`, tournamentId: 't-1', points });
+      expect((await error).message).toBe('invalid-frame');
+    }
+    expect(persistPointCorrection).not.toHaveBeenCalled();
   });
 });

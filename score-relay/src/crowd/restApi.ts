@@ -126,7 +126,7 @@ async function handle(
         const session = await opts.storage.promote(sessionId, trustedBy);
         // Materialize the promoted crowd points into the durable store (D4/S6).
         // Fire-and-forget — never blocks the promote response.
-        void persistCrowdPromotedPoints(session);
+        persistCrowdPromotedPoints(session);
         respondJson(res, 200, { session });
       } catch (err) {
         if (err instanceof SessionNotFoundError) respondJson(res, 404, { error: 'session-not-found' });
