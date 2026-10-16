@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.5.10](https://github.com/CourtHive/epixodic/compare/v2.5.9...v2.5.10) (2026-10-16)
+
+
+### Bug Fixes
+
+* **deps:** update @courthive/scoring-visualizations to 0.2.21 ([#396](https://github.com/CourtHive/epixodic/issues/396)) ([33d32e5](https://github.com/CourtHive/epixodic/commit/33d32e5777582f3b11f628c9e6bf1a7dbef4874c))
+* **points:** send corrections whole and replace the durable history ([#394](https://github.com/CourtHive/epixodic/issues/394)) ([40b50bd](https://github.com/CourtHive/epixodic/commit/40b50bdb14a01ad042d594de781c084bbcd60444))
+* relay hardening and client state ordering (scoring assessment phase 1) ([#392](https://github.com/CourtHive/epixodic/issues/392)) ([beba219](https://github.com/CourtHive/epixodic/commit/beba21974adc4e1bea7aac427976441770f09f6a))
+
 ## [2.5.9](https://github.com/CourtHive/epixodic/compare/v2.5.8...v2.5.9) (2026-10-16)
 
 
