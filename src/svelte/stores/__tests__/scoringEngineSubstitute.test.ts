@@ -1,3 +1,4 @@
+import { scoreGovernor } from 'tods-competition-factory';
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   initScoringEngine,
@@ -12,6 +13,9 @@ import {
  * executeSubstitution moves its clocks, side ids and tie participant only when the engine accepted
  * the substitution: the host and the engine cannot disagree about who is on court.
  */
+
+// The refusals need a factory whose substitute() returns a result (it ships with evaluateSubstitution)
+const REFUSES = typeof (scoreGovernor.ScoringEngine.prototype as any).evaluateSubstitution === 'function';
 
 function onCourt(sideNumber: 1 | 2): string[] {
   const side = getEngineState()?.sides?.find((s: any) => s.sideNumber === sideNumber);
@@ -31,14 +35,14 @@ describe('substitute — the engine result', () => {
     expect(onCourt(1)).toEqual(['E', 'B']);
   });
 
-  it('a player already on court is refused, and nothing changes', () => {
+  it.skipIf(!REFUSES)('a player already on court is refused, and nothing changes', () => {
     expect(substitute(1, 'A', 'B')).toEqual({ success: false, error: 'IN_ALREADY_ON_COURT' });
     expect(substitute(1, 'A', 'C')).toEqual({ success: false, error: 'IN_ALREADY_ON_COURT' });
     expect(onCourt(1)).toEqual(['A', 'B']);
     expect(getEngineState()?.history?.substitutions ?? []).toEqual([]);
   });
 
-  it('an outgoing player not on that side is refused', () => {
+  it.skipIf(!REFUSES)('an outgoing player not on that side is refused', () => {
     expect(substitute(1, 'C', 'E')).toEqual({ success: false, error: 'OUT_NOT_ON_SIDE' });
   });
 

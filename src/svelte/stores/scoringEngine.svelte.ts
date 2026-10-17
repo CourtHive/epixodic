@@ -175,7 +175,9 @@ export function endSegment(options?: { reason?: string }) {
  */
 export function substitute(sideNumber: 1 | 2, outParticipantId: string, inParticipantId: string) {
   if (!engine) return { success: false as const, error: 'NO_ENGINE' as const };
-  const result = engine.substitute({ sideNumber, outParticipantId, inParticipantId });
+  // A factory before the result contract returns nothing and has substituted unconditionally: read that
+  // as accepted, which is what it did.
+  const result = engine.substitute({ sideNumber, outParticipantId, inParticipantId }) ?? { success: true as const };
   if (result.success) bump();
   return result;
 }
