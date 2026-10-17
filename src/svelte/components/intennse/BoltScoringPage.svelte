@@ -1149,7 +1149,14 @@
 
   function executeSubstitution(outId: string, inId: string) {
     if (!subModalSide) return;
-    engineSubstitute(subModalSide, outId, inId);
+    // the engine refuses a substitution that would put the wrong players on court; nothing moves then
+    const result = engineSubstitute(subModalSide, outId, inId);
+    if (!result.success) {
+      console.warn('[substitution] refused:', result.error, { outId, inId });
+      subModalSide = null;
+      penaltySubPlayer = null;
+      return;
+    }
     stopTracking(outId);
     // Only start the new player's clock if the bolt clock is currently running
     const boltSnapshot = getClockSnapshot('boltTimer');

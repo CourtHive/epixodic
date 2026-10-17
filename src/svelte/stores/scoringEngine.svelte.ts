@@ -167,10 +167,19 @@ export function endSegment(options?: { reason?: string }) {
   bump();
 }
 
+/**
+ * The engine's answer: `{ success: true }`, or a refusal (`NO_LINEUP`, `OUT_NOT_ON_SIDE`,
+ * `IN_ALREADY_ON_COURT`, `SAME_PARTICIPANT`) that recorded nothing. A caller moves its own state
+ * (clocks, side ids, the tie's participant) only on success, so the host and the engine agree on
+ * who is on court.
+ */
 export function substitute(sideNumber: 1 | 2, outParticipantId: string, inParticipantId: string) {
-  if (!engine) return;
-  engine.substitute({ sideNumber, outParticipantId, inParticipantId });
-  bump();
+  if (!engine) return { success: false as const, error: 'NO_ENGINE' as const };
+  // A factory before the result contract returns nothing and has substituted unconditionally: read that
+  // as accepted, which is what it did.
+  const result = engine.substitute({ sideNumber, outParticipantId, inParticipantId }) ?? { success: true as const };
+  if (result.success) bump();
+  return result;
 }
 
 /**
