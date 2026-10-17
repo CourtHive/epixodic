@@ -124,6 +124,21 @@ describe('tracker handshake credentials', () => {
     expect(handshakeAuth(trackers()[0])).toEqual({});
   });
 
+  // The relay refuses a verified token without an admin or score audience, and
+  // courthive-public leaves a hiveid-only token under the same storage key.
+  it('presents a token only when the relay would accept its audience', () => {
+    const exp = Math.floor(Date.now() / 1000) + 600;
+    sendScore({ matchUpId: 'm', score: {} });
+    for (const aud of [undefined, 'admin', 'score', ['admin', 'hiveid']]) {
+      stored.token = jwt({ userId: 'u', exp, aud });
+      expect(handshakeAuth(trackers()[0])).toEqual({ token: stored.token });
+    }
+    for (const aud of ['hiveid', ['hiveid'], 'provider-selection']) {
+      stored.token = jwt({ userId: 'u', exp, aud });
+      expect(handshakeAuth(trackers()[0])).toEqual({});
+    }
+  });
+
   it('reads the token at each handshake, so a login after connecting is used on reconnect', () => {
     sendScore({ matchUpId: 'm', score: {} });
     expect(handshakeAuth(trackers()[0])).toEqual({});
