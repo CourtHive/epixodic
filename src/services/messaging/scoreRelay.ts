@@ -91,18 +91,36 @@ function attachStatusHandlers(socket: Socket, label: string) {
 /** How long to wait before retrying a handshake the relay refused. */
 const HANDSHAKE_RETRY_MS = 5_000;
 
+/** Audiences the relay's /tracker accepts. */
+const TRACKER_AUDIENCES = new Set(['admin', 'score']);
+
+/** A token's audiences, read the way the relay reads them: absent or empty means `admin`. */
+function tokenAudiences(aud: unknown): string[] {
+  if (aud === undefined || aud === null || aud === '') return ['admin'];
+  if (typeof aud === 'string') return [aud];
+  if (Array.isArray(aud)) {
+    const named = aud.filter((value): value is string => typeof value === 'string' && value.length > 0);
+    return named.length ? named : ['admin'];
+  }
+  return [];
+}
+
 /**
  * The tracker handshake credential: the signed-in user's JWT, read afresh at
- * every (re)connect so a login or token refresh is picked up. Only an unexpired
- * token is sent: a relay with a secret but strict mode off admits a socket with
- * no token, yet refuses one whose token fails verification.
+ * every (re)connect so a login or token refresh is picked up. A relay with a
+ * secret but strict mode off admits a socket with no token, yet refuses one
+ * whose token fails verification, so only a token it would accept is sent:
+ * unexpired, with an `admin` or `score` audience. The storage key is shared
+ * across courthive.net, and a HiveID sign-in on courthive-public leaves a
+ * `hiveid`-only token there; that scorer connects without one, as before.
  */
 function trackerAuth(): Record<string, string> {
   const token = browserStorage.get(getJwtTokenStorageKey());
   if (!token || token === 'undefined') return {};
   try {
-    const { exp } = jwtDecode(token);
+    const { exp, aud } = jwtDecode(token);
     if (typeof exp === 'number' && exp <= Date.now() / 1000) return {};
+    if (!tokenAudiences(aud).some((audience) => TRACKER_AUDIENCES.has(audience))) return {};
   } catch {
     return {};
   }
