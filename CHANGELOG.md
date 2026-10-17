@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.11](https://github.com/CourtHive/epixodic/compare/v2.5.10...v2.5.11) (2026-10-17)
+
+
+### Bug Fixes
+
+* **relay-client:** present a tracker token only when the relay accepts its audience ([#399](https://github.com/CourtHive/epixodic/issues/399)) ([558bf30](https://github.com/CourtHive/epixodic/commit/558bf30cc75c3b3af2373a1521197a852f9996c1))
+
 ## [2.5.10](https://github.com/CourtHive/epixodic/compare/v2.5.9...v2.5.10) (2026-10-16)
 
 
