@@ -258,6 +258,8 @@ export function removePoint(pointIndex: number, options?: { recalculate?: boolea
  */
 export function pinEntryServersToPoints() {
   if (!engine) return;
+  // getState() is a deep copy: read from it, write through the engine. decoratePoint writes the
+  // point AND its timeline entry, so the rebuild replays the pinned server.
   const state = engine.getState();
   const points: any[] = state?.history?.points ?? [];
   const entries: any[] = state?.history?.entries ?? [];
@@ -265,11 +267,8 @@ export function pinEntryServersToPoints() {
     if (entry?.type !== 'point') continue;
     const idx = entry.pointIndex;
     if (typeof idx !== 'number') continue;
-    const point = points[idx];
-    if (point && typeof point.server === 'number') {
-      entry.data = entry.data ?? {};
-      entry.data.server = point.server;
-    }
+    const server = points[idx]?.server;
+    if (typeof server === 'number' && entry.data?.server !== server) engine.decoratePoint(idx, { server });
   }
   bump();
 }

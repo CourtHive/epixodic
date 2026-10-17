@@ -126,3 +126,52 @@ describe('pinEntryServersToPoints — post-review correction', () => {
     expect(entry?.data?.server).toBe(1);
   });
 });
+
+/**
+ * The acceptance case the explicit-server tests above cannot reach: every server here is DERIVED (no
+ * server passed), and the format is a standard set, where flipping the game-ending point moves the
+ * game boundary and with it every later derived server. Pinning must write the observed servers into
+ * the engine's own timeline entries, or the rebuild re-derives them.
+ */
+describe('pinEntryServersToPoints — servers the engine derived', () => {
+  beforeEach(() => {
+    destroyScoringEngine();
+    initScoringEngine({ matchUpFormat: 'SET3-S:6/TB7' });
+  });
+
+  // game 1: side 1 serves and wins it to love; game 2: side 2 serves, two points to side 2
+  function playTwoGames() {
+    for (let i = 0; i < 4; i++) addPoint(0);
+    addPoint(1);
+    addPoint(1);
+    expect(servers()).toEqual([0, 0, 0, 0, 1, 1]);
+  }
+
+  function entryServers() {
+    return (getEngineState()?.history?.entries ?? [])
+      .filter((entry: any) => entry.type === 'point')
+      .map((entry: any) => entry.data?.server);
+  }
+
+  it('writes the derived servers into the engine entries', () => {
+    playTwoGames();
+    expect(entryServers()).toEqual([undefined, undefined, undefined, undefined, undefined, undefined]);
+    pinEntryServersToPoints();
+    expect(entryServers()).toEqual([0, 0, 0, 0, 1, 1]);
+  });
+
+  it('a recalculated flip of the game-ending point re-derives the later servers', () => {
+    playTwoGames();
+    // game 1 is now 3-1 and continues: the last two points are still side 1's serve
+    editPoint(3, { winner: 1, winningSide: 2 }, { recalculate: true });
+    expect(servers()).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+
+  it('a pinned flip keeps the servers the points were played with, through the rebuild', () => {
+    playTwoGames();
+    pinEntryServersToPoints();
+    editPoint(3, { winner: 1, winningSide: 2 }, { recalculate: true });
+    expect(winners()).toEqual([0, 0, 0, 1, 1, 1]);
+    expect(servers()).toEqual([0, 0, 0, 0, 1, 1]);
+  });
+});
