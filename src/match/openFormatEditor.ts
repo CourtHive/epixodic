@@ -24,9 +24,9 @@ export function openFormatEditor() {
       const knownName = FORMAT_NAMES[format];
       const formatDisplay = knownName ? `${knownName} (${format})` : format;
       const matchFormat = document.getElementById('md_format');
-      if (matchFormat) matchFormat.innerHTML = formatDisplay;
+      if (matchFormat) matchFormat.textContent = formatDisplay;
       const matchDescription = document.getElementById('match_description');
-      if (matchDescription) matchDescription.innerHTML = formatDisplay;
+      if (matchDescription) matchDescription.textContent = formatDisplay;
 
       updateMatchArchive();
       updateScore();

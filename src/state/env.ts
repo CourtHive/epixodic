@@ -1,7 +1,7 @@
-import { browserStorage } from '../state/browserStorage';
-import { firstAndLast } from '../utils/utilities';
 import { scoreGovernor, participantTypes, participantRoles, matchUpTypes, version as factoryVersion } from 'tods-competition-factory';
 import { buildEpisodes } from '@courthive/scoring-visualizations';
+import { browserStorage } from '../state/browserStorage';
+import { firstAndLast } from '../utils/utilities';
 
 const { ScoringEngine } = scoreGovernor;
 const { INDIVIDUAL } = participantTypes;
@@ -289,13 +289,14 @@ export function updatePositions() {
   const player_names = env.metadata.players;
   const p1 = document.getElementById('playerone');
   const p2 = document.getElementById('playertwo');
-  if (p1) p1.innerHTML = firstAndLast(player_names[left_side].participantName || '');
-  if (p2) p2.innerHTML = firstAndLast(player_names[right_side].participantName || '');
+  // Names are record data: textContent so markup in a name is shown, never parsed.
+  if (p1) p1.textContent = firstAndLast(player_names[left_side].participantName || '');
+  if (p2) p2.textContent = firstAndLast(player_names[right_side].participantName || '');
 
   const display_player_0 = Array.from(document.querySelectorAll('.display_player_0'));
-  display_player_0.forEach((element) => (element.innerHTML = player_names[left_side].participantName || ''));
+  display_player_0.forEach((element) => (element.textContent = player_names[left_side].participantName || ''));
   const display_player_1 = Array.from(document.querySelectorAll('.display_player_1'));
-  display_player_1.forEach((element) => (element.innerHTML = player_names[right_side].participantName || ''));
+  display_player_1.forEach((element) => (element.textContent = player_names[right_side].participantName || ''));
 }
 
 function shouldSaveArchive(force: boolean | undefined, matchPoints: any[]): boolean {

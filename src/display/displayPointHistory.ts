@@ -1,6 +1,7 @@
-import { env, getEpisodes } from '../state/env';
 import { supportsGameVisualizations } from './vizSupport';
 import { WINNER_RESULTS } from '../utils/constants';
+import { escapeHtml } from '../utils/escapeHtml';
+import { env, getEpisodes } from '../state/env';
 
 export function displayPointHistory() {
   const episodeGames = groupGames();
@@ -37,8 +38,8 @@ export function displayPointHistory() {
 
 function directActionEntry(action: any, players: any[]) {
   if (action.type === 'set') {
-    const score = `${action.side1Score}-${action.side2Score}`;
-    const winner = players[action.winner].participantName;
+    const score = escapeHtml(`${action.side1Score}-${action.side2Score}`);
+    const winner = escapeHtml(players[action.winner].participantName);
     return `
       <div class="flexrows ph_game">
         <div class='ph_margin flexrows'>
@@ -49,8 +50,8 @@ function directActionEntry(action: any, players: any[]) {
       </div>`;
   }
   if (action.type === 'game') {
-    const winner = players[action.winner].participantName;
-    const score = action.score ? action.score.join('-') : '';
+    const winner = escapeHtml(players[action.winner].participantName);
+    const score = action.score ? escapeHtml(action.score.join('-')) : '';
     return `
       <div class="flexrows ph_game">
         <div class='ph_margin flexrows'>
@@ -88,14 +89,15 @@ function groupGames() {
 
 function gameEntry(game: any, players: any[]) {
   const last_point = game.points[game.points.length - 1];
-  const game_score = game.complete ? game.score.join('-') : undefined;
+  const game_score = game.complete ? escapeHtml(game.score.join('-')) : undefined;
   const tiebreak = last_point.tiebreak;
-  const server = tiebreak ? 'Tiebreak' : players[last_point.server].participantName;
+  const server = tiebreak ? 'Tiebreak' : escapeHtml(players[last_point.server].participantName);
   const service = tiebreak ? '' : last_point.server ? 'playertwo' : 'playerone';
   const servergame = tiebreak ? '' : last_point.server == last_point.winner ? 'won' : 'lost';
   const showFish = supportsGameVisualizations(env.engine.getFormat());
+  const gameIndex = escapeHtml(game.index);
   const fishIcon = showFish
-    ? `<div class='viewGameFish ph_fish iconfish' gameIndex='${game.index}'></div>`
+    ? `<div class='viewGameFish ph_fish iconfish' gameIndex='${gameIndex}'></div>`
     : '';
   let html = `
          <div class="flexrows ph_game">
@@ -104,8 +106,8 @@ function gameEntry(game: any, players: any[]) {
                <div class="ph_action flexcenter">
                   ${fishIcon}
                </div>
-               <div class='viewGameFish ph_rally ph_${servergame}' gameIndex="${game.index}"'>
-                  <b class="viewGameFish" gameIndex="${game.index}">${game_score || ''}</b>
+               <div class='viewGameFish ph_rally ph_${servergame}' gameIndex="${gameIndex}"'>
+                  <b class="viewGameFish" gameIndex="${gameIndex}">${game_score || ''}</b>
                </div>
             </div>
          </div>
@@ -132,7 +134,8 @@ function formatPointDescription(point: any, players: any[]): string {
   if (!point.result) return '';
   const initials = getPlayerInitials(point, players);
   const hand = point.hand ? point.hand + ' ' : '';
-  return `${initials}: ${hand}${point.result}`;
+  // Returned as HTML: every part is record data, so it is escaped here.
+  return escapeHtml(`${initials}: ${hand}${point.result}`);
 }
 
 function formatTiebreakScore(point_score: string, isServer: boolean): string {
@@ -143,11 +146,11 @@ function pointEntry(point: any, players: any[]) {
   const evenodd = point.index % 2 ? 'even' : 'odd';
   let point_score = !point.tiebreak && point.server ? point.score.split('-').reverse().join('-') : point.score;
   const point_description = formatPointDescription(point, players);
-  point_score = point_score == '0-0' ? 'GAME' : point_score;
+  point_score = point_score == '0-0' ? 'GAME' : escapeHtml(point_score);
   if (point.tiebreak) point_score = formatTiebreakScore(point_score, point.server);
-  const rally = point.rallyLength ? point.rallyLength : '';
+  const rally = point.rallyLength ? escapeHtml(point.rallyLength) : '';
   return `
-    <div class='flexrows ph_episode' pointIndex="${point.index}">
+    <div class='flexrows ph_episode' pointIndex="${escapeHtml(point.index)}">
         <div class='ph_point_${evenodd} flexrows'>
           <div class='viewEditPoint ph_result'>${point_description}</div>
           <div class='viewEditPoint ph_score'>${point_score} </div>
