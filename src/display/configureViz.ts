@@ -1,14 +1,14 @@
+import { charts, env, setOrientation, getEpisodes, getParticipantNames } from '../state/env';
 import { supportsGameVisualizations, supportsPointsToVisualization } from './vizSupport';
+import { groupGames } from '../engine/groupGames';
+import { changeDisplay } from './viewManager';
+import { cModal } from 'courthive-components';
 import {
   gameTree,
   gameFish,
   momentumChart,
   ptsMatch,
 } from '@courthive/scoring-visualizations';
-import { charts, env, setOrientation, getEpisodes, getParticipantNames } from '../state/env';
-import { groupGames } from '../engine/groupGames';
-import { changeDisplay } from './viewManager';
-import { cModal } from 'courthive-components';
 
 import * as d3 from 'd3';
 
@@ -119,8 +119,12 @@ export function showGameFish(index?: number) {
 
     const players = document.createElement('div');
     players.className = 'gf_players flexrows';
-    players.innerHTML =
-      `<div class="gf_player flexcenter">${p1}</div>` + `<div class="gf_player flexcenter">${p2}</div>`;
+    for (const name of [p1, p2]) {
+      const player = document.createElement('div');
+      player.className = 'gf_player flexcenter';
+      player.textContent = name;
+      players.appendChild(player);
+    }
     elem.appendChild(players);
 
     const chartWrap = document.createElement('div');

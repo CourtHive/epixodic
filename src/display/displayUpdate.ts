@@ -1,3 +1,12 @@
+import { FORMAT_NAMES, isLegacyFormat, migrateFormat } from '../services/matchObject/formatMigration';
+import { relayCrowdScoreIfLaunched } from '../services/messaging/crowdScoreRelay';
+import { sendScore, syncPoints } from '../services/messaging/scoreRelay';
+import { finalizeMatchOutcome } from '../match/finalizeMatchOutcome';
+import { cModal, renderForm } from 'courthive-components';
+import { browserStorage } from '../state/browserStorage';
+import { groupGames } from '../engine/groupGames';
+import { updateChartData } from './configureViz';
+import { escapeHtml } from '../utils/escapeHtml';
 import {
   env,
   options,
@@ -8,14 +17,6 @@ import {
   getSetsToWin,
   getNextServer,
 } from '../state/env';
-import { FORMAT_NAMES, isLegacyFormat, migrateFormat } from '../services/matchObject/formatMigration';
-import { finalizeMatchOutcome } from '../match/finalizeMatchOutcome';
-import { relayCrowdScoreIfLaunched } from '../services/messaging/crowdScoreRelay';
-import { sendScore, syncPoints } from '../services/messaging/scoreRelay';
-import { browserStorage } from '../state/browserStorage';
-import { groupGames } from '../engine/groupGames';
-import { cModal, renderForm } from 'courthive-components';
-import { updateChartData } from './configureViz';
 
 const selectLabel = '- select -';
 
@@ -309,7 +310,8 @@ export function editMatchDetails() {
     elem.style.overflowY = 'auto';
     inputs = renderForm(elem, [
       { text: '<b>Match</b>', header: true },
-      { text: formatDisplay },
+      // renderForm assigns item.text as HTML; an unrecognised format code is data, so escape it
+      { text: escapeHtml(formatDisplay) },
       { label: 'Court', field: 'court', placeholder: 'Court Number or Name', value: matchMeta.court || '' },
       { label: 'Umpire', field: 'umpire', placeholder: 'Match Umpire', value: matchMeta.umpire || '' },
       { text: '<b>Event</b>', header: true },

@@ -50,6 +50,7 @@
     "envfile": "7.1.0",
     "eslint": "10.12.0",
     "eslint-plugin-sonarjs": "4.2.2",
+    "happy-dom": "21.0.3",
     "husky": "9.1.7",
     "inquirer": "14.2.3",
     "lint-staged": "17.6.0",
@@ -66,7 +67,7 @@
   "dependencies": {
     "@courthive/scoring-visualizations": "^0.2.21",
     "axios": "^1.6.5",
-    "courthive-components": "6.9.0",
+    "courthive-components": "6.9.1",
     "d3": "^7.9.0",
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
