@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test';
-import { ArchivePage } from '../pages/ArchivePage';
-import { ScorecardPage } from '../pages/ScorecardPage';
 import { resetAppState, waitForApp, getTeamMatchUp } from '../helpers/app-bridge';
+import { ScorecardPage } from '../pages/ScorecardPage';
+import { ArchivePage } from '../pages/ArchivePage';
+import { test, expect } from '@playwright/test';
 
 test.describe('Journey 1 — Create INTENNSE demo and navigate to scorecard', () => {
   test.beforeEach(async ({ page }) => {
@@ -54,7 +54,7 @@ test.describe('Journey 1 — Create INTENNSE demo and navigate to scorecard', ()
     await expect(page).toHaveURL(/\/#\/team\//);
   });
 
-  test('scorecard renders 7 tieMatchUp cards for standard INTENNSE format', async ({ page }) => {
+  test('scorecard renders a card for each of the 5 demo tieMatchUps', async ({ page }) => {
     const archive = new ArchivePage(page);
     await archive.goto();
     await archive.createIntennseDemo({ boltMinutes: 1 });
@@ -62,9 +62,10 @@ test.describe('Journey 1 — Create INTENNSE demo and navigate to scorecard', ()
     const scorecard = new ScorecardPage(page);
     await scorecard.expectVisible();
 
-    // Standard INTENNSE: 2MS + 2WS + 1MD + 1WD + 1XD = 7
+    // The demo plays one of each collection: MS + WS + MD + WD + XD = 5 (e3db2822 dropped the second
+    // singles of each gender; the standard INTENNSE tieFormat has 7).
     const count = await scorecard.getTieMatchUpCount();
-    expect(count).toBe(7);
+    expect(count).toBe(5);
   });
 
   test('scorecard header shows initial score of 0 vs 0', async ({ page }) => {
@@ -91,7 +92,7 @@ test.describe('Journey 1 — Create INTENNSE demo and navigate to scorecard', ()
     const matchUp = await getTeamMatchUp(page);
     expect(matchUp).toBeTruthy();
     expect(matchUp.matchUpType).toBe('TEAM');
-    expect(matchUp.tieMatchUps).toHaveLength(7);
+    expect(matchUp.tieMatchUps).toHaveLength(5);
     expect(matchUp.sides[0].participant.participantName).toBe('Dev API Team');
   });
 });

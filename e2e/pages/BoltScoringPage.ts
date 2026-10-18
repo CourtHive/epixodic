@@ -23,7 +23,7 @@ export class BoltScoringPage {
   // Score display
   readonly boltScoreSide1: Locator;
   readonly boltScoreSide2: Locator;
-  readonly arcScore: Locator;
+  readonly boltCompactScore: Locator;
 
   // Modals
   readonly coinTossModal: Locator;
@@ -60,7 +60,7 @@ export class BoltScoringPage {
 
     this.boltScoreSide1 = page.locator(':is(.iv-score-value, .intennse-score-value)').nth(0);
     this.boltScoreSide2 = page.locator(':is(.iv-score-value, .intennse-score-value)').nth(1);
-    this.arcScore = page.locator(S.ARC_SCORE);
+    this.boltCompactScore = page.locator(S.BOLT_COMPACT_SCORE);
 
     this.coinTossModal = page.locator(S.COIN_TOSS_MODAL);
     this.playerSelectModal = page.locator(S.PLAYER_SELECT_MODAL);
@@ -84,10 +84,7 @@ export class BoltScoringPage {
 
   /** Wait for the bolt scoring page to be visible */
   async expectVisible() {
-    await this.page.waitForSelector(
-      `${S.VERTICAL_LAYOUT}, ${S.HORIZONTAL_LAYOUT}`,
-      { timeout: 10_000 },
-    );
+    await this.page.waitForSelector(`${S.VERTICAL_LAYOUT}, ${S.HORIZONTAL_LAYOUT}`, { timeout: 10_000 });
   }
 
   /** Handle the player select modal if it appears (for unassigned participants) */
@@ -171,10 +168,10 @@ export class BoltScoringPage {
     await this.page.waitForTimeout(100);
   }
 
-  /** Get bolt score values as [side1, side2] */
+  /** Get the primary score values as [side1, side2] (the ARC since c463fd8d; the name predates it) */
   async getBoltScores(): Promise<[string, string]> {
-    const s1 = await this.boltScoreSide1.textContent() ?? '0';
-    const s2 = await this.boltScoreSide2.textContent() ?? '0';
+    const s1 = (await this.boltScoreSide1.textContent()) ?? '0';
+    const s2 = (await this.boltScoreSide2.textContent()) ?? '0';
     return [s1.trim(), s2.trim()];
   }
 
@@ -184,14 +181,20 @@ export class BoltScoringPage {
     await expect(this.boltScoreSide2).toHaveText(side2);
   }
 
-  /** Get ARC (aggregate) score text */
+  /** Get the ARC (aggregate across every tieMatchUp) score text, e.g. "4–0": the primary score pair */
   async getArcScore(): Promise<string> {
-    return (await this.arcScore.textContent() ?? '').trim();
+    const [s1, s2] = await this.getBoltScores();
+    return `${s1}–${s2}`;
+  }
+
+  /** Get the current bolt's score text from the compact BOLT row, e.g. "0–0" */
+  async getBoltCompactScore(): Promise<string> {
+    return ((await this.boltCompactScore.textContent()) ?? '').replace(/\s+/g, '').trim();
   }
 
   /** Get the bolt label text (e.g. "BOLT 3") */
   async getBoltLabel(): Promise<string> {
-    return (await this.page.locator(S.BOLT_LABEL).textContent() ?? '').trim();
+    return ((await this.page.locator(S.BOLT_LABEL).textContent()) ?? '').trim();
   }
 
   /** Wait for break to be active (cross-layout: overlay in vertical, break label in horizontal) */
