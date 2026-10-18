@@ -252,17 +252,22 @@ export function updateParticipant(update: any) {
   syncParticipantToEngine(index, player);
 }
 
+// getState() returns a copy, so a side written there never reaches the engine: the state goes back through
+// setState, and the engine-private state setState resets (redo stack, lineUp snapshot) is carried across.
 function syncParticipantToEngine(index: number, player: any) {
-  const side = env.engine.getState().sides?.[index];
-  if (side) {
-    side.participant = {
-      participantId: player.participantId,
-      participantName: player.participantName,
-      participantType: player.participantType || INDIVIDUAL,
-      participantRole: player.participantRole || COMPETITOR,
-      person: player.person,
-    };
-  }
+  const state = env.engine.getState();
+  const side = state.sides?.[index];
+  if (!side) return;
+  side.participant = {
+    participantId: player.participantId,
+    participantName: player.participantName,
+    participantType: player.participantType || INDIVIDUAL,
+    participantRole: player.participantRole || COMPETITOR,
+    person: player.person,
+  };
+  const supplementary = env.engine.getSupplementaryState();
+  env.engine.setState(state);
+  env.engine.loadSupplementaryState(supplementary);
 }
 
 /** Read participant names from the engine state (source of truth) */

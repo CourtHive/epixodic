@@ -130,7 +130,7 @@ function buildStatRowHtml(stat: any, charts: any[]): string {
 
   if (numerators && value && statName != 'Aggressive Margin') {
     charts.push({ target: `${id}_chart`, numerators });
-    html += `<div class='statrow' id="${id}_chart" style='display:none' onclick="showChartSource('${numerators}')"></div>`;
+    html += `<div class='statrow' id="${id}_chart" style='display:none'></div>`;
   }
   return html;
 }
