@@ -8,9 +8,10 @@ on:
 permissions:
   contents: read
 
-# Two jobs. `verify` gates the epixodic client app; the root vitest run excludes
-# `score-relay/**`. `score-relay` gates the relay subpackage on its own install,
-# against a Postgres service, because its crowd suites are integration tests.
+# Three jobs. `verify` gates the epixodic client app; the root vitest run excludes
+# `score-relay/**`. `e2e` runs the Playwright journeys against the published packages.
+# `score-relay` gates the relay subpackage on its own install, against a Postgres
+# service, because its crowd suites are integration tests.
 # (Postgres-backed CI runs only in PUBLIC repos, which carry no Actions charges.)
 
 jobs:
@@ -104,6 +105,76 @@ jobs:
 
       - run: pnpm build
         if: steps.scope.outputs.light != 'true'
+
+  e2e:
+    name: playwright e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # release-scope.sh diffs the PR's merge commit against its first parent, the base tip.
+          fetch-depth: 2
+
+      # Same light path as `verify`: a release-path PR whose diff is the version files alone skips the run.
+      - name: Release-path scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: bash .github/scripts/release-scope.sh
+
+      - uses: pnpm/action-setup@v6
+        if: steps.scope.outputs.light != 'true'
+      - uses: actions/setup-node@v7
+        if: steps.scope.outputs.light != 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # As in `verify`: no sibling clones on the runner, so the journeys run against the published
+      # packages the package.json pins name.
+      - name: 'Strip link: overrides for CI'
+        if: steps.scope.outputs.light != 'true'
+        run: |
+          node -e "
+          const fs = require('fs');
+          if (fs.existsSync('pnpm-workspace.yaml')) {
+            const before = fs.readFileSync('pnpm-workspace.yaml', 'utf8');
+            const after = before.split('\n').filter(line => !/:\s*link:\S+\s*\$/.test(line)).join('\n');
+            if (after !== before) fs.writeFileSync('pnpm-workspace.yaml', after);
+          }
+          "
+          rm -f pnpm-lock.yaml
+
+      - run: pnpm install
+        if: steps.scope.outputs.light != 'true'
+
+      # pnpm install does not fetch the browser binary.
+      - name: Install Playwright Chromium
+        if: steps.scope.outputs.light != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The journeys ran only by hand until 2026-10-18; three (01, 06, 08) had been failing unseen since
+      # April. CI=1 makes Playwright start its own vite server (reuseExistingServer is off under CI).
+      - name: Run e2e
+        if: steps.scope.outputs.light != 'true'
+        run: pnpm test:e2e
+        env:
+          CI: '1'
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
   score-relay:
     name: score-relay · types · build · test (Postgres)

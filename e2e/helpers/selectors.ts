@@ -41,11 +41,13 @@ export const S = {
   BTN_BREAK_START: '.intennse-ctrl-btn--break-start',
   BTN_BACK: '.intennse-ctrl-btn--back-v, .intennse-h-back',
 
-  // Score display (vertical uses .iv-score-value, horizontal uses .intennse-score-value)
+  // Primary score display (vertical .iv-score-value, horizontal .intennse-score-value). Since c463fd8d
+  // it shows the ARC (every tieMatchUp of the team matchUp); the BOLT_SCORE_* names predate that swap.
   BOLT_SCORE_SIDE1: ':is(.iv-score-value, .intennse-score-value) >> nth=0',
   BOLT_SCORE_SIDE2: ':is(.iv-score-value, .intennse-score-value) >> nth=1',
   SCORE_DISPLAY: '.iv-score, .intennse-score-display',
-  ARC_SCORE: '.intennse-arc-compact-score',
+  // The compact row under the primary score: the current bolt's score, labelled BOLT since c463fd8d
+  BOLT_COMPACT_SCORE: '.intennse-arc-compact-score',
 
   // Aggregate bar
   AGGREGATE_BAR: '.intennse-aggregate-bar',

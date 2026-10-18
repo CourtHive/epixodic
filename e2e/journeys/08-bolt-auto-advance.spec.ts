@@ -1,15 +1,15 @@
-import { test, expect } from '@playwright/test';
-import { ArchivePage } from '../pages/ArchivePage';
-import { ScorecardPage } from '../pages/ScorecardPage';
-import { BoltScoringPage } from '../pages/BoltScoringPage';
 import { resetAppState, waitForApp } from '../helpers/app-bridge';
+import { BoltScoringPage } from '../pages/BoltScoringPage';
+import { ScorecardPage } from '../pages/ScorecardPage';
+import { ArchivePage } from '../pages/ArchivePage';
+import { test, expect } from '@playwright/test';
 import { S } from '../helpers/selectors';
 
 /**
  * Journey 8 — Bolt auto-advance through all tieMatchUps
  *
  * Creates an INTENNSE demo with 1-minute bolts and 2-second breaks,
- * then scores through all 7 tieMatchUps (11 total bolts: 4 singles × 2
+ * then scores through the demo's 5 tieMatchUps (7 bolts: 2 singles × 2
  * bolts + 3 doubles × 1 bolt). Validates:
  *  - Global bolt number increments across tieMatchUp boundaries
  *  - Break clock runs between every bolt (within and between tieMatchUps)
@@ -63,7 +63,7 @@ test.describe('Journey 8 — Bolt auto-advance through all tieMatchUps', () => {
     await resetAppState(page);
   });
 
-  test('global bolt number increments and breaks run across all 11 bolts', async ({ page }) => {
+  test('global bolt number increments and breaks run across all 7 bolts', async ({ page }) => {
     test.setTimeout(180_000);
 
     // Create INTENNSE demo with 1-minute bolts
@@ -73,7 +73,7 @@ test.describe('Journey 8 — Bolt auto-advance through all tieMatchUps', () => {
     const scorecard = new ScorecardPage(page);
     await scorecard.expectVisible();
 
-    // Click first tieMatchUp (MS1 — Men's Singles position 1)
+    // Click first tieMatchUp (MS — Men's Singles)
     await scorecard.clickTieMatchUp(0);
 
     const bolt = new BoltScoringPage(page);
@@ -83,14 +83,14 @@ test.describe('Journey 8 — Bolt auto-advance through all tieMatchUps', () => {
     await bolt.handleCoinToss(1);
 
     // Track bolt numbers across all tieMatchUps
-    // Singles tieMatchUps (MS1, MS2, WS1, WS2): 2 bolts each = 8 bolts
+    // Singles tieMatchUps (MS, WS): 2 bolts each = 4 bolts
     // Doubles tieMatchUps (MD, WD, XD): 1 bolt each = 3 bolts
-    // Total: 11 bolts
+    // Total: 7 bolts (the demo plays one singles per gender since e3db2822)
     let expectedGlobalBolt = 1;
 
     // Bolt structure per tieMatchUp: [boltsPerMatch, ...]
-    // MS1(2), MS2(2), WS1(2), WS2(2), MD(1), WD(1), XD(1)
-    const boltsPerTieMatchUp = [2, 2, 2, 2, 1, 1, 1];
+    // MS(2), WS(2), MD(1), WD(1), XD(1)
+    const boltsPerTieMatchUp = [2, 2, 1, 1, 1];
 
     for (let tmIdx = 0; tmIdx < boltsPerTieMatchUp.length; tmIdx++) {
       const boltsInThisMatch = boltsPerTieMatchUp[tmIdx];
@@ -98,9 +98,7 @@ test.describe('Journey 8 — Bolt auto-advance through all tieMatchUps', () => {
       for (let boltIdx = 0; boltIdx < boltsInThisMatch; boltIdx++) {
         // Verify bolt label shows correct global number
         const label = await bolt.getBoltLabel();
-        expect(label, `tieMatchUp ${tmIdx + 1}, bolt ${boltIdx + 1}`).toBe(
-          `BOLT ${expectedGlobalBolt}`,
-        );
+        expect(label, `tieMatchUp ${tmIdx + 1}, bolt ${boltIdx + 1}`).toBe(`BOLT ${expectedGlobalBolt}`);
 
         // Score the bolt (start → points → expire → final point)
         await scoreOneBolt(bolt);
@@ -138,12 +136,12 @@ test.describe('Journey 8 — Bolt auto-advance through all tieMatchUps', () => {
       }
     }
 
-    // All 11 bolts scored — expectedGlobalBolt should be 12 (11 bolts completed + 1)
-    expect(expectedGlobalBolt).toBe(12);
+    // All 7 bolts scored — expectedGlobalBolt should be 8 (7 bolts completed + 1)
+    expect(expectedGlobalBolt).toBe(8);
   });
 
   test('bolt number is correct after auto-advance to second tieMatchUp', async ({ page }) => {
-    // Simpler smoke test: score through MS1 (2 bolts) and verify MS2 starts at bolt 3
+    // Simpler smoke test: score through MS (2 bolts) and verify WS starts at bolt 3
     const archive = new ArchivePage(page);
     await archive.createIntennseDemo({ boltMinutes: 1 });
 
@@ -164,7 +162,7 @@ test.describe('Journey 8 — Bolt auto-advance through all tieMatchUps', () => {
     expect(await bolt.getBoltLabel()).toBe('BOLT 2');
     await scoreOneBolt(bolt);
 
-    // Break before auto-advance to MS2
+    // Break before auto-advance to WS
     const breakLabel = await page.locator(S.BREAK_LABEL).textContent();
     expect(breakLabel?.trim()).toBe('Next match starting...');
 
