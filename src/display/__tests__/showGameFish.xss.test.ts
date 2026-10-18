@@ -9,8 +9,8 @@ vi.mock('courthive-components', async (importOriginal) => ({
   cModal: { open: openMock, close: vi.fn() },
 }));
 
-// getParticipantNames reads the engine's sides, which the metadata sync does not currently reach
-// (getState returns a copy). Stubbing it isolates the modal's own sink, as the assessment's E3 does.
+// Stubbing getParticipantNames isolates the modal's own sink, as the assessment's E3 does. The path from
+// updateParticipant through the engine to this modal is covered in state/__tests__/participantSync.test.ts.
 vi.mock('../../state/env', async (importOriginal) => ({
   ...(await importOriginal<any>()),
   getParticipantNames: () => namesMock(),
