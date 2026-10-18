@@ -16,7 +16,7 @@ import { waitForApp } from '../helpers/app-bridge';
  * Two observations are taken after every step: the parsed `img[class^="xss-"]` elements and
  * the `globalThis.__xss` list the payload's onerror appends to. Both must be empty in every view.
  * A second check proves the run is not vacuous: every field reaches its sink, as literal text.
- * The edit-point dialog is a second test, pinned as a known failure (see its comment).
+ * The edit-point dialog (a correction) is a second test.
  */
 
 const MATCHUP_ID = 'journey-10-hostile-staged';
