@@ -206,14 +206,11 @@ test.describe('Journey 10 — hostile staged tournament data renders as text', (
     expect(missing, 'fields not shown literally, by view').toEqual({});
   });
 
-  // KNOWN LEAK, pinned as an expected failure so a fix shows up as "expected to fail, but passed".
-  // The edit-point dialog (src/match/editPoint.ts, playerOptions) passes participantName as the
-  // label of its Winner and Player <select> options, and courthive-components' renderOptions
-  // (src/components/forms/renderField.ts) writes `opt.innerHTML = option.label`, in 6.9.1 as
-  // published. Both hostile names are parsed and their onerror runs. When the sink is fixed,
-  // remove test.fail: the test then guards the dialog like every other view.
+  // The edit-point dialog (src/match/editPoint.ts, playerOptions) labels its Winner and Player <select>
+  // options with participant names, and courthive-components' renderOptions writes option labels with
+  // innerHTML (labels are HTML by contract there). Found by this journey after #405: both hostile names
+  // were parsed and ran. editPoint escapes them now.
   test('the edit-point dialog shows names as text', async ({ page }) => {
-    test.fail(true, 'courthive-components renderOptions writes option labels with innerHTML');
     const { leaks, literals, record } = recorder(page);
 
     await stageAndOpenScorer(page);

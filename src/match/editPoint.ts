@@ -1,10 +1,11 @@
-import { stateChangeEvent } from '../display/displayUpdate';
 import { getProfile, resultToContext } from '../decorations';
-import { browserStorage } from '../state/browserStorage';
+import { stateChangeEvent } from '../display/displayUpdate';
 import { cModal, renderForm } from 'courthive-components';
+import { env, getEpisodes, settings } from '../state/env';
+import { browserStorage } from '../state/browserStorage';
+import { escapeHtml } from '../utils/escapeHtml';
 import { matchPath } from '../router/routes';
 import { loadMatch } from './loadMatch';
-import { env, getEpisodes, settings } from '../state/env';
 import {
   ACE,
   WINNER,
@@ -68,8 +69,9 @@ export function editPoint(index: number) {
   // If no result, default player to winner
   if (!currentResult) currentPlayer = currentWinner;
 
+  // renderForm writes option labels as HTML (courthive-components renderOptions); a name is record data
   const playerOptions = players.map((p: any, i: number) => ({
-    label: p.participantName,
+    label: escapeHtml(p.participantName),
     value: String(i),
   }));
 
