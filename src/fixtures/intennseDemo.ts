@@ -1,7 +1,8 @@
 /**
  * INTENNSE demo template — creates a fully-populated team matchUp
- * with realistic player names, jersey numbers, and the standard
- * INTENNSE tieFormat (2MS + 2WS + 1MD + 1WD + 1XD, aggregate scoring).
+ * with realistic player names, jersey numbers, and an INTENNSE tieFormat
+ * with one tieMatchUp per collection (MS + WS + MD + WD + XD, aggregate scoring);
+ * the standard format plays 2MS + 2WS.
  *
  * Each call generates fresh UUIDs so multiple demos can coexist.
  */
