@@ -10,8 +10,8 @@ import { waitForApp } from '../helpers/app-bridge';
  * A tournament matchUp is staged exactly as MatchUpList stages it (buildMatchData, then
  * browserStorage.set(matchUpId, JSON), which is localStorage keyed by the matchUpId) with person
  * names and stored point decorations that each carry an <img onerror> payload tagged by field.
- * The scorer is then opened on its real route and driven through scoring, undo, swap sides,
- * point history, statistics and a reload.
+ * The scorer is then opened on its real route and driven through scoring, swap sides, point
+ * history, statistics, a reload and, last, an undo.
  *
  * Two observations are taken after every step: the parsed `img[class^="xss-"]` elements and
  * the `globalThis.__xss` list the payload's onerror appends to. Both must be empty in every view.
@@ -152,14 +152,12 @@ test.describe('Journey 10 — hostile staged tournament data renders as text', (
     await stageAndOpenScorer(page);
     await record('scoring (opened)', '.display_player_0, .display_player_1');
 
-    // Score through the UI, undo one, score again.
-    const pointLeft = page.locator('.display_points_0:visible').first();
-    const pointRight = page.locator('.display_points_1:visible').first();
-    await pointLeft.click();
-    await pointRight.click();
-    await page.locator('.undoAction:visible').first().click();
-    await pointLeft.click();
-    await record('scoring (points + undo)', '.display_player_0, .display_player_1');
+    // Score through the UI.
+    const pointLeft = () => page.locator('.display_points_0:visible').first();
+    const pointRight = () => page.locator('.display_points_1:visible').first();
+    await pointLeft().click();
+    await pointRight().click();
+    await record('scoring (points)', '.display_player_0, .display_player_1');
 
     // Swap sides: the names are rewritten into the opposite elements.
     await page.locator('.swapAction:visible').first().click();
@@ -189,19 +187,31 @@ test.describe('Journey 10 — hostile staged tournament data renders as text', (
     await expect(page.locator('.display_player_0:visible').first()).toBeVisible();
     await record('scoring (reloaded)', '.display_player_0, .display_player_1');
 
+    // Undo comes last. It rebuilds the state, and factory 7.15.0 (what epixodic pins) drops a point's
+    // hand and stroke on a rebuild, so stats would show no finishing shot to check; #5515(competition-factory)
+    // keeps them. The names and history decorations survive it, so those are checked after the undo.
+    await page.locator('.undoAction:visible').first().click();
+    await pointLeft().click();
+    await record('scoring (undo)', '.display_player_0, .display_player_1');
+    await openRoute(page, 'history');
+    await expect(page.locator('#ph_frame .ph_episode').first()).toBeVisible();
+    await record('history (undo)', '#ph_frame');
+
     // 1. Nothing was parsed and nothing executed, in any view. A failure names view and field.
     expect(leaks, 'hostile fields parsed as HTML or executed, by view').toEqual({});
 
     // 2. Not vacuous: every field reached its view, shown literally.
     const missing = missingLiterals(literals, {
       'scoring (opened)': NAME_FIELDS,
-      'scoring (points + undo)': NAME_FIELDS,
+      'scoring (points)': NAME_FIELDS,
       'scoring (swapped)': NAME_FIELDS,
       history: HISTORY_FIELDS,
       stats: STATS_FIELDS,
       'stats (reloaded)': STATS_FIELDS,
       'history (reloaded)': HISTORY_FIELDS,
       'scoring (reloaded)': NAME_FIELDS,
+      'scoring (undo)': NAME_FIELDS,
+      'history (undo)': HISTORY_FIELDS,
     });
     expect(missing, 'fields not shown literally, by view').toEqual({});
   });
