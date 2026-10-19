@@ -1,4 +1,5 @@
 import { FORMAT_NAMES, isLegacyFormat, migrateFormat } from '../services/matchObject/formatMigration';
+import { isServerDerived, isTiebreakOnlySetInPlay } from '../engine/scoringInputs';
 import { relayCrowdScoreIfLaunched } from '../services/messaging/crowdScoreRelay';
 import { sendScore, syncPoints } from '../services/messaging/scoreRelay';
 import { finalizeMatchOutcome } from '../match/finalizeMatchOutcome';
@@ -150,8 +151,15 @@ export function visibleButtons() {
   Array.from(document.querySelectorAll('.view_stats')).forEach(
     (div: any) => (div.style.display = pointCount > 0 ? 'inline' : 'none'),
   );
+  // the scorer names the server where the engine derives none (S:TB{n} without @RALLY, P{n})
+  const serverChangeable = !matchStarted || !isServerDerived(env.engine);
   Array.from(document.querySelectorAll('.change_server')).forEach(
-    (div: any) => (div.style.display = !matchStarted ? 'inline' : 'none'),
+    (div: any) => (div.style.display = serverChangeable ? 'inline' : 'none'),
+  );
+  // a game in a tiebreak-only segment wins the set 1-0, so the game control is hidden there
+  const gameHidden = isTiebreakOnlySetInPlay(env.engine);
+  Array.from(document.querySelectorAll('.classAction[action="game"]')).forEach(
+    (div: any) => (div.style.visibility = gameHidden ? 'hidden' : ''),
   );
   Array.from(document.querySelectorAll('.view_archive')).forEach(
     (div: any) => (div.style.display = !matchStarted && match_archive.length ? 'inline' : 'none'),

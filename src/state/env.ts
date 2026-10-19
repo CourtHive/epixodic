@@ -1,6 +1,7 @@
 import { scoreGovernor, participantTypes, participantRoles, matchUpTypes, version as factoryVersion } from 'tods-competition-factory';
 import { buildEpisodes } from '@courthive/scoring-visualizations';
 import { browserStorage } from '../state/browserStorage';
+import { nextServer } from '../engine/scoringInputs';
 import { firstAndLast } from '../utils/utilities';
 
 const { ScoringEngine } = scoreGovernor;
@@ -207,11 +208,9 @@ export function getSetsToWin(): number {
   return env.engine.getSetsToWin();
 }
 
+// Where the engine derives no server (S:TB{n} without @RALLY, P{n}) the scorer's choice stands
 export function getNextServer(): number {
-  const points = env.engine.getState().history?.points || [];
-  if (points.length === 0) return env.serving;
-
-  return env.engine.getNextServer();
+  return nextServer(env.engine, env.serving);
 }
 
 export function getNoAd(): boolean {
