@@ -1,3 +1,4 @@
+import { isTiebreakOnlySetInPlay, lastSetIndex, runScoringAction, setTotalFor } from '../engine/scoringInputs';
 import { stateChangeEvent, visibleButtons } from '../display/displayUpdate';
 import { resetButton, resetStyles } from './events';
 import { checkMatchEnd } from '../engine/checkMatchEnd';
@@ -16,6 +17,13 @@ import {
 import { pointLogger } from '../services/pointLogger';
 
 const toggles: any = {};
+
+function resetEngineEvents() {
+  engineEvents.gameJustCompleted = false;
+  engineEvents.setJustCompleted = false;
+  engineEvents.matchJustCompleted = false;
+  engineEvents.gameWinner = undefined;
+}
 
 function changeValue(classes: any, value: any) {
   const objs = Array.from(document.querySelectorAll(classes));
@@ -126,28 +134,26 @@ export function classAction(element: any) {
       if (env.rally == 1) rallyMode();
     },
     game(side: number) {
-      engineEvents.gameJustCompleted = false;
-      engineEvents.setJustCompleted = false;
-      engineEvents.matchJustCompleted = false;
-      engineEvents.gameWinner = undefined;
-      env.engine.addGame({ winner: side });
-      const score = [...(env.engine.getScore().games || [0, 0])];
-      const setIndex = (env.engine.getState().score?.sets || []).length;
-      env.directActions.push({ type: 'game', winner: side, score, setIndex });
+      // In a tiebreak-only segment a game wins the set 1-0 (factory 7.16.0); the control is hidden there.
+      if (isTiebreakOnlySetInPlay(env.engine)) return;
+      resetEngineEvents();
+      const result = runScoringAction(() => env.engine.addGame({ winner: side }));
+      if (result.recorded) {
+        const score = [...(env.engine.getScore().games || [0, 0])];
+        env.directActions.push({ type: 'game', winner: side, score, setIndex: lastSetIndex(env.engine) });
+      }
       stateChangeEvent();
       checkMatchEnd();
     },
     set(side: number) {
-      engineEvents.gameJustCompleted = false;
-      engineEvents.setJustCompleted = false;
-      engineEvents.matchJustCompleted = false;
-      engineEvents.gameWinner = undefined;
-      const side1Score = side === 0 ? 6 : 0;
-      const side2Score = side === 1 ? 6 : 0;
-      const winningSide = (side + 1) as 1 | 2;
-      const setIndex = (env.engine.getState().score?.sets || []).length;
-      env.engine.addSet({ side1Score, side2Score, winningSide });
-      env.directActions.push({ type: 'set', winner: side, side1Score, side2Score, setIndex });
+      resetEngineEvents();
+      // The set in play won by `side`, its games kept: a set total closes the set in play (factory 7.16.0).
+      const { side1Score, side2Score, winningSide } = setTotalFor(env.engine, side as 0 | 1);
+      const result = runScoringAction(() => env.engine.addSet({ side1Score, side2Score, winningSide }));
+      if (result.recorded) {
+        const setIndex = lastSetIndex(env.engine);
+        env.directActions.push({ type: 'set', winner: side, side1Score, side2Score, setIndex });
+      }
       stateChangeEvent();
       checkMatchEnd();
     },
@@ -189,10 +195,7 @@ function processPoint(point: any, result: any, slider_side: string) {
   if (point_location) point.location = point_location;
 
   // Reset event flags before addPoint (eventHandlers set them during addPoint)
-  engineEvents.gameJustCompleted = false;
-  engineEvents.setJustCompleted = false;
-  engineEvents.matchJustCompleted = false;
-  engineEvents.gameWinner = undefined;
+  resetEngineEvents();
 
   // Add point via ScoringEngine (returns void)
   // Always pass the current server so every point records the correct value.

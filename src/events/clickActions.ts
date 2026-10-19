@@ -1,6 +1,7 @@
 import { resetButtons, setCourtSide, stateChangeEvent, swapServer, visibleButtons } from '../display/displayUpdate';
 import { editMatchDetails } from '../display/displayUpdate';
 import { formatChangePossible } from '../engine/formatChangePossible';
+import { canChangeServer } from '../engine/scoringInputs';
 import { getCurrentMatchUpId } from '../state/matchContext';
 import { newMatch } from '../match/displayMatchArchive';
 import { browserStorage } from '../state/browserStorage';
@@ -209,10 +210,9 @@ export function outcomeEntry() {
 }
 export function mainMenu() {
   const router = getRouter();
-  const points = env.engine.getState().history?.points || [];
   const hasArchive = JSON.parse(browserStorage.get('match_archive') || '[]').length > 0;
   const canChangeFormat = formatChangePossible();
-  const canChangeServer = points.length === 0;
+  const serverChangeable = canChangeServer(env.engine);
 
   const menuItem = (label: string, action: () => void) => {
     const div = document.createElement('div');
@@ -228,7 +228,7 @@ export function mainMenu() {
   };
 
   const content = (elem: HTMLElement) => {
-    if (canChangeServer) elem.appendChild(menuItem('Change Server', changeServer));
+    if (serverChangeable) elem.appendChild(menuItem('Change Server', changeServer));
     elem.appendChild(menuItem('New Match', newMatch));
     if (canChangeFormat) elem.appendChild(menuItem('Match Format', () => openFormatEditor()));
     elem.appendChild(menuItem('Match Details', editMatchDetails));
@@ -271,8 +271,8 @@ export function redoAction() {
   visibleButtons();
 }
 export function changeServer() {
-  const points = env.engine.getState().history?.points || [];
-  if (!points.length) {
+  // before the first point, and at any time where the engine derives no server (S:TB{n} without @RALLY, P{n})
+  if (canChangeServer(env.engine)) {
     env.serving = 1 - env.serving;
     env.receiving = 1 - env.serving;
     swapServer();
