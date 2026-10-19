@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.5.12](https://github.com/CourtHive/epixodic/compare/v2.5.11...v2.5.12) (2026-10-19)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 6.10.0 ([#414](https://github.com/CourtHive/epixodic/issues/414)) ([fee98eb](https://github.com/CourtHive/epixodic/commit/fee98eb8bff9ac314640cafd0949f0c898cbe332))
+* **deps:** update courthive-components to 6.10.1 and scoring-visualizations to 0.2.23 ([#418](https://github.com/CourtHive/epixodic/issues/418)) ([9c3228e](https://github.com/CourtHive/epixodic/commit/9c3228e922d0960818828eb92a6676ed03ff6fbf))
+* **deps:** update score-relay's tods-competition-factory to 7.16.0 ([#420](https://github.com/CourtHive/epixodic/issues/420)) ([9eac4a8](https://github.com/CourtHive/epixodic/commit/9eac4a87d0d90e03a8e3c636369961098032d425))
+* **scoring:** adapt to tods-competition-factory 7.16.0 and bump the pin ([#415](https://github.com/CourtHive/epixodic/issues/415)) ([cf8ffc9](https://github.com/CourtHive/epixodic/commit/cf8ffc95aa4a723b89a131616590e7a45d3a77b7))
+
 ## [2.5.11](https://github.com/CourtHive/epixodic/compare/v2.5.10...v2.5.11) (2026-10-19)
 
 
