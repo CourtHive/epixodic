@@ -1,6 +1,6 @@
 {
   "name": "@epixodic/score-relay",
-  "packageManager": "pnpm@12.11.2",
+  "packageManager": "pnpm@12.14.0",
   "version": "0.5.10",
   "private": true,
   "type": "module",
@@ -27,6 +27,6 @@
     "@types/pg": "^8.11.10",
     "tsx": "^4.19.0",
     "typescript": "^6.0.0",
-    "vitest": "5.0.4"
+    "vitest": "5.0.5"
   }
 }
