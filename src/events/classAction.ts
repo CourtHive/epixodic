@@ -1,8 +1,9 @@
 import { isTiebreakOnlySetInPlay, lastSetIndex, runScoringAction, setTotalFor } from '../engine/scoringInputs';
 import { stateChangeEvent, visibleButtons } from '../display/displayUpdate';
-import { resetButton, resetStyles } from './events';
-import { checkMatchEnd } from '../engine/checkMatchEnd';
 import { buttons, env, settings, engineEvents } from '../state/env';
+import { checkMatchEnd } from '../engine/checkMatchEnd';
+import { pointLogger } from '../services/pointLogger';
+import { resetButton, resetStyles } from './events';
 import { strokeSlider } from './strokeSlider';
 import {
   ACE,
@@ -14,7 +15,6 @@ import {
   NO_DECORATION_RESULTS,
   FAULT_DECORATION_RESULTS,
 } from '../utils/constants';
-import { pointLogger } from '../services/pointLogger';
 
 const toggles: any = {};
 

@@ -1,20 +1,20 @@
 import { resetButtons, setCourtSide, stateChangeEvent, swapServer, visibleButtons } from '../display/displayUpdate';
-import { editMatchDetails } from '../display/displayUpdate';
-import { formatChangePossible } from '../engine/formatChangePossible';
-import { canChangeServer } from '../engine/scoringInputs';
-import { getCurrentMatchUpId } from '../state/matchContext';
-import { newMatch } from '../match/displayMatchArchive';
-import { browserStorage } from '../state/browserStorage';
 import { env, options, settings as appSettings, updateAppState, updateMatchArchive } from '../state/env';
+import { formatChangePossible } from '../engine/formatChangePossible';
 import { openFormatEditor } from '../match/openFormatEditor';
-import { getRegisteredSkins } from '../scoring';
-import { getProfiles } from '../decorations';
-import { rebuildStrokeSlider } from './strokeSlider';
-import { matchPath } from '../router/routes';
-import { showGameFish } from '../display/configureViz';
-import { findUpClass } from '../utils/utilities';
-import { editPoint } from '../match/editPoint';
+import { editMatchDetails } from '../display/displayUpdate';
+import { getCurrentMatchUpId } from '../state/matchContext';
+import { canChangeServer } from '../engine/scoringInputs';
 import { cModal, renderForm } from 'courthive-components';
+import { browserStorage } from '../state/browserStorage';
+import { newMatch } from '../match/displayMatchArchive';
+import { showGameFish } from '../display/configureViz';
+import { rebuildStrokeSlider } from './strokeSlider';
+import { findUpClass } from '../utils/utilities';
+import { getRegisteredSkins } from '../scoring';
+import { editPoint } from '../match/editPoint';
+import { getProfiles } from '../decorations';
+import { matchPath } from '../router/routes';
 
 export function viewGameFish(element: any) {
   const gameIndex: number = parseInt(element.getAttribute('gameIndex') ?? 0);

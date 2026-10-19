@@ -2,8 +2,8 @@
  * The classic scorer's game, set and server controls against the real factory ScoringEngine (7.16.0),
  * which judges every input by its segment's rule (scoring spec § 2, CA 2026-10-18).
  */
-import { describe, it, expect } from 'vitest';
 import { scoreGovernor } from 'tods-competition-factory';
+import { describe, it, expect } from 'vitest';
 import {
   canChangeServer,
   isServerDerived,

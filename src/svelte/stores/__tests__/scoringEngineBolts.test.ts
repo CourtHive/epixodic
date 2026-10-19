@@ -2,11 +2,11 @@
  * The INTENNSE bolt flow against the real factory ScoringEngine (7.16.0): what BoltScoringPage does on a
  * bolt's expiry, at a level tieMatchUp, after an undo, and with the engine's per-point `serveSide`.
  */
+import { buildScoreOutcome } from '../../../intennse/buildScoreOutcome';
+import { getAggregateScore } from '../../../intennse/scoreComputation';
+import { getServingState } from '../../../intennse/servingRules';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { fixtures } from 'tods-competition-factory';
-import { getAggregateScore } from '../../../intennse/scoreComputation';
-import { buildScoreOutcome } from '../../../intennse/buildScoreOutcome';
-import { getServingState } from '../../../intennse/servingRules';
 import {
   initScoringEngine,
   destroyScoringEngine,
