@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.5.11](https://github.com/CourtHive/epixodic/compare/v2.5.10...v2.5.11) (2026-10-19)
+
+
+### Bug Fixes
+
+* **intennse:** a challenge is recorded, so the one-per-arc limit counts it ([#404](https://github.com/CourtHive/epixodic/issues/404)) ([ea482e3](https://github.com/CourtHive/epixodic/commit/ea482e3de528cc1822ec6f2f3d69fe562fcb71b4))
+* **relay-client:** present a tracker token only when the relay accepts its audience ([#399](https://github.com/CourtHive/epixodic/issues/399)) ([558bf30](https://github.com/CourtHive/epixodic/commit/558bf30cc75c3b3af2373a1521197a852f9996c1))
+* **scorer:** entered and staged names reach the engine, so every view shows them ([#406](https://github.com/CourtHive/epixodic/issues/406)) ([fd8a991](https://github.com/CourtHive/epixodic/commit/fd8a991ed46fe698239b8091913df3f8d074d78b))
+* **scoring:** a substitution moves the clocks and side ids only when the engine accepts it ([#403](https://github.com/CourtHive/epixodic/issues/403)) ([7ace1bb](https://github.com/CourtHive/epixodic/commit/7ace1bbdd97a2e5f8e44d2ea293b41549d85c777))
+* **scoring:** pinning servers before a post-review flip writes them through the engine ([#402](https://github.com/CourtHive/epixodic/issues/402)) ([b215e8b](https://github.com/CourtHive/epixodic/commit/b215e8bb68aa5b1d898d5382b3262ae4b8ddb0f3))
+* **security:** edit-point option labels escaped; journey 10 drives a hostile staged match ([#407](https://github.com/CourtHive/epixodic/issues/407)) ([fbc1ebc](https://github.com/CourtHive/epixodic/commit/fbc1ebcb4f10354a92838d725a32f3978180a417))
+* **security:** render scorer names and point decorations as text ([#405](https://github.com/CourtHive/epixodic/issues/405)) ([bb145d7](https://github.com/CourtHive/epixodic/commit/bb145d7e4af5a2229862fd06a2726fa8861e123e))
+
+
+### Documentation
+
+* **intennse:** the demo plays 5 tieMatchUps, one per collection ([#410](https://github.com/CourtHive/epixodic/issues/410)) ([86d685a](https://github.com/CourtHive/epixodic/commit/86d685a0b041026076bcc333a63ab8664df10b35))
+
 ## [2.5.10](https://github.com/CourtHive/epixodic/compare/v2.5.9...v2.5.10) (2026-10-16)
 
 
