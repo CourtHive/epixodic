@@ -1,8 +1,9 @@
 import { simpleChart, computeMatchStatsFromMatchUp } from '@courthive/scoring-visualizations';
+import { WINNER_RESULTS, FOREHAND, BACKHAND } from '../utils/constants';
 import { getCurrentMatchUpId } from '../state/matchContext';
+import { escapeHtml } from '../utils/escapeHtml';
 import { matchPath } from '../router/routes';
 import { env, options } from '../state/env';
-import { WINNER_RESULTS, FOREHAND, BACKHAND } from '../utils/constants';
 
 // Convert StatObject[] from computeMatchStatsFromMatchUp to the legacy display format
 function convertStatsToLegacyFormat(statObjects: any[]): any[] {
@@ -116,17 +117,20 @@ function buildStatRowHtml(stat: any, charts: any[]): string {
     .join(',');
   const statclass = numerators && value && statName != 'Aggressive Margin' ? 'statname_chart' : 'statname';
 
-  const highlighted = highlightDisplay(first.value, second.value, leftNorm.display, rightNorm.display, statName);
+  const leftDisplay = escapeHtml(leftNorm.display);
+  const rightDisplay = escapeHtml(rightNorm.display);
+  const highlighted = highlightDisplay(first.value, second.value, leftDisplay, rightDisplay, statName);
 
   let html =
-    `<div class='statrow' id="${id}">` +
+    `<div class='statrow' id="${escapeHtml(id)}">` +
     `<div class='toggleChart statleft'>${highlighted.leftDisplay}</div>` +
-    `<div class='toggleChart ${statclass}'>${statName}</div><div class='toggleChart statright'>${highlighted.rightDisplay}</div>` +
+    `<div class='toggleChart ${statclass}'>${escapeHtml(statName)}</div>` +
+    `<div class='toggleChart statright'>${highlighted.rightDisplay}</div>` +
     `</div>`;
 
   if (numerators && value && statName != 'Aggressive Margin') {
     charts.push({ target: `${id}_chart`, numerators });
-    html += `<div class='statrow' id="${id}_chart" style='display:none' onclick="showChartSource('${numerators}')"></div>`;
+    html += `<div class='statrow' id="${id}_chart" style='display:none'></div>`;
   }
   return html;
 }
@@ -162,9 +166,10 @@ function buildFinishingShotsHtml(counters: any[]): string {
 
     const left_display = counters[left][hand] ? counters[left][hand].length : 0;
     const right_display = counters[right][hand] ? counters[right][hand].length : 0;
+    const handLabel = escapeHtml(hand);
     html +=
       `<div class='statrow'><div class='statleft'><b>${left_display}</b></div>` +
-      `<div class='statname'><b>Total ${hand} Shots</b></div><div class='statright'><b>${right_display}</b></div></div>`;
+      `<div class='statname'><b>Total ${handLabel} Shots</b></div><div class='statright'><b>${right_display}</b></div></div>`;
 
     const results = getUniqueValues(counters, hand, 'result');
     for (const result of results) {
@@ -178,10 +183,13 @@ function buildResultRow(counters: any[], hand: string, result: string, left: num
   let html = '';
   const left_results = filterByResult(counters[left][hand], result);
   const right_results = filterByResult(counters[right][hand], result);
+  // result and stroke are point decorations carried from stored history: escape before interpolating
+  const handLabel = escapeHtml(hand);
+  const resultLabel = escapeHtml(result);
   if (left_results.length || right_results.length) {
     html +=
       `<div class='statrow'><div class='statleft'>${left_results.length}</div>` +
-      `<div class='statname'>${hand} ${result}s</div><div class='statright'>${right_results.length}</div></div>`;
+      `<div class='statname'>${handLabel} ${resultLabel}s</div><div class='statright'>${right_results.length}</div></div>`;
   }
   const strokes = getUniqueValues(counters, hand, 'stroke');
   for (const stroke of strokes) {
@@ -190,7 +198,8 @@ function buildResultRow(counters: any[], hand: string, result: string, left: num
     if (leftStroke.length || rightStroke.length) {
       html +=
         `<div class='statrow'><div class='statleft'>${leftStroke.length}</div>` +
-        `<div class='statname'><i>${hand} ${stroke} ${result}s</i></div><div class='statright'>${rightStroke.length}</div></div>`;
+        `<div class='statname'><i>${handLabel} ${escapeHtml(stroke)} ${resultLabel}s</i></div>` +
+        `<div class='statright'>${rightStroke.length}</div></div>`;
     }
   }
   return html;

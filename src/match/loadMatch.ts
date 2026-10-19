@@ -1,10 +1,10 @@
-import { loadDetails, stateChangeEvent, updateScore } from '../display/displayUpdate';
 import { clearActionEvents, env, updatePositions, resetEngine, definePlayer, updateParticipant } from '../state/env';
+import { loadDetails, stateChangeEvent, updateScore } from '../display/displayUpdate';
 import { setCurrentMatchUpId } from '../state/matchContext';
 import { browserStorage } from '../state/browserStorage';
 import { defineActionEvents } from '../events/events';
-import { isJSON } from '../utils/utilities';
 import { tools } from 'tods-competition-factory';
+import { isJSON } from '../utils/utilities';
 
 function initializeLegacyMatch(match_data: any) {
   env.engine.reset();
@@ -25,7 +25,7 @@ function loadMatchMetadata(match_data: any) {
   if (match_data.format) {
     resetEngine(match_data.format.code || match_data.format);
     const mdFormat = document.getElementById('md_format');
-    if (mdFormat) mdFormat.innerHTML = match_data.format.name;
+    if (mdFormat) mdFormat.textContent = match_data.format.name ?? '';
   }
 }
 

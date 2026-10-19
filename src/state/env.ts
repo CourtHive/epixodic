@@ -1,7 +1,7 @@
-import { browserStorage } from '../state/browserStorage';
-import { firstAndLast } from '../utils/utilities';
 import { scoreGovernor, participantTypes, participantRoles, matchUpTypes, version as factoryVersion } from 'tods-competition-factory';
 import { buildEpisodes } from '@courthive/scoring-visualizations';
+import { browserStorage } from '../state/browserStorage';
+import { firstAndLast } from '../utils/utilities';
 
 const { ScoringEngine } = scoreGovernor;
 const { INDIVIDUAL } = participantTypes;
@@ -252,17 +252,22 @@ export function updateParticipant(update: any) {
   syncParticipantToEngine(index, player);
 }
 
+// getState() returns a copy, so a side written there never reaches the engine: the state goes back through
+// setState, and the engine-private state setState resets (redo stack, lineUp snapshot) is carried across.
 function syncParticipantToEngine(index: number, player: any) {
-  const side = env.engine.getState().sides?.[index];
-  if (side) {
-    side.participant = {
-      participantId: player.participantId,
-      participantName: player.participantName,
-      participantType: player.participantType || INDIVIDUAL,
-      participantRole: player.participantRole || COMPETITOR,
-      person: player.person,
-    };
-  }
+  const state = env.engine.getState();
+  const side = state.sides?.[index];
+  if (!side) return;
+  side.participant = {
+    participantId: player.participantId,
+    participantName: player.participantName,
+    participantType: player.participantType || INDIVIDUAL,
+    participantRole: player.participantRole || COMPETITOR,
+    person: player.person,
+  };
+  const supplementary = env.engine.getSupplementaryState();
+  env.engine.setState(state);
+  env.engine.loadSupplementaryState(supplementary);
 }
 
 /** Read participant names from the engine state (source of truth) */
@@ -289,13 +294,14 @@ export function updatePositions() {
   const player_names = env.metadata.players;
   const p1 = document.getElementById('playerone');
   const p2 = document.getElementById('playertwo');
-  if (p1) p1.innerHTML = firstAndLast(player_names[left_side].participantName || '');
-  if (p2) p2.innerHTML = firstAndLast(player_names[right_side].participantName || '');
+  // Names are record data: textContent so markup in a name is shown, never parsed.
+  if (p1) p1.textContent = firstAndLast(player_names[left_side].participantName || '');
+  if (p2) p2.textContent = firstAndLast(player_names[right_side].participantName || '');
 
   const display_player_0 = Array.from(document.querySelectorAll('.display_player_0'));
-  display_player_0.forEach((element) => (element.innerHTML = player_names[left_side].participantName || ''));
+  display_player_0.forEach((element) => (element.textContent = player_names[left_side].participantName || ''));
   const display_player_1 = Array.from(document.querySelectorAll('.display_player_1'));
-  display_player_1.forEach((element) => (element.innerHTML = player_names[right_side].participantName || ''));
+  display_player_1.forEach((element) => (element.textContent = player_names[right_side].participantName || ''));
 }
 
 function shouldSaveArchive(force: boolean | undefined, matchPoints: any[]): boolean {

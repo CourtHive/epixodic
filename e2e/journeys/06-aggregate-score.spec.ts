@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
-import { ArchivePage } from '../pages/ArchivePage';
-import { ScorecardPage } from '../pages/ScorecardPage';
-import { BoltScoringPage } from '../pages/BoltScoringPage';
 import { resetAppState, waitForApp } from '../helpers/app-bridge';
+import { BoltScoringPage } from '../pages/BoltScoringPage';
+import { ScorecardPage } from '../pages/ScorecardPage';
+import { ArchivePage } from '../pages/ArchivePage';
+import { test, expect } from '@playwright/test';
 
 test.describe('Journey 6 — Aggregate score across tieMatchUps', () => {
   test.beforeEach(async ({ page }) => {
@@ -11,7 +11,7 @@ test.describe('Journey 6 — Aggregate score across tieMatchUps', () => {
     await resetAppState(page);
   });
 
-  test('scoring in MS1 and returning to scorecard shows updated aggregate', async ({ page }) => {
+  test('scoring in MS and returning to scorecard shows updated aggregate', async ({ page }) => {
     const archive = new ArchivePage(page);
     await archive.goto();
     await archive.createIntennseDemo({ boltMinutes: 1 });
@@ -19,7 +19,7 @@ test.describe('Journey 6 — Aggregate score across tieMatchUps', () => {
     const scorecard = new ScorecardPage(page);
     await scorecard.expectVisible();
 
-    // Navigate to first tieMatchUp (MS1)
+    // Navigate to first tieMatchUp (MS)
     await scorecard.clickTieMatchUp(0);
 
     const bolt = new BoltScoringPage(page);
@@ -54,7 +54,7 @@ test.describe('Journey 6 — Aggregate score across tieMatchUps', () => {
     const scorecard = new ScorecardPage(page);
     await scorecard.expectVisible();
 
-    // Score in MS1
+    // Score in MS
     await scorecard.clickTieMatchUp(0);
     let bolt = new BoltScoringPage(page);
     await bolt.expectVisible();
@@ -64,7 +64,7 @@ test.describe('Journey 6 — Aggregate score across tieMatchUps', () => {
     await bolt.goBackToScorecard();
     await scorecard.expectVisible();
 
-    // Score in MS2
+    // Score in WS (the demo's second tieMatchUp)
     await scorecard.clickTieMatchUp(1);
     bolt = new BoltScoringPage(page);
     await bolt.expectVisible();
@@ -89,7 +89,7 @@ test.describe('Journey 6 — Aggregate score across tieMatchUps', () => {
     const scorecard = new ScorecardPage(page);
     await scorecard.expectVisible();
 
-    // Score in MS1
+    // Score in MS
     await scorecard.clickTieMatchUp(0);
     let bolt = new BoltScoringPage(page);
     await bolt.expectVisible();
@@ -100,17 +100,19 @@ test.describe('Journey 6 — Aggregate score across tieMatchUps', () => {
     await bolt.goBackToScorecard();
     await scorecard.expectVisible();
 
-    // Navigate to MS2 — ARC should show base score from MS1
+    // Navigate to WS — the ARC includes the base score from MS
     await scorecard.clickTieMatchUp(1);
     bolt = new BoltScoringPage(page);
     await bolt.expectVisible();
 
-    // ARC score should be non-zero (carries over from MS1)
+    // ARC score should be non-zero (carries over from MS)
     const arcText = await bolt.getArcScore();
     // The ARC text contains both side scores, e.g. "4–0"
     expect(arcText).toBeTruthy();
-    // At least one side should have points from MS1
+    // At least one side should have points from MS
     const hasNonZero = arcText.split(/[–-]/).some((s) => Number.parseInt(s.trim(), 10) > 0);
     expect(hasNonZero).toBeTruthy();
+    // The BOLT row is this tieMatchUp's current bolt only: nothing has been scored in it yet
+    expect(await bolt.getBoltCompactScore()).toBe('0–0');
   });
 });

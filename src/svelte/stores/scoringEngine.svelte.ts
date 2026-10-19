@@ -167,32 +167,49 @@ export function endSegment(options?: { reason?: string }) {
   bump();
 }
 
+/**
+ * The engine's answer: `{ success: true }`, or a refusal (`NO_LINEUP`, `OUT_NOT_ON_SIDE`,
+ * `IN_ALREADY_ON_COURT`, `SAME_PARTICIPANT`) that recorded nothing. A caller moves its own state
+ * (clocks, side ids, the tie's participant) only on success, so the host and the engine agree on
+ * who is on court.
+ */
 export function substitute(sideNumber: 1 | 2, outParticipantId: string, inParticipantId: string) {
+  if (!engine) return { success: false as const, error: 'NO_ENGINE' as const };
+  // A factory before the result contract returns nothing and has substituted unconditionally: read that
+  // as accepted, which is what it did.
+  const result = engine.substitute({ sideNumber, outParticipantId, inParticipantId }) ?? { success: true as const };
+  if (result.success) bump();
+  return result;
+}
+
+/**
+ * Challenges live on the engine's timeline as `challenge` entries; the engine has no API for them, and a
+ * rebuild keeps entry types it does not replay. `getState()` returns a deep copy, so editing it changed
+ * nothing: no challenge was ever recorded, and the one-per-arc limit read a count that was always 0. The
+ * edited timeline is written back with `setState`.
+ */
+function writeTimeline(edit: (entries: any[]) => boolean) {
   if (!engine) return;
-  engine.substitute({ sideNumber, outParticipantId, inParticipantId });
+  const state = engine.getState();
+  const entries = state?.history?.entries;
+  if (!entries || !edit(entries)) return;
+  engine.setState(state);
   bump();
 }
 
 export function recordChallengeEntry(sideNumber: 1 | 2) {
-  if (!engine) return;
-  const state = engine.getState();
-  if (state?.history?.entries) {
-    state.history.entries.push({
-      type: 'challenge',
-      data: { sideNumber },
-      timestamp: new Date().toISOString(),
-    });
-    bump();
-  }
+  writeTimeline((entries) => {
+    entries.push({ type: 'challenge', data: { sideNumber }, timestamp: new Date().toISOString() });
+    return true;
+  });
 }
 
 export function removeChallengeEntry(entryIndex: number) {
-  if (!engine) return;
-  const state = engine.getState();
-  if (state?.history?.entries && state.history.entries[entryIndex]?.type === 'challenge') {
-    state.history.entries.splice(entryIndex, 1);
-    bump();
-  }
+  writeTimeline((entries) => {
+    if (entries[entryIndex]?.type !== 'challenge') return false;
+    entries.splice(entryIndex, 1);
+    return true;
+  });
 }
 
 export function setLineUp(sideNumber: 1 | 2, lineUp: any[]) {
@@ -258,6 +275,8 @@ export function removePoint(pointIndex: number, options?: { recalculate?: boolea
  */
 export function pinEntryServersToPoints() {
   if (!engine) return;
+  // getState() is a deep copy: read from it, write through the engine. decoratePoint writes the
+  // point AND its timeline entry, so the rebuild replays the pinned server.
   const state = engine.getState();
   const points: any[] = state?.history?.points ?? [];
   const entries: any[] = state?.history?.entries ?? [];
@@ -265,11 +284,8 @@ export function pinEntryServersToPoints() {
     if (entry?.type !== 'point') continue;
     const idx = entry.pointIndex;
     if (typeof idx !== 'number') continue;
-    const point = points[idx];
-    if (point && typeof point.server === 'number') {
-      entry.data = entry.data ?? {};
-      entry.data.server = point.server;
-    }
+    const server = points[idx]?.server;
+    if (typeof server === 'number' && entry.data?.server !== server) engine.decoratePoint(idx, { server });
   }
   bump();
 }
