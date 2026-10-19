@@ -1,3 +1,4 @@
+import { runScoringAction, type ScoringActionResult } from '../../engine/scoringInputs';
 import { scoreGovernor } from 'tods-competition-factory';
 
 const { ScoringEngine } = scoreGovernor;
@@ -161,10 +162,17 @@ export function redo(): boolean {
   return success;
 }
 
-export function endSegment(options?: { reason?: string }) {
-  if (!engine) return;
-  engine.endSegment(options);
-  bump();
+/**
+ * End the timed segment in play (a bolt). The engine's answer: `{ recorded: true }`, an ignored end
+ * (`MATCH_COMPLETED`, `TIEBREAK_IN_PLAY`), or a refusal. Since factory 7.16.0 the engine throws on a
+ * segment already closed and when there is no timed segment to end; that recorded nothing, so it is
+ * returned as `{ recorded: false, refusal }` instead of escaping into the page.
+ */
+export function endSegment(options?: { reason?: string }): ScoringActionResult {
+  if (!engine) return { recorded: false, ignored: 'NO_ENGINE' };
+  const result = runScoringAction(() => engine.endSegment(options));
+  if (result.recorded) bump();
+  return result;
 }
 
 /**
