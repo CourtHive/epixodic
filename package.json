@@ -1,11 +1,11 @@
 {
   "name": "epixodic",
-  "packageManager": "pnpm@12.11.2",
+  "packageManager": "pnpm@12.14.0",
   "private": true,
   "version": "2.5.12",
   "type": "module",
   "engines": {
-    "node": ">=20",
+    "node": ">=24",
     "pnpm": ">=8",
     "npm": "please-use-pnpm"
   },
@@ -43,12 +43,12 @@
     "@types/node": "24.19.2",
     "@typescript-eslint/eslint-plugin": "8.71.2",
     "@typescript-eslint/parser": "8.71.2",
-    "@vitest/coverage-v8": "5.0.4",
-    "@vitest/ui": "5.0.4",
+    "@vitest/coverage-v8": "5.0.5",
+    "@vitest/ui": "5.0.5",
     "clipboard": "2.0.11",
     "cz-git": "1.14.0",
     "envfile": "7.1.0",
-    "eslint": "10.12.0",
+    "eslint": "10.13.0",
     "eslint-plugin-sonarjs": "4.2.2",
     "happy-dom": "21.0.3",
     "husky": "9.1.7",
@@ -61,17 +61,17 @@
     "source-map-explorer": "2.5.3",
     "typescript": "6.0.3",
     "vite": "8.3.4",
-    "vitest": "5.0.4",
+    "vitest": "5.0.5",
     "yargs": "18.2.0"
   },
   "dependencies": {
     "@courthive/scoring-visualizations": "^0.2.23",
     "axios": "^1.6.5",
-    "courthive-components": "6.10.1",
+    "courthive-components": "6.10.3",
     "d3": "^7.9.0",
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "svelte": "^5.53.6",
-    "tods-competition-factory": "7.16.0"
+    "tods-competition-factory": "7.18.0"
   }
 }
