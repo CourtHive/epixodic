@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.14](https://github.com/CourtHive/epixodic/compare/v2.5.13...v2.5.14) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.19.0 ([#433](https://github.com/CourtHive/epixodic/issues/433)) ([da30840](https://github.com/CourtHive/epixodic/commit/da308401b4bead76bdd7f3522a59661388bf2586))
+
+
+### Documentation
+
+* dev is protected and merged branches auto-delete ([#432](https://github.com/CourtHive/epixodic/issues/432)) ([502471c](https://github.com/CourtHive/epixodic/commit/502471c7edf15721ee5d25b48e0dfa974fe43bf3))
+
 ## [2.5.13](https://github.com/CourtHive/epixodic/compare/v2.5.12...v2.5.13) (2026-10-21)
 
 
