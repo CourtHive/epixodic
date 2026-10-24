@@ -21,7 +21,7 @@
   ],
   "packages": {
     ".": {
-      "package-name": "epixodic",
+      "package-name": "",
       "include-component-in-tag": false
     },
     "score-relay": {
