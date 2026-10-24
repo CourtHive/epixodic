@@ -4,7 +4,7 @@
  * with a real socket.io-client. Requires CROWD_POSTGRES_URL_TEST.
  */
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { Server as IoServer } from 'socket.io';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
@@ -46,6 +46,7 @@ suite('/crowd namespace', () => {
   let httpServer: HttpServer;
   let io: IoServer;
   let port: number;
+  const fanout = { publish: vi.fn(), retract: vi.fn() };
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: TEST_URL });
@@ -76,7 +77,7 @@ suite('/crowd namespace', () => {
         if (addr && typeof addr === 'object') resolve(addr.port);
       });
     });
-    attachCrowdNamespace({ io, storage, userLimits, jwtSecret: JWT_SECRET, logger: () => {} });
+    attachCrowdNamespace({ io, storage, userLimits, jwtSecret: JWT_SECRET, fanout, logger: () => {} });
   }
 
   async function stopNamespace(): Promise<void> {
@@ -93,6 +94,7 @@ suite('/crowd namespace', () => {
 
   beforeEach(async () => {
     await pool.query('TRUNCATE crowd.crowd_scoring_sessions');
+    fanout.publish.mockClear();
     limits = new UserLimits({ eventsPerSecond: 5, maxConcurrentSessions: 3 });
     await startNamespace(limits);
   });
@@ -181,6 +183,33 @@ suite('/crowd namespace', () => {
     });
     acked = await nextEvent<{ sessionId: string; version: number }>(client, 'acked');
     expect(acked.version).toBe(2);
+
+    client.disconnect();
+  });
+
+  it('hands each point of a promoted session to the /live fan-out, and none of a new one', async () => {
+    const client = connect(mkToken('user-alice'));
+    await new Promise<void>((resolve) => client.on('connect', resolve));
+    const frame = (winner: 1 | 2, expectedVersion?: number) => ({
+      sessionId: 'sess-promoted',
+      matchUpId: 'mu-1',
+      tournamentId: 'tour-1',
+      clientId: 'client-fp-1',
+      point: mkPoint(winner),
+      currentScore: { sets: [{ setNumber: 1, side1Score: winner === 1 ? 1 : 0, side2Score: winner === 2 ? 1 : 0 }] },
+      ...(expectedVersion !== undefined && { expectedVersion }),
+    });
+
+    client.emit('submitCrowdScore', frame(1));
+    await nextEvent(client, 'acked');
+    // The create path: a brand-new session is never promoted, so nothing is handed over.
+    expect(fanout.publish).not.toHaveBeenCalled();
+
+    await storage.promote('sess-promoted', 'td-bob');
+    client.emit('submitCrowdScore', frame(2, 1));
+    await nextEvent(client, 'acked');
+    expect(fanout.publish).toHaveBeenCalledTimes(1);
+    expect(fanout.publish.mock.calls[0][0]).toMatchObject({ sessionId: 'sess-promoted', trusted: true, version: 2 });
 
     client.disconnect();
   });
