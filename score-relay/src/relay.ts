@@ -1,6 +1,5 @@
 import { Server, Socket } from 'socket.io';
 import {
-  updateMatch,
   setMatchHistory,
   getMatch,
   getActiveMatchIds,
@@ -22,6 +21,7 @@ import {
 } from './trackerAuth.js';
 import { TrackerLimits } from './trackerLimits.js';
 import { ConnectLimits } from './connectLimits.js';
+import { broadcastLiveScore } from './liveBroadcast.js';
 import type { ScoreUpdate, MatchHistory, PointsCorrection, RelayConfig, RelayMetrics } from './types.js';
 
 /** Far above any match's point count, so the cap only bounds a hostile frame. */
@@ -142,20 +142,10 @@ export function createRelay(io: Server, config: RelayConfig): void {
     onFrame(socket, 'score', (data: ScoreUpdate) => {
       if (!guardFrame(socket, data, trackerLimits)) return;
 
-      updateMatch(data);
+      // Record + fan out to the match, tournament and `all` rooms (the same path a promoted crowd session takes).
+      broadcastLiveScore(listeners, { ...data, source: 'tracker' });
       scoresRelayed++;
       socket.emit('ack', { matchUpId: data.matchUpId, received: true });
-
-      // Fan out to all listeners subscribed to this match
-      listeners.to(data.matchUpId).emit('score', data);
-
-      // Fan out to tournament room if tournamentId is present
-      if (data.tournamentId) {
-        listeners.to(`tournament:${data.tournamentId}`).emit('score', data);
-      }
-
-      // Also emit to the "all" room for dashboards
-      listeners.to('all').emit('score', data);
 
       // Durably persist the point to courthive-query (S3). Fire-and-forget — a
       // persistence failure must never block the broadcast/ack path above.

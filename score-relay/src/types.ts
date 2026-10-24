@@ -30,6 +30,11 @@ export interface ScoreUpdate {
   };
   matchUpStatus?: string;
   winningSide?: number;
+  /** Who produced the frame, stamped by the relay (never trusted from the producer): a `/tracker` client, or a
+   *  crowd session a TD promoted. Lets a listener tell them apart; delivery is identical. */
+  source?: 'tracker' | 'crowd';
+  /** For `source: 'crowd'`, the promoted session the score came from. */
+  sessionId?: string;
 }
 
 /**

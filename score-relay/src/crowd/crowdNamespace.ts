@@ -37,6 +37,7 @@ import {
   type CrowdScorerAttribution,
 } from './types.js';
 import type { CrowdScoringStorage } from './storage.js';
+import type { TrustedCrowdFanout } from './trustedFanout.js';
 import type { UserLimits } from './userLimits.js';
 import { isValidSubmitPayload } from './submitPayload.js';
 
@@ -50,6 +51,8 @@ export interface CrowdNamespaceOptions {
   jwtSecret: string;
   /** ES256 public keys by `kid` (dual-accept during the signing migration). */
   es256Keys?: Map<string, KeyObject>;
+  /** Puts each point of a promoted session on `/live`. */
+  fanout?: TrustedCrowdFanout;
   logger?: (message: string) => void;
 }
 
@@ -274,6 +277,9 @@ async function handleSubmit(
       currentScore: payload.currentScore,
     });
     socket.emit('acked', { sessionId: appended.sessionId, version: appended.version });
+    // A promoted session is the feed the TD follows: every point goes out on /live. (A new session is never
+    // promoted, so the create path above has nothing to publish.)
+    opts.fanout?.publish(appended);
   } catch (err) {
     if (err instanceof VersionConflictError) {
       socket.emit('rejected', {

@@ -13,6 +13,7 @@ import { attachCrowdNamespace } from './crowd/crowdNamespace.js';
 import { UserLimits } from './crowd/userLimits.js';
 import { createCrowdRestApi, type CrowdRestApi } from './crowd/restApi.js';
 import { loadEs256Keys } from './crowd/jwtVerify.js';
+import { createTrustedCrowdFanout } from './crowd/trustedFanout.js';
 import { configurePointHistoryPersistence } from './pointHistoryPersistence.js';
 import { applyCorsHeaders } from './cors.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -183,13 +184,15 @@ if (crowdPostgresUrl) {
   // Slice 3 — REST API for TMX (same JWT secret).
   const jwtSecret = process.env.JWT_SECRET?.trim();
   if (jwtSecret) {
+    // Promoted crowd sessions reach /live listeners (arena, TMX) the way tracker frames do.
+    const crowdFanout = createTrustedCrowdFanout(io.of('/live'));
     const userLimits = new UserLimits({ eventsPerSecond: 5, maxConcurrentSessions: 3 });
-    attachCrowdNamespace({ io, storage: crowdStorage, userLimits, jwtSecret, es256Keys });
+    attachCrowdNamespace({ io, storage: crowdStorage, userLimits, jwtSecret, es256Keys, fanout: crowdFanout });
     console.log(
       `[relay] /crowd namespace ready (JWT-gated; 5 events/sec/user, 3 sessions/user; ES256 keys: ${es256Keys.size})`,
     );
 
-    crowdRestApi = createCrowdRestApi({ storage: crowdStorage, jwtSecret, es256Keys });
+    crowdRestApi = createCrowdRestApi({ storage: crowdStorage, jwtSecret, es256Keys, fanout: crowdFanout });
     console.log('[relay] crowd REST API ready: GET/POST/DELETE /api/crowd-sessions/* (JWT bearer required)');
   } else {
     console.warn('[relay] /crowd namespace + REST API disabled (set JWT_SECRET to enable)');
