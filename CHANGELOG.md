@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.6.0](https://github.com/CourtHive/epixodic/compare/v2.5.17...v2.6.0) (2026-10-24)
+
+
+### Features
+
+* **relay:** promoted crowd sessions go out on /live like tracker scores ([#454](https://github.com/CourtHive/epixodic/issues/454)) ([4d64529](https://github.com/CourtHive/epixodic/commit/4d64529216bb3f1cea8220da5ac1c1da19ba7a77))
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 6.13.0 ([#455](https://github.com/CourtHive/epixodic/issues/455)) ([3bd65c9](https://github.com/CourtHive/epixodic/commit/3bd65c97861a353dd32dc89fe72908f21ab6baba))
+* **deps:** update tods-competition-factory to 7.21.0 ([#453](https://github.com/CourtHive/epixodic/issues/453)) ([8ec3a5a](https://github.com/CourtHive/epixodic/commit/8ec3a5a57bf8b034931c4719911f5bb720c28599))
+
 ## [2.5.17](https://github.com/CourtHive/epixodic/compare/v2.5.16...v2.5.17) (2026-10-24)
 
 
