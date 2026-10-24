@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { Pool } from 'pg';
 import { runMigrations } from './migrationRunner.js';
@@ -219,5 +219,70 @@ describe('createCrowdRestApi — pure validation', () => {
     expect(() =>
       createCrowdRestApi({ storage: {} as unknown as CrowdScoringStorage, jwtSecret: '' }),
     ).toThrow(/jwtSecret/);
+  });
+});
+
+suite('crowd REST API → /live fan-out', () => {
+  let pool: Pool;
+  let storage: CrowdScoringStorage;
+  const fanout = { publish: vi.fn(), retract: vi.fn() };
+  let api: ReturnType<typeof createCrowdRestApi>;
+
+  beforeAll(async () => {
+    pool = new Pool({ connectionString: TEST_URL });
+    await runMigrations(pool, { logger: () => {} });
+    storage = new CrowdScoringStorage(pool);
+    api = createCrowdRestApi({ storage, jwtSecret: JWT_SECRET, fanout, logger: () => {} });
+  });
+
+  afterAll(async () => {
+    await pool.end();
+  });
+
+  beforeEach(async () => {
+    await pool.query('TRUNCATE crowd.crowd_scoring_sessions');
+    fanout.publish.mockClear();
+    fanout.retract.mockClear();
+  });
+
+  const seed = (matchUpId: string) =>
+    storage.createSession({
+      sessionId: `s-${matchUpId}`,
+      matchUpId,
+      tournamentId: 'tour-1',
+      userId: 'user-a',
+      clientId: 'client-fp',
+      currentScore: { sets: [{ setNumber: 1, side1Score: 3, side2Score: 2 }] },
+    });
+
+  const call = async (method: string, path: string) => {
+    const r = res();
+    await api.route(req(method, path, { authorization: bearer('td-bob') }) as any, r as any);
+    return r;
+  };
+
+  it('promote hands the now-trusted session to the fan-out', async () => {
+    await seed('mu-F1');
+    const r = await call('POST', '/api/crowd-sessions/s-mu-F1/promote');
+    expect(r.status).toBe(200);
+    expect(fanout.publish).toHaveBeenCalledTimes(1);
+    expect(fanout.publish.mock.calls[0][0]).toMatchObject({ sessionId: 's-mu-F1', trusted: true });
+  });
+
+  it('demote and cancel retract the session from /live', async () => {
+    await seed('mu-F2');
+    await storage.promote('s-mu-F2', 'td-bob');
+    expect((await call('POST', '/api/crowd-sessions/s-mu-F2/demote')).status).toBe(200);
+    expect(fanout.retract).toHaveBeenLastCalledWith(expect.objectContaining({ sessionId: 's-mu-F2' }));
+
+    await seed('mu-F3');
+    expect((await call('DELETE', '/api/crowd-sessions/s-mu-F3')).status).toBe(200);
+    expect(fanout.retract).toHaveBeenLastCalledWith(expect.objectContaining({ sessionId: 's-mu-F3' }));
+    expect(fanout.publish).not.toHaveBeenCalled();
+  });
+
+  it('a failed promote publishes nothing', async () => {
+    expect((await call('POST', '/api/crowd-sessions/no-such-session/promote')).status).toBe(404);
+    expect(fanout.publish).not.toHaveBeenCalled();
   });
 });

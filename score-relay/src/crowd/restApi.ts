@@ -19,19 +19,22 @@
  * Phase 3; tighter rules land in Phase 4.
  */
 
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { URL } from 'node:url';
 import { JwtVerificationError, resolvePrincipal, verifyJwt, type JwtPayload } from './jwtVerify.js';
 import { persistCrowdPromotedPoints } from '../pointHistoryPersistence.js';
-import { SessionNotFoundError } from './types.js';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { TrustedCrowdFanout } from './trustedFanout.js';
 import type { CrowdScoringStorage } from './storage.js';
+import { SessionNotFoundError } from './types.js';
 import type { KeyObject } from 'node:crypto';
+import { URL } from 'node:url';
 
 export interface CrowdRestApiOptions {
   storage: CrowdScoringStorage;
   jwtSecret: string;
   /** ES256 public keys by `kid` (dual-accept during the signing migration). */
   es256Keys?: Map<string, KeyObject>;
+  /** Puts a promoted session's score on `/live` (and takes it off on demote / cancel). */
+  fanout?: TrustedCrowdFanout;
   logger?: (message: string) => void;
 }
 
@@ -127,6 +130,8 @@ async function handle(
         // Materialize the promoted crowd points into the durable store (D4/S6).
         // Fire-and-forget — never blocks the promote response.
         persistCrowdPromotedPoints(session);
+        // The TD now follows this session: its score goes out on /live like a tracker's.
+        opts.fanout?.publish(session);
         respondJson(res, 200, { session });
       } catch (err) {
         if (err instanceof SessionNotFoundError) respondJson(res, 404, { error: 'session-not-found' });
@@ -137,6 +142,7 @@ async function handle(
     if (method === 'POST' && action === 'demote') {
       try {
         const session = await opts.storage.demote(sessionId);
+        opts.fanout?.retract(session);
         respondJson(res, 200, { session });
       } catch (err) {
         if (err instanceof SessionNotFoundError) respondJson(res, 404, { error: 'session-not-found' });
@@ -150,6 +156,7 @@ async function handle(
         respondJson(res, 404, { error: 'session-not-found-or-not-active' });
         return;
       }
+      opts.fanout?.retract(cancelled);
       respondJson(res, 200, { session: cancelled });
       return;
     }
