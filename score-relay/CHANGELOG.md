@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.15...score-relay-v0.6.0) (2026-10-24)
+
+
+### Features
+
+* **relay:** promoted crowd sessions go out on /live like tracker scores ([#454](https://github.com/CourtHive/epixodic/issues/454)) ([4d64529](https://github.com/CourtHive/epixodic/commit/4d64529216bb3f1cea8220da5ac1c1da19ba7a77))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.21.0 ([#453](https://github.com/CourtHive/epixodic/issues/453)) ([8ec3a5a](https://github.com/CourtHive/epixodic/commit/8ec3a5a57bf8b034931c4719911f5bb720c28599))
+
 ## [0.5.15](https://github.com/CourtHive/epixodic/compare/score-relay-v0.5.14...score-relay-v0.5.15) (2026-10-23)
 
 
