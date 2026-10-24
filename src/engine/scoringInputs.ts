@@ -31,30 +31,11 @@ function openSet(sets: any[]): any {
 }
 
 /**
- * The format governing the set in play: the final-set format in the deciding set, the ordinary one
- * otherwise. Mirrors the factory's rule for best-of and exactly formats (spec § 3.2); the classic
- * scorer runs no aggregate format with a declared decider, so that case is not read here.
+ * A tiebreak-only segment is in play (a match tiebreak included): a game there wins the set 1-0. The
+ * engine owns the deciding-set rule (`getSetInPlayFormat`, spec § 3.2), the aggregate decider included.
  */
-export function setInPlayFormat(engine: any): any {
-  const structure = engine?.getFormatStructure?.();
-  if (!structure) return undefined;
-  const sets: any[] = engine.getState()?.score?.sets ?? [];
-  const setNumber = openSetNumber(sets);
-  const setsWon = [0, 0];
-  sets.forEach((set) => {
-    if (set.winningSide === 1) setsWon[0]++;
-    if (set.winningSide === 2) setsWon[1]++;
-  });
-  const bestOf = structure.bestOf || structure.exactly || 3;
-  const setsToWin = Math.ceil(bestOf / 2);
-  const bothOneFromWinning = setsWon[0] === setsToWin - 1 && setsWon[1] === setsToWin - 1;
-  const deciding = structure.exactly ? setNumber === structure.exactly : bothOneFromWinning || setNumber === bestOf;
-  return deciding && structure.finalSetFormat ? structure.finalSetFormat : structure.setFormat;
-}
-
-/** A tiebreak-only segment is in play (a match tiebreak included): a game there wins the set 1-0. */
 export function isTiebreakOnlySetInPlay(engine: any): boolean {
-  return !!setInPlayFormat(engine)?.tiebreakSet;
+  return !!engine?.getSetInPlayFormat()?.tiebreakSet;
 }
 
 /** The fewest games that win a standard set for a side whose opponent has `opponent` games. */
@@ -78,7 +59,7 @@ export function setTotalFor(engine: any, side: Side): SetTotal {
   const inPlay = openSet(sets);
   const own = (side === 0 ? inPlay?.side1Score : inPlay?.side2Score) ?? 0;
   const opponent = (side === 0 ? inPlay?.side2Score : inPlay?.side1Score) ?? 0;
-  const setFormat = setInPlayFormat(engine);
+  const setFormat = engine.getSetInPlayFormat();
 
   let won: number;
   let lost = opponent;

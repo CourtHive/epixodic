@@ -56,6 +56,18 @@ describe('a game in a tiebreak-only segment', () => {
     expect(isTiebreakOnlySetInPlay(engine)).toBe(true);
   });
 
+  it("an aggregate format's decider is tiebreak-only in set N + 1 only, as the engine rules", () => {
+    // Two timed sets, then a match tiebreak if the aggregate is level. The scorer's own copy of the
+    // deciding-set rule read set 2 (= `exactly`) as the decider, hiding the game control mid-timed set.
+    const engine = engineFor('SET2XA-S:T10-F:TB10');
+    engine.addSet({ side1Score: 3, side2Score: 5 });
+    expect(isTiebreakOnlySetInPlay(engine)).toBe(false);
+    engine.addSet({ side1Score: 5, side2Score: 3 });
+    expect(engine.isComplete()).toBe(false);
+    expect(isTiebreakOnlySetInPlay(engine)).toBe(true);
+    expect(setTotalFor(engine, 1)).toEqual({ side1Score: 0, side2Score: 1, winningSide: 2 });
+  });
+
   it('a standard set is not tiebreak-only, even at six all', () => {
     const engine = engineFor('SET3-S:6/TB7');
     playGames(engine, 6, 6);
