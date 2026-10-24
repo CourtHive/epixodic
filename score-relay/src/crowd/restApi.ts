@@ -19,14 +19,14 @@
  * Phase 3; tighter rules land in Phase 4.
  */
 
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { URL } from 'node:url';
 import { JwtVerificationError, resolvePrincipal, verifyJwt, type JwtPayload } from './jwtVerify.js';
 import { persistCrowdPromotedPoints } from '../pointHistoryPersistence.js';
-import { SessionNotFoundError } from './types.js';
-import type { CrowdScoringStorage } from './storage.js';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { TrustedCrowdFanout } from './trustedFanout.js';
+import type { CrowdScoringStorage } from './storage.js';
+import { SessionNotFoundError } from './types.js';
 import type { KeyObject } from 'node:crypto';
+import { URL } from 'node:url';
 
 export interface CrowdRestApiOptions {
   storage: CrowdScoringStorage;

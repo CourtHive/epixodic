@@ -1,6 +1,6 @@
-import type { Namespace } from 'socket.io';
 import { updateMatch } from './matchUpStore.js';
 import type { ScoreUpdate } from './types.js';
+import type { Namespace } from 'socket.io';
 
 /**
  * Record a score frame as the match's current state (so a later `/live` subscriber is replayed it) and fan

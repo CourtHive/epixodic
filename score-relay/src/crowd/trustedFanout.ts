@@ -13,11 +13,11 @@
  * Neither call throws. Both run after the thing they follow has already succeeded (a point acked, a promote
  * saved); a broadcast failure must not turn that success into an error for the caller.
  */
-import type { Namespace } from 'socket.io';
-import { broadcastLiveScore } from '../liveBroadcast.js';
 import { getMatch, removeMatch } from '../matchUpStore.js';
-import type { ScoreUpdate } from '../types.js';
+import { broadcastLiveScore } from '../liveBroadcast.js';
 import type { CrowdScoringSession } from './types.js';
+import type { ScoreUpdate } from '../types.js';
+import type { Namespace } from 'socket.io';
 
 export interface TrustedCrowdFanout {
   /** Publish the session's current score if it is promoted and active; a no-op otherwise. */

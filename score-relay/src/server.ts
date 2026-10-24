@@ -1,23 +1,23 @@
-import { Server } from 'socket.io';
-import { createServer } from 'http';
-import { Pool } from 'pg';
-import { createRelay, getMetrics } from './relay.js';
-import { createProjectionIntake } from './projectionIntake.js';
+import { startInactivityScheduler, type InactivityScheduler } from './crowd/inactivityScheduler.js';
+import { configurePointHistoryPersistence } from './pointHistoryPersistence.js';
+import { createMatchUpFinalizedHandler } from './crowd/webhookReceiver.js';
+import { createCrowdRestApi, type CrowdRestApi } from './crowd/restApi.js';
 import { configureVideoBoardForwarder } from './videoBoardForwarder.js';
-import { configurePersistence } from './persistence.js';
+import { createTrustedCrowdFanout } from './crowd/trustedFanout.js';
+import { attachCrowdNamespace } from './crowd/crowdNamespace.js';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createProjectionIntake } from './projectionIntake.js';
 import { runMigrations } from './crowd/migrationRunner.js';
 import { CrowdScoringStorage } from './crowd/storage.js';
-import { startInactivityScheduler, type InactivityScheduler } from './crowd/inactivityScheduler.js';
-import { createMatchUpFinalizedHandler } from './crowd/webhookReceiver.js';
-import { attachCrowdNamespace } from './crowd/crowdNamespace.js';
-import { UserLimits } from './crowd/userLimits.js';
-import { createCrowdRestApi, type CrowdRestApi } from './crowd/restApi.js';
+import { configurePersistence } from './persistence.js';
+import { createRelay, getMetrics } from './relay.js';
 import { loadEs256Keys } from './crowd/jwtVerify.js';
-import { createTrustedCrowdFanout } from './crowd/trustedFanout.js';
-import { configurePointHistoryPersistence } from './pointHistoryPersistence.js';
-import { applyCorsHeaders } from './cors.js';
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import { UserLimits } from './crowd/userLimits.js';
 import type { RelayConfig } from './types.js';
+import { applyCorsHeaders } from './cors.js';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { Pool } from 'pg';
 
 // ES256 public keys for dual-accept verification during the signing migration.
 // Read once from the shared env (same JWT_PUBLIC_KEY/JWT_KID the co-located CFS

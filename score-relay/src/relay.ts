@@ -10,19 +10,19 @@ import {
   setClockTimer,
   clearClockTimer,
 } from './matchUpStore.js';
+import { persistPoint, persistPointCorrection } from './pointHistoryPersistence.js';
 import { connectUpstream } from './upstreamFederation.js';
 import { persistMatchHistory } from './persistence.js';
-import { persistPoint, persistPointCorrection } from './pointHistoryPersistence.js';
 import {
   extractTrackerToken,
   TrackerAuthError,
   verifyTrackerToken,
   type TrackerSocketData,
 } from './trackerAuth.js';
+import type { ScoreUpdate, MatchHistory, PointsCorrection, RelayConfig, RelayMetrics } from './types.js';
+import { broadcastLiveScore } from './liveBroadcast.js';
 import { TrackerLimits } from './trackerLimits.js';
 import { ConnectLimits } from './connectLimits.js';
-import { broadcastLiveScore } from './liveBroadcast.js';
-import type { ScoreUpdate, MatchHistory, PointsCorrection, RelayConfig, RelayMetrics } from './types.js';
 
 /** Far above any match's point count, so the cap only bounds a hostile frame. */
 const MAX_CORRECTION_POINTS = 5000;

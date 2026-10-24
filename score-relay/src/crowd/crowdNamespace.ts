@@ -26,8 +26,8 @@
  * another device; the inactivity scheduler eventually cleans stale ones.
  */
 
-import type { Namespace, Server, Socket } from 'socket.io';
 import { verifyJwt, JwtVerificationError, normalizeAudiences, resolvePrincipal, type JwtPayload } from './jwtVerify.js';
+import type { Namespace, Server, Socket } from 'socket.io';
 import type { KeyObject } from 'node:crypto';
 import {
   SessionNotFoundError,
@@ -36,10 +36,10 @@ import {
   type CrowdScoreSnapshot,
   type CrowdScorerAttribution,
 } from './types.js';
-import type { CrowdScoringStorage } from './storage.js';
 import type { TrustedCrowdFanout } from './trustedFanout.js';
-import type { UserLimits } from './userLimits.js';
 import { isValidSubmitPayload } from './submitPayload.js';
+import type { CrowdScoringStorage } from './storage.js';
+import type { UserLimits } from './userLimits.js';
 
 type CrowdAudience = 'admin' | 'hiveid' | 'provider';
 
