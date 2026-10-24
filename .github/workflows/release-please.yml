@@ -28,6 +28,18 @@ name: release-please
 #
 # To force a specific version, edit `.release-please-manifest.json`
 # on master directly.
+#
+# Why the root package's `package-name` is "" in release-please-config.json:
+# an app-only release PR (score-relay unchanged) carries ONE body entry with
+# no component, which release-please treats as a standalone release PR and
+# accepts only when the branch's component matches the package's branch
+# component. The grouped branch `release-please--branches--master` has none,
+# and a root `package-name` of "epixodic" made the package's branch component
+# "epixodic", so v2.5.17 (#449) was merged and never tagged ("PR component:
+# undefined does not match configured component: epixodic"). With "" the
+# root's branch component is "" and matches; tags stay `v{version}` because
+# `include-component-in-tag` is false. A release of both packages, or of
+# score-relay alone, carries component-named entries and was never affected.
 
 on:
   push:
