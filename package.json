@@ -50,7 +50,7 @@
     "envfile": "7.1.0",
     "eslint": "10.13.0",
     "eslint-plugin-sonarjs": "4.2.2",
-    "happy-dom": "21.0.3",
+    "happy-dom": "21.0.4",
     "husky": "9.1.7",
     "inquirer": "14.2.3",
     "lint-staged": "17.6.0",
