@@ -188,14 +188,17 @@ describe('/chat namespace', () => {
   it('a monitor token (adm, no tournament) joins the admin room alone', async () => {
     const monitor = await connect();
     const member = await connect();
+    // The member's own join announces a count to its room; let that arrive before listening, so what is collected is
+    // only what the monitor's join causes.
+    await join(member, roomToken());
+    await settle();
+    const presence = collect(member, 'chatPresence');
     expect(await join(monitor, roomToken({ sub: 'root', tid: undefined, adm: true }))).toEqual({
       ok: true,
       admin: true,
     });
-    await join(member, roomToken());
     const feed = collect(monitor, 'adminChatFeed');
     const roomMessages = collect(monitor, 'chatMessage');
-    const presence = collect(member, 'chatPresence');
     await post(message());
     await settle();
     expect(feed.map((m) => m.seq)).toEqual([7]);
