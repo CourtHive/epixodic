@@ -1,11 +1,13 @@
 import { startInactivityScheduler, type InactivityScheduler } from './crowd/inactivityScheduler.js';
 import { configurePointHistoryPersistence } from './pointHistoryPersistence.js';
+import { attachChatNamespace, loadChatKeys } from './chat/chatNamespace.js';
 import { createMatchUpFinalizedHandler } from './crowd/webhookReceiver.js';
 import { createCrowdRestApi, type CrowdRestApi } from './crowd/restApi.js';
 import { configureVideoBoardForwarder } from './videoBoardForwarder.js';
 import { createTrustedCrowdFanout } from './crowd/trustedFanout.js';
 import { attachCrowdNamespace } from './crowd/crowdNamespace.js';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createChatPublishHandler } from './chat/chatPublish.js';
 import { createProjectionIntake } from './projectionIntake.js';
 import { runMigrations } from './crowd/migrationRunner.js';
 import { CrowdScoringStorage } from './crowd/storage.js';
@@ -51,7 +53,7 @@ if (config.trackerRequireAuth && !config.trackerJwtSecret) {
   console.error(
     '[relay] FATAL: TRACKER_REQUIRE_AUTH=true but TRACKER_JWT_SECRET is unset.\n' +
       '         Strict auth without a secret would admit every connection as\n' +
-      '         anonymous-admin. Set TRACKER_JWT_SECRET to the same value as CFS\'s\n' +
+      "         anonymous-admin. Set TRACKER_JWT_SECRET to the same value as CFS's\n" +
       '         JWT_SECRET, or unset TRACKER_REQUIRE_AUTH to run in legacy permissive mode.',
   );
   process.exit(1);
@@ -60,6 +62,7 @@ if (config.trackerRequireAuth && !config.trackerJwtSecret) {
 let projectionIntake: ReturnType<typeof createProjectionIntake> | null = null;
 let matchUpFinalizedHandler: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | null = null;
 let crowdRestApi: CrowdRestApi | null = null;
+let chatPublishHandler: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | null = null;
 
 const httpServer = createServer((req, res) => {
   // CORS for the hand-rolled REST endpoints (Socket.IO's cors config does not
@@ -90,6 +93,17 @@ const httpServer = createServer((req, res) => {
       return;
     }
     void matchUpFinalizedHandler(req, res);
+    return;
+  }
+
+  // Tournament chat — courthive-ams publishes each message it stored; the relay emits it on /chat.
+  if (req.url === '/api/internal/chat-publish') {
+    if (!chatPublishHandler) {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'chat-disabled' }));
+      return;
+    }
+    void chatPublishHandler(req, res);
     return;
   }
 
@@ -146,6 +160,23 @@ projectionIntake = createProjectionIntake({
   apiKey: process.env.PROJECTION_API_KEY?.trim() || undefined,
 });
 configureVideoBoardForwarder(process.env.VIDEO_BOARD_UDP_TARGET);
+
+// Tournament chat (Mentat/planning/CHAT_TO_AMS.md): courthive-ams stores it and signs the room tokens; the relay
+// only delivers. Without AMS's verify key there is no /chat namespace at all, so no socket is ever admitted
+// unverified; without the internal secret nothing can be published to it.
+const chatKeys = loadChatKeys();
+if (chatKeys.size > 0) {
+  const chatDelivery = attachChatNamespace({ io, keys: chatKeys });
+  const internalSecret = process.env.INTERNAL_WEBHOOK_SECRET?.trim();
+  if (internalSecret) {
+    chatPublishHandler = createChatPublishHandler({ delivery: chatDelivery, secret: internalSecret });
+    console.log('[relay] /chat namespace ready (AMS room tokens); POST /api/internal/chat-publish (X-Internal-Secret)');
+  } else {
+    console.warn('[relay] /chat namespace ready, but chat-publish is disabled (set INTERNAL_WEBHOOK_SECRET)');
+  }
+} else {
+  console.log('[relay] /chat namespace disabled (set AMS_JWT_PUBLIC_KEY + AMS_JWT_KID to enable)');
+}
 
 // Crowd-scoring foundation (Phase 3 slice 1).
 // When CROWD_POSTGRES_URL is set, bootstrap the `crowd` schema and apply
