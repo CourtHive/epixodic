@@ -11,6 +11,8 @@
  *   chatPresence        → `chat:<tournamentId>`, { tournamentId, count } on join, leave and disconnect
  *   adminChatFeed       → `chat:admin`, every message in every tournament (a token with `adm: true`)
  *
+ * A super-admin's monitor token names no tournament (no `tid`): it joins the admin room alone.
+ *
  * A socket is in one tournament's room at a time: joining another leaves the first. Expiry is checked at join only;
  * a client whose token has expired re-mints one from AMS when it next has to join (after a reconnect).
  */
@@ -25,7 +27,7 @@ export const ADMIN_ROOM = 'chat:admin';
 
 export const tournamentRoom = (tournamentId: string) => `chat:${tournamentId}`;
 
-export type ChatJoinAnswer = { ok: true; tournamentId: string; admin: boolean } | { ok: false; error: string };
+export type ChatJoinAnswer = { ok: true; tournamentId?: string; admin: boolean } | { ok: false; error: string };
 
 /** A stored message as AMS publishes it: the wire message plus the identity the admin monitor groups by. */
 export interface PublishedChatMessage {
@@ -64,15 +66,17 @@ export function verifyRoomToken(
   token: unknown,
   keys: Map<string, KeyObject>,
   now?: number,
-): { tournamentId: string; userId: string; admin: boolean } {
+): { tournamentId?: string; userId: string; admin: boolean } {
   if (typeof token !== 'string') throw new JwtVerificationError('token-required');
   const claims = verifyEs256(token, keys, { expectedAudiences: [CHAT_AUDIENCE], now });
-  const tournamentId = typeof claims.tid === 'string' ? claims.tid : '';
+  const tournamentId = typeof claims.tid === 'string' && claims.tid ? claims.tid : undefined;
   const userId = typeof claims.sub === 'string' ? claims.sub : '';
-  if (!tournamentId) throw new JwtVerificationError('missing-tid');
+  const admin = claims.adm === true;
+  // Only a monitor token (adm) may name no tournament.
+  if (!tournamentId && !admin) throw new JwtVerificationError('missing-tid');
   if (!userId) throw new JwtVerificationError('missing-sub');
   if (typeof claims.exp !== 'number') throw new JwtVerificationError('missing-exp');
-  return { tournamentId, userId, admin: claims.adm === true };
+  return { tournamentId, userId, admin };
 }
 
 const errorOf = (err: unknown) => (err instanceof JwtVerificationError ? err.reason : 'internal-error');
@@ -106,13 +110,15 @@ export function attachChatNamespace(opts: {
       try {
         const { tournamentId, userId, admin } = verifyRoomToken((data as { token?: unknown })?.token, opts.keys);
         if (socket.data.chatTournamentId !== tournamentId) leaveTournament(socket);
-        socket.join(tournamentRoom(tournamentId));
-        socket.data.chatTournamentId = tournamentId;
         socket.data.chatUserId = userId;
         if (admin) socket.join(ADMIN_ROOM);
         else socket.leave(ADMIN_ROOM);
-        answer({ ok: true, tournamentId, admin });
-        emitPresence(tournamentId);
+        if (tournamentId) {
+          socket.join(tournamentRoom(tournamentId));
+          socket.data.chatTournamentId = tournamentId;
+        }
+        answer({ ok: true, ...(tournamentId ? { tournamentId } : {}), admin });
+        if (tournamentId) emitPresence(tournamentId);
       } catch (err) {
         answer({ ok: false, error: errorOf(err) });
       }

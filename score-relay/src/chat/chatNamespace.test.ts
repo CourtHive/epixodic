@@ -111,6 +111,7 @@ describe('/chat namespace', () => {
     ['unknown-key', () => roomToken({}, { kid: 'some-other-kid' })],
     ['audience-mismatch', () => roomToken({ aud: 'admin' })],
     ['missing-tid', () => roomToken({ tid: undefined })],
+    ['missing-tid', () => roomToken({ tid: undefined, adm: false })],
     ['missing-sub', () => roomToken({ sub: undefined })],
     ['missing-exp', () => roomToken({ exp: undefined })],
     ['token-required', () => undefined],
@@ -182,6 +183,24 @@ describe('/chat namespace', () => {
     expect(toOther, 'another tournament').toEqual([]);
     expect(toOutsider, 'a socket that never joined').toEqual([]);
     expect(feed).toEqual([{ ...toA[0], providerId: 'P', providerAbbr: 'PRV', tournamentName: 'T Open' }]);
+  });
+
+  it('a monitor token (adm, no tournament) joins the admin room alone', async () => {
+    const monitor = await connect();
+    const member = await connect();
+    expect(await join(monitor, roomToken({ sub: 'root', tid: undefined, adm: true }))).toEqual({
+      ok: true,
+      admin: true,
+    });
+    await join(member, roomToken());
+    const feed = collect(monitor, 'adminChatFeed');
+    const roomMessages = collect(monitor, 'chatMessage');
+    const presence = collect(member, 'chatPresence');
+    await post(message());
+    await settle();
+    expect(feed.map((m) => m.seq)).toEqual([7]);
+    expect(roomMessages, 'in no tournament room').toEqual([]);
+    expect(presence, 'and not counted as present in one').toEqual([]);
   });
 
   it('a non-admin token takes a socket out of the admin room', async () => {
