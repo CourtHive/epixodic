@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.7.0](https://github.com/CourtHive/epixodic/compare/v2.6.2...v2.7.0) (2026-10-29)
+
+
+### Features
+
+* **score-relay:** /chat namespace delivers tournament chat stored by courthive-ams ([#473](https://github.com/CourtHive/epixodic/issues/473)) ([a5ef027](https://github.com/CourtHive/epixodic/commit/a5ef0277d99b306dd1d384274776034af4d0a7e6))
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 7.1.2 ([#471](https://github.com/CourtHive/epixodic/issues/471)) ([917435e](https://github.com/CourtHive/epixodic/commit/917435e839e9567cb1e5a1c9e4d721ba608bd54d))
+* **deps:** update courthive-components to 7.3.1 ([#477](https://github.com/CourtHive/epixodic/issues/477)) ([3831d61](https://github.com/CourtHive/epixodic/commit/3831d6187634e3251d3c40493c4e40cb4ccd75e7))
+* **deps:** update tods-competition-factory to 7.24.0 ([#474](https://github.com/CourtHive/epixodic/issues/474)) ([6718192](https://github.com/CourtHive/epixodic/commit/67181925761d799465fbf3e53a9f28a343fe5760))
+
 ## [2.6.2](https://github.com/CourtHive/epixodic/compare/v2.6.1...v2.6.2) (2026-10-26)
 
 
