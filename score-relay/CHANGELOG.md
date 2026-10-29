@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/CourtHive/epixodic/compare/score-relay-v0.6.2...score-relay-v0.7.0) (2026-10-29)
+
+
+### Features
+
+* **score-relay:** /chat namespace delivers tournament chat stored by courthive-ams ([#473](https://github.com/CourtHive/epixodic/issues/473)) ([a5ef027](https://github.com/CourtHive/epixodic/commit/a5ef0277d99b306dd1d384274776034af4d0a7e6))
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.24.0 ([#474](https://github.com/CourtHive/epixodic/issues/474)) ([6718192](https://github.com/CourtHive/epixodic/commit/67181925761d799465fbf3e53a9f28a343fe5760))
+
 ## [0.6.2](https://github.com/CourtHive/epixodic/compare/score-relay-v0.6.1...score-relay-v0.6.2) (2026-10-26)
 
 
