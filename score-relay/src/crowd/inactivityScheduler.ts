@@ -13,6 +13,12 @@
 
 import type { CrowdScoringStorage } from './storage.js';
 
+/**
+ * A handle the global `clearInterval` accepts. `@types/node` 26 gives `setInterval` a second signature returning
+ * `number`, so a handle typed `NodeJS.Timeout` no longer covers what the default `setInterval` returns.
+ */
+type TimerHandle = Parameters<typeof clearInterval>[0];
+
 export interface InactivitySchedulerOptions {
   /** How often the sweep runs, in milliseconds. Default 30 minutes. */
   intervalMs?: number;
@@ -21,9 +27,9 @@ export interface InactivitySchedulerOptions {
   /** Logger sink. Default `console.log`. */
   logger?: (message: string) => void;
   /** Injected for tests — defaults to global `setInterval`. */
-  setTimer?: (handler: () => void, delay: number) => NodeJS.Timeout;
+  setTimer?: (handler: () => void, delay: number) => TimerHandle;
   /** Injected for tests — defaults to global `clearInterval`. */
-  clearTimer?: (handle: NodeJS.Timeout) => void;
+  clearTimer?: (handle: TimerHandle) => void;
   /** Injected for tests — defaults to `() => new Date()`. */
   now?: () => Date;
 }
