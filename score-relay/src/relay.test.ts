@@ -3,6 +3,11 @@
  *
  * Spins up an actual Socket.IO server and connects clients to verify
  * the full tracker → relay → listener pipeline.
+ *
+ * External relay: set RELAY_TEST_URL (e.g. http://localhost:8384) to run the same client assertions against a relay
+ * this file did not start. RELAY_TEST_PATH overrides the Socket.IO path (e.g. /relay/socket.io/ behind the proxy);
+ * RELAY_TEST_IDLE_URL names a second external relay started with a 0.3s ticker idle timeout, for the one case that
+ * needs it (skipped without it). An external relay keeps its own match store, so start it fresh for each run.
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Server } from 'socket.io';
@@ -11,21 +16,34 @@ import { createServer } from 'http';
 import { createRelay } from './relay.js';
 import { getActiveMatchIds, removeMatch } from './matchUpStore.js';
 
+const externalUrl = process.env.RELAY_TEST_URL?.trim().replace(/\/$/, '') || undefined;
+const externalIdleUrl = process.env.RELAY_TEST_IDLE_URL?.trim().replace(/\/$/, '') || undefined;
+const socketPath = process.env.RELAY_TEST_PATH?.trim() || undefined;
+
 let httpServer: ReturnType<typeof createServer>;
 let ioServer: Server;
 let port: number;
 
-function connectClient(namespace: string): Promise<ClientSocket> {
+const relayUrl = () => externalUrl ?? `http://localhost:${port}`;
+
+function connectTo(baseUrl: string, namespace: string): Promise<ClientSocket> {
   return new Promise((resolve) => {
-    const socket = ioClient(`http://localhost:${port}${namespace}`, {
+    const socket = ioClient(`${baseUrl}${namespace}`, {
       transports: ['websocket'],
       forceNew: true,
+      ...(socketPath ? { path: socketPath } : {}),
     });
     socket.on('connect', () => resolve(socket));
   });
 }
 
+function connectClient(namespace: string): Promise<ClientSocket> {
+  return connectTo(relayUrl(), namespace);
+}
+
 function clearStore() {
+  // An external relay's store is out of reach; each case uses its own matchUpIds.
+  if (externalUrl) return;
   for (const id of getActiveMatchIds()) {
     removeMatch(id);
   }
@@ -41,8 +59,59 @@ function waitForEvent<T = any>(socket: ClientSocket, event: string, timeoutMs = 
   });
 }
 
+function waitForMatching<T = any>(
+  socket: ClientSocket,
+  event: string,
+  matches: (data: T) => boolean,
+  timeoutMs = 2000,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const onEvent = (data: T) => {
+      if (!matches(data)) return;
+      clearTimeout(timer);
+      socket.off(event, onEvent);
+      resolve(data);
+    };
+    const timer = setTimeout(() => {
+      socket.off(event, onEvent);
+      reject(new Error(`Timeout waiting for matching "${event}"`));
+    }, timeoutMs);
+    socket.on(event, onEvent);
+  });
+}
+
+/** An in-process relay with a 300ms ticker idle threshold, for the idle-timeout case. */
+async function startShortIdleRelay(): Promise<{ url: string; close: () => void }> {
+  const shortHttpServer = createServer();
+  const shortIoServer = new Server(shortHttpServer, { cors: { origin: '*' } });
+  createRelay(shortIoServer, {
+    port: 0,
+    persistScores: false,
+    corsOrigin: '*',
+    staleMatchHours: 4,
+    pruneIntervalMinutes: 30,
+    tickerIdleTimeoutSeconds: 0.3, // 300ms idle threshold
+  });
+
+  const shortPort = await new Promise<number>((resolve) => {
+    shortHttpServer.listen(0, () => {
+      const addr = shortHttpServer.address();
+      resolve(typeof addr === 'object' && addr ? addr.port : 0);
+    });
+  });
+
+  return {
+    url: `http://localhost:${shortPort}`,
+    close: () => {
+      shortIoServer.close();
+      shortHttpServer.close();
+    },
+  };
+}
+
 describe('Score Relay Integration', () => {
   beforeAll(async () => {
+    if (externalUrl) return;
     httpServer = createServer();
     ioServer = new Server(httpServer, { cors: { origin: '*' } });
     createRelay(ioServer, {
@@ -63,6 +132,7 @@ describe('Score Relay Integration', () => {
   });
 
   afterAll(async () => {
+    if (externalUrl) return;
     ioServer.close();
     httpServer.close();
   });
@@ -322,15 +392,16 @@ describe('Score Relay Integration', () => {
       const tracker = await connectClient('/tracker');
 
       // Create matches for tid-1
-      tracker.emit('score', { matchUpId: 'mu-710', tournamentId: 'tid-1', score: { scoreStringSide1: '1-0' } });
-      tracker.emit('score', { matchUpId: 'mu-711', tournamentId: 'tid-1', score: { scoreStringSide1: '2-1' } });
+      // A tournament no other case uses: a relay this file did not start still holds earlier cases' matches.
+      tracker.emit('score', { matchUpId: 'mu-710', tournamentId: 'tid-existing', score: { scoreStringSide1: '1-0' } });
+      tracker.emit('score', { matchUpId: 'mu-711', tournamentId: 'tid-existing', score: { scoreStringSide1: '2-1' } });
       tracker.emit('score', { matchUpId: 'mu-712', tournamentId: 'tid-other', score: { scoreStringSide1: '0-0' } });
       await new Promise((r) => setTimeout(r, 100));
 
       const listener = await connectClient('/live');
       const received: any[] = [];
       listener.on('score', (data: any) => received.push(data));
-      listener.emit('subscribe:tournament', 'tid-1');
+      listener.emit('subscribe:tournament', 'tid-existing');
 
       await new Promise((r) => setTimeout(r, 200));
       expect(received.length).toBe(2);
@@ -810,38 +881,19 @@ describe('Score Relay Integration', () => {
       });
       await waitForEvent(listener, 'intennse');
 
-      const tick = await waitForEvent(listener, 'scorebug-tick', 500);
+      // `all` also carries any clock still running from an earlier case.
+      const tick = await waitForMatching(listener, 'scorebug-tick', (t: any) => t.matchUpId === 'mu-tick-all', 500);
       expect(tick.matchUpId).toBe('mu-tick-all');
 
       tracker.disconnect();
       listener.disconnect();
     });
 
-    it('should auto-stop ticking after idle timeout (no re-anchor)', async () => {
+    it.skipIf(externalUrl && !externalIdleUrl)('should auto-stop ticking after idle timeout (no re-anchor)', async () => {
       // Spin up a SEPARATE relay with a very short idle timeout (0.3s)
       // so we can test the timeout without waiting 30 minutes.
-      const shortHttpServer = createServer();
-      const shortIoServer = new Server(shortHttpServer, { cors: { origin: '*' } });
-      createRelay(shortIoServer, {
-        port: 0,
-        persistScores: false,
-        corsOrigin: '*',
-        staleMatchHours: 4,
-        pruneIntervalMinutes: 30,
-        tickerIdleTimeoutSeconds: 0.3, // 300ms idle threshold
-      });
-
-      const shortPort = await new Promise<number>((resolve) => {
-        shortHttpServer.listen(0, () => {
-          const addr = shortHttpServer.address();
-          resolve(typeof addr === 'object' && addr ? addr.port : 0);
-        });
-      });
-
-      const shortConnect = (ns: string) => new Promise<ClientSocket>((resolve) => {
-        const s = ioClient(`http://localhost:${shortPort}${ns}`, { transports: ['websocket'], forceNew: true });
-        s.on('connect', () => resolve(s));
-      });
+      const short = externalIdleUrl ? undefined : await startShortIdleRelay();
+      const shortConnect = (ns: string) => connectTo(externalIdleUrl ?? short!.url, ns);
 
       const tracker = await shortConnect('/tracker');
       const listener = await shortConnect('/live');
@@ -870,8 +922,7 @@ describe('Score Relay Integration', () => {
 
       tracker.disconnect();
       listener.disconnect();
-      shortIoServer.close();
-      shortHttpServer.close();
+      short?.close();
     });
   });
 
