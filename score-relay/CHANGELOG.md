@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1](https://github.com/CourtHive/epixodic/compare/score-relay-v0.7.0...score-relay-v0.7.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.25.0 ([#482](https://github.com/CourtHive/epixodic/issues/482)) ([8394e94](https://github.com/CourtHive/epixodic/commit/8394e94edac8ed2b2ed52d3ad618cce9270a5f6c))
+* **deps:** update tods-competition-factory to 7.26.0 ([#486](https://github.com/CourtHive/epixodic/issues/486)) ([cdbd173](https://github.com/CourtHive/epixodic/commit/cdbd173db30edcf5e9c4f03864a3798d8164cea9))
+* **deps:** update tods-competition-factory to 7.27.0 ([#487](https://github.com/CourtHive/epixodic/issues/487)) ([6a06f57](https://github.com/CourtHive/epixodic/commit/6a06f5721d2bfc1b2792fc684dd8159687f33ecf))
+* **score-relay:** type the inactivity timer handle by what clearInterval accepts ([#483](https://github.com/CourtHive/epixodic/issues/483)) ([7019ccd](https://github.com/CourtHive/epixodic/commit/7019ccda33fbf1053601a623b451e2257d23a582))
+
 ## [0.7.0](https://github.com/CourtHive/epixodic/compare/score-relay-v0.6.2...score-relay-v0.7.0) (2026-10-29)
 
 
