@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.7.1](https://github.com/CourtHive/epixodic/compare/v2.7.0...v2.7.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 7.6.0 ([#488](https://github.com/CourtHive/epixodic/issues/488)) ([a127a72](https://github.com/CourtHive/epixodic/commit/a127a721d321d9928d23159646990114ede1e137))
+* **deps:** update courthive-components to 7.7.0 ([#489](https://github.com/CourtHive/epixodic/issues/489)) ([9fa71bb](https://github.com/CourtHive/epixodic/commit/9fa71bb77a1109cb723d307396736344f00fcd5b))
+* **deps:** update courthive-components to 7.8.0 ([#490](https://github.com/CourtHive/epixodic/issues/490)) ([af97be0](https://github.com/CourtHive/epixodic/commit/af97be012cafc8a774baeb71c66d25468079684a))
+* **deps:** update tods-competition-factory to 7.25.0 ([#482](https://github.com/CourtHive/epixodic/issues/482)) ([8394e94](https://github.com/CourtHive/epixodic/commit/8394e94edac8ed2b2ed52d3ad618cce9270a5f6c))
+* **deps:** update tods-competition-factory to 7.26.0 ([#486](https://github.com/CourtHive/epixodic/issues/486)) ([cdbd173](https://github.com/CourtHive/epixodic/commit/cdbd173db30edcf5e9c4f03864a3798d8164cea9))
+* **deps:** update tods-competition-factory to 7.27.0 ([#487](https://github.com/CourtHive/epixodic/issues/487)) ([6a06f57](https://github.com/CourtHive/epixodic/commit/6a06f5721d2bfc1b2792fc684dd8159687f33ecf))
+* **score-relay:** type the inactivity timer handle by what clearInterval accepts ([#483](https://github.com/CourtHive/epixodic/issues/483)) ([7019ccd](https://github.com/CourtHive/epixodic/commit/7019ccda33fbf1053601a623b451e2257d23a582))
+
 ## [2.7.0](https://github.com/CourtHive/epixodic/compare/v2.6.2...v2.7.0) (2026-10-29)
 
 
