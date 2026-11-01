@@ -1,6 +1,6 @@
 {
   "name": "@epixodic/score-relay",
-  "packageManager": "pnpm@12.14.0",
+  "packageManager": "pnpm@12.16.1",
   "version": "0.7.0",
   "private": true,
   "type": "module",
@@ -20,10 +20,10 @@
     "pg": "^8.13.1",
     "socket.io": "^4.8.3",
     "socket.io-client": "4.8.4",
-    "tods-competition-factory": "7.24.0"
+    "tods-competition-factory": "7.27.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.0.0",
     "@types/pg": "^8.11.10",
     "tsx": "^4.19.0",
     "typescript": "^6.0.0",
