@@ -1,8 +1,8 @@
 import { logIn } from '../auth/loginState';
-import { baseApi } from './baseApi';
+import { authUrl, baseApi } from './baseApi';
 
 async function systemLogin(email, password) {
-  return baseApi.post('/auth/login', {
+  return baseApi.post(authUrl('/auth/login'), {
     password,
     email,
   });
