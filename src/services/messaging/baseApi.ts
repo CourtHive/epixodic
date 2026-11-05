@@ -23,6 +23,15 @@ export function serviceOrigin(
 }
 
 const baseURL = serviceOrigin(import.meta.env.VITE_SERVER_URL, 'http://localhost:8383');
+
+/**
+ * The identity provider (courthive-hiveid) URL for an `/auth/*` path: login belongs to it, not CFS. Production
+ * routes `/auth/*` to it same-origin; locally it is :3140, or `VITE_AUTH_SERVER_URL`. An absolute URL bypasses
+ * axios's `baseURL` but keeps the interceptors.
+ */
+export function authUrl(path: string): string {
+  return `${serviceOrigin(import.meta.env.VITE_AUTH_SERVER_URL, 'http://localhost:3140')}${path}`;
+}
 const axiosInstance = axios.create({ baseURL });
 
 axiosInstance.interceptors.request.use(
