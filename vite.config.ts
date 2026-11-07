@@ -63,10 +63,11 @@ export default ({ mode }) => {
     plugins: [svelte(), emitVersionJson(), stampServiceWorkerVersion()],
     base: BASE_URL,
     test: {
-      // '.claude/**' keeps a git worktree checked out under .claude/worktrees/ from being
-      // discovered as a second copy of the entire suite — Vitest's default `include` globs
-      // from the project root, and its default `exclude` does not cover .claude.
-      exclude: ['e2e/**', '**/node_modules/**', 'score-relay/**', '**/.claude/**'],
+      // '.claude/**' and '.worktrees/**' keep a git worktree checked out under either from being
+      // discovered as a second copy of the entire suite (and its Playwright e2e specs run as unit
+      // tests) — Vitest's default `include` globs from the project root, and its default `exclude`
+      // covers neither. Mentat/scripts/worktree.sh puts worktrees in .worktrees/.
+      exclude: ['e2e/**', '**/node_modules/**', 'score-relay/**', '**/.claude/**', '**/.worktrees/**'],
     },
     resolve: {
       tsconfigPaths: true,

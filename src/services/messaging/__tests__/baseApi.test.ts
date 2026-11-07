@@ -22,7 +22,7 @@ vi.mock('../../../state/browserStorage', () => ({
 
 // Side-effect import: executing the module registers the request + response
 // interceptors on fakeInstance (captured in the vi.fn().mock.calls below).
-import '../baseApi';
+import { authUrl, serviceOrigin } from '../baseApi';
 
 // interceptors.<x>.use(onFulfilled, onRejected) — pull the registered handlers.
 const [requestFulfilled] = fakeInstance.interceptors.request.use.mock.calls[0];
@@ -66,5 +66,42 @@ describe('baseApi response interceptor — error propagation', () => {
     const error: any = { response: { status: 401 } };
     await expect(responseRejected(error)).rejects.toBe(error);
     expect(fakeInstance.defaults.headers.common.authorization).toBeUndefined();
+  });
+});
+
+describe('serviceOrigin', () => {
+  it('uses the configured URL wherever the page is', () => {
+    expect(
+      serviceOrigin('http://cfs.test', 'http://localhost:8383', {
+        hostname: 'courthive.net',
+        origin: 'https://courthive.net',
+      }),
+    ).toBe('http://cfs.test');
+  });
+
+  it('is the local port on localhost', () => {
+    expect(serviceOrigin('', 'http://localhost:8383', { hostname: 'localhost', origin: 'http://localhost:5175' })).toBe(
+      'http://localhost:8383',
+    );
+  });
+
+  it("is the page's origin in production, never the visitor's localhost", () => {
+    expect(
+      serviceOrigin(undefined, 'http://localhost:8383', { hostname: 'courthive.net', origin: 'https://courthive.net' }),
+    ).toBe('https://courthive.net');
+  });
+});
+
+describe('authUrl', () => {
+  it("sends login to the identity provider's local port, not CFS's", () => {
+    vi.stubEnv('VITE_AUTH_SERVER_URL', '');
+    expect(authUrl('/auth/login')).toBe('http://localhost:3140/auth/login');
+    vi.unstubAllEnvs();
+  });
+
+  it('honours VITE_AUTH_SERVER_URL', () => {
+    vi.stubEnv('VITE_AUTH_SERVER_URL', 'http://localhost:13140');
+    expect(authUrl('/auth/login')).toBe('http://localhost:13140/auth/login');
+    vi.unstubAllEnvs();
   });
 });
