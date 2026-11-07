@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.8.0](https://github.com/CourtHive/epixodic/compare/v2.7.1...v2.8.0) (2026-11-07)
+
+
+### Features
+
+* **auth:** log in through the identity provider's origin ([ff32225](https://github.com/CourtHive/epixodic/commit/ff32225467647bdc11c4c63db238ecd3c5d14692))
+
+
+### Bug Fixes
+
+* **api:** use the page's origin off localhost instead of localhost:8383 ([d1cda34](https://github.com/CourtHive/epixodic/commit/d1cda348ca5b7f902aa905fe61d3c2fe5e4e0b86))
+* **deps:** update courthive-components to 7.10.0 ([#503](https://github.com/CourtHive/epixodic/issues/503)) ([7b9f566](https://github.com/CourtHive/epixodic/commit/7b9f5662616529ea06d0bbec3606a3a903703442))
+* **deps:** update courthive-components to 7.11.0 ([#504](https://github.com/CourtHive/epixodic/issues/504)) ([d768319](https://github.com/CourtHive/epixodic/commit/d7683194700ea5e7e17bff3939256a5ab992bf47))
+* **deps:** update courthive-components to 7.9.0 ([#497](https://github.com/CourtHive/epixodic/issues/497)) ([7afa553](https://github.com/CourtHive/epixodic/commit/7afa5530653abeb066f12d4e45597578d941d0bf))
+* **deps:** update tods-competition-factory to 7.28.0 ([#496](https://github.com/CourtHive/epixodic/issues/496)) ([443870e](https://github.com/CourtHive/epixodic/commit/443870e9f0a56d77958d5d66481b847155c36760))
+* **deps:** update tods-competition-factory to 7.29.0 ([cb86df5](https://github.com/CourtHive/epixodic/commit/cb86df5cb4b6180669ca4bc6de2ef7ef5d1bd471))
+* **deps:** update tods-competition-factory to 7.30.0 ([#502](https://github.com/CourtHive/epixodic/issues/502)) ([0ee9041](https://github.com/CourtHive/epixodic/commit/0ee9041ae7ec81b4ca00c6fde137106db97d7d3a))
+* **deps:** update tods-competition-factory to 7.32.0 ([#506](https://github.com/CourtHive/epixodic/issues/506)) ([dbe8efc](https://github.com/CourtHive/epixodic/commit/dbe8efc86eecc8d3fbd9194d7a938a5b291dffb4))
+
 ## [2.7.1](https://github.com/CourtHive/epixodic/compare/v2.7.0...v2.7.1) (2026-11-01)
 
 
