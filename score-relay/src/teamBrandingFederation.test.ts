@@ -25,7 +25,10 @@ async function upstream(port = 0) {
 }
 
 it('replays metadata across an upstream relay restart while no new points arrive', async () => {
-  const snapshot = { matchUpId: 'idle', teams: { 1: { participantId: 'team', colors: { primary: '#AABBCC' } } } };
+  const snapshot = {
+    matchUpId: 'idle',
+    teams: { 1: { participantId: 'team', colors: { roles: { 'team.accent': '#AABBCC' } } } },
+  };
   setTeamBranding(snapshot);
   const first = await upstream();
   connectUpstream(`http://127.0.0.1:${first.port}`);

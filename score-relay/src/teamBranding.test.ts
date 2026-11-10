@@ -12,7 +12,11 @@ const frame = {
   matchUpId: 'one',
   tournamentId: 't',
   teams: {
-    1: { participantId: 'alpha', participantName: 'Alpha', colors: { primary: '#aabbcc', secondary: '#112233' } },
+    1: {
+      participantId: 'alpha',
+      participantName: 'Alpha',
+      colors: { roles: { 'team.accent': '#aabbcc', 'team.surface': '#112233' } },
+    },
     2: { participantId: 'beta', participantName: 'Beta' },
   },
 };
@@ -104,7 +108,7 @@ describe('teamBranding delivery and lifecycle', () => {
     await publish(tracker, frame);
     const previous = JSON.stringify(getMatch('one'));
     for (const invalid of [
-      { ...frame, teams: { 1: { participantId: 'alpha', colors: { primary: 'red' } } } },
+      { ...frame, teams: { 1: { participantId: 'alpha', colors: { roles: { 'team.accent': 'red' } } } } },
       { ...frame, tournamentId: 'other' },
     ]) {
       const rejected = event(tracker, 'error');

@@ -1668,14 +1668,15 @@
     matchUpId,
     (getTeamMatchUpState().teamMatchUp as any)?.tournamentId,
     getTeamMatchUpState().teamMatchUp?.sides ?? [],
+    (getTeamMatchUpState().teamMatchUp as any)?.teamPresentation,
   ));
 
   // Publish once on load and again on identity/branding refresh, even before the first point.
   $effect(() => sendTeamBranding(teamBranding));
 
   const layoutProps = $derived({
-    side1Color: teamBranding.teams[swapped ? 2 : 1]?.colors?.primary,
-    side2Color: teamBranding.teams[swapped ? 1 : 2]?.colors?.primary,
+    side1Colors: teamBranding.teams[swapped ? 2 : 1]?.colors,
+    side2Colors: teamBranding.teams[swapped ? 1 : 2]?.colors,
     side1Name: swapped ? side2Name : side1Name,
     side2Name: swapped ? side1Name : side2Name,
     boltLabel: boltLabel || `BOLT ${globalBoltNumber}`,

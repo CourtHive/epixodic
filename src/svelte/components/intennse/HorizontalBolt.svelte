@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { TeamDisplayColors } from 'courthive-components/team-colors';
   import PlayerPanel, { type PlayerSlot } from './PlayerPanel.svelte';
   import PenaltyBoxIndicator from './PenaltyBoxIndicator.svelte';
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
@@ -10,8 +11,8 @@
   import ControlBar from './ControlBar.svelte';
 
   let {
-    side1Color,
-    side2Color,
+    side1Colors,
+    side2Colors,
     side1Name = '',
     side2Name = '',
     boltLabel = '',
@@ -80,8 +81,8 @@
     sidesSwapped = false,
     compactFooter = false,
   }: {
-    side1Color?: string;
-    side2Color?: string;
+    side1Colors?: TeamDisplayColors;
+    side2Colors?: TeamDisplayColors;
     side1Name: string;
     side2Name: string;
     boltLabel: string;
@@ -180,10 +181,11 @@
   </div>
 
   <!-- Left side: Side 1 player + actions + penalty box -->
-  <div class="intennse-h-side intennse-h-side--left" style:border-top={`3px solid ${side1Color ?? 'transparent'}`}>
+  <div class="intennse-h-side intennse-h-side--left">
     <PlayerPanel
       players={side1Players}
       teamName={side1Name}
+      teamColors={side1Colors}
       isServingTeam={server === 0}
       {serveSide}
       side={1}
@@ -210,6 +212,7 @@
       {/if}
     {/if}
     <ScoreDisplay
+      {side1Colors} {side2Colors}
       side1Score={aggregateScore.side1}
       side2Score={aggregateScore.side2}
       {server}
@@ -266,10 +269,11 @@
   </div>
 
   <!-- Right side: Side 2 player + actions + penalty box -->
-  <div class="intennse-h-side intennse-h-side--right" style:border-top={`3px solid ${side2Color ?? 'transparent'}`}>
+  <div class="intennse-h-side intennse-h-side--right">
     <PlayerPanel
       players={side2Players}
       teamName={side2Name}
+      teamColors={side2Colors}
       isServingTeam={server === 1}
       {serveSide}
       side={2}

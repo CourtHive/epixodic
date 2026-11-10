@@ -16,7 +16,10 @@ vi.mock('socket.io-client', () => ({ io: () => h.socket }));
 import { disconnectAll, sendIntennseUpdate, sendTeamBranding } from '../scoreRelay';
 import { brandingFromSides } from '../../teamBranding';
 
-const frame = { matchUpId: 'one', teams: { 1: { participantId: 'a', colors: { primary: '#ffffff' } } } };
+const frame = {
+  matchUpId: 'one',
+  teams: { 1: { participantId: 'a', colors: { roles: { 'team.accent': '#ffffff' } } } },
+};
 beforeEach(() => {
   disconnectAll();
   h.socket.emit.mockClear();
@@ -52,7 +55,10 @@ it('maps by canonical side and TEAM identity while omitting invalid/private colo
       participant: {
         participantId: 'b',
         participantType: 'TEAM',
-        teamColors: { palette: [{ colorId: 'accent', value: '#aabbcc' }], display: { primary: 'accent' } },
+        teamColors: {
+          palette: [{ colorId: 'accent', value: '#aabbcc' }],
+          display: { roles: { 'team.accent': 'accent' } },
+        },
       },
     },
     {
@@ -60,11 +66,14 @@ it('maps by canonical side and TEAM identity while omitting invalid/private colo
       participant: {
         participantId: 'player',
         participantType: 'PAIR',
-        teamColors: { palette: [{ colorId: 'accent', value: '#ffffff' }], display: { primary: 'accent' } },
+        teamColors: {
+          palette: [{ colorId: 'accent', value: '#ffffff' }],
+          display: { roles: { 'team.accent': 'accent' } },
+        },
       },
     },
   ]);
-  expect(result.teams).toEqual({ 2: { participantId: 'b', colors: { primary: '#AABBCC' } } });
+  expect(result.teams).toEqual({ 2: { participantId: 'b', colors: { roles: { 'team.accent': '#AABBCC' } } } });
   expect(
     brandingFromSides('one', undefined, [{ sideNumber: 1, teamParticipant: { participantId: 'team' } }]).teams,
   ).toEqual({ 1: { participantId: 'team' } });
@@ -78,7 +87,10 @@ it('does not publish an explicitly non-TEAM hydrated identity', () => {
         teamParticipant: {
           participantId: 'pair',
           participantType: 'PAIR',
-          teamColors: { palette: [{ colorId: 'accent', value: '#FFFFFF' }], display: { primary: 'accent' } },
+          teamColors: {
+            palette: [{ colorId: 'accent', value: '#FFFFFF' }],
+            display: { roles: { 'team.accent': 'accent' } },
+          },
         },
       },
     ]).teams,
@@ -93,17 +105,42 @@ it('publishes only selected display values from a multi-color CODES palette', ()
       { colorId: 'black', value: '#000000', group: 'Primary' },
       { colorId: 'gold', value: '#fcd116', group: 'Primary' },
     ],
-    display: { primary: 'gold', secondary: 'red' },
+    display: { roles: { 'team.accent': 'gold', 'team.surface': 'red' } },
   };
   const side = { sideNumber: 1, teamParticipant: { participantId: 'team', teamColors } };
   const frame = brandingFromSides('one', undefined, [side]);
   sendTeamBranding(frame);
   expect(frames()).toEqual([
-    { matchUpId: 'one', teams: { 1: { participantId: 'team', colors: { primary: '#FCD116', secondary: '#CE1126' } } } },
+    {
+      matchUpId: 'one',
+      teams: {
+        1: { participantId: 'team', colors: { roles: { 'team.accent': '#FCD116', 'team.surface': '#CE1126' } } },
+      },
+    },
   ]);
   expect(JSON.stringify(frames())).not.toContain('palette');
   expect(JSON.stringify(frames())).not.toContain('group');
   expect(
     brandingFromSides('one', undefined, [{ ...side, teamParticipant: { participantId: 'team' } }]).teams[1],
   ).not.toHaveProperty('colors');
+});
+
+it('carries named role overrides without producer theme decisions or palette metadata', () => {
+  const team = {
+    participantId: 'alpha',
+    participantType: 'TEAM',
+    teamColors: {
+      palette: [
+        { colorId: 'navy', value: '#13294B' },
+        { colorId: 'white', value: '#FFFFFF' },
+      ],
+      display: { roles: { 'team.surface': 'navy', 'team.text': 'white' } },
+    },
+  };
+  const frame = brandingFromSides('one', undefined, [{ sideNumber: 2, participant: team }], {
+    roles: { 'score.surface': '#FFFFFF' },
+    teams: { alpha: { roles: { 'team.surface': { theme: true as const } } } },
+  });
+  expect(frame.teams[2]?.colors).toEqual({ roles: { 'team.text': '#FFFFFF', 'score.surface': '#FFFFFF' } });
+  expect(frame.teams[1]).toBeUndefined();
 });

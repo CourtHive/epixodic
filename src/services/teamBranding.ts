@@ -1,4 +1,4 @@
-import { resolveTeamColors } from 'courthive-components/team-colors';
+import { resolveTeamColors, type TeamPresentation } from 'courthive-components/team-colors';
 
 /** Low-frequency, complete replacement of a match's TEAM identities. Sides are canonical 1/2, never server 0/1. */
 export interface TeamBrandingSnapshot {
@@ -9,8 +9,7 @@ export interface TeamBrandingSnapshot {
 
 /** Resolved display values for the relay; this is not Participant.teamColors. */
 export interface TeamBrandColors {
-  primary: string;
-  secondary?: string;
+  roles: Partial<Record<'team.surface' | 'team.text' | 'team.accent' | 'score.surface' | 'score.text', string>>;
 }
 
 const object = (value: unknown): value is Record<string, unknown> =>
@@ -18,13 +17,16 @@ const object = (value: unknown): value is Record<string, unknown> =>
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 200;
 const hex = (value: unknown): value is string => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value);
 
+const roleNames = new Set(['team.surface', 'team.text', 'team.accent', 'score.surface', 'score.text']);
+
 export function normalizeDisplayColors(value: unknown): TeamBrandColors | undefined {
-  if (!object(value) || Object.keys(value).some((key) => key !== 'primary' && key !== 'secondary')) return undefined;
-  if (!hex(value.primary) || (value.secondary !== undefined && !hex(value.secondary))) return undefined;
-  return {
-    primary: value.primary.toUpperCase(),
-    ...(hex(value.secondary) && { secondary: value.secondary.toUpperCase() }),
-  };
+  if (!object(value) || Object.keys(value).some((key) => key !== 'roles') || !object(value.roles)) return undefined;
+  const roles: TeamBrandColors['roles'] = {};
+  for (const [role, color] of Object.entries(value.roles)) {
+    if (!roleNames.has(role) || !hex(color)) return undefined;
+    roles[role as keyof typeof roles] = color.toUpperCase();
+  }
+  return { roles };
 }
 
 /** Refuse malformed replacements atomically; only known fields cross the relay boundary. */
@@ -59,6 +61,7 @@ export function brandingFromSides(
   matchUpId: string,
   tournamentId: string | undefined,
   sides: any[],
+  presentation?: TeamPresentation,
 ): TeamBrandingSnapshot {
   const teams: TeamBrandingSnapshot['teams'] = {};
   for (const side of sides ?? []) {
@@ -66,7 +69,7 @@ export function brandingFromSides(
     const team = side.teamParticipant ?? (side.participant?.participantType === 'TEAM' ? side.participant : undefined);
     if (!id(team?.participantId)) continue;
     if (team.participantType !== undefined && team.participantType !== 'TEAM') continue;
-    const colors = resolveTeamColors(team.teamColors);
+    const colors = resolveTeamColors(team.teamColors, { participantId: team.participantId, presentation });
     teams[side.sideNumber as 1 | 2] = {
       participantId: team.participantId,
       ...(typeof team.participantName === 'string' && { participantName: team.participantName.slice(0, 200) }),

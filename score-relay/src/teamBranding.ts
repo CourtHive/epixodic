@@ -6,8 +6,7 @@ export interface TeamBrandingSnapshot {
 }
 
 export interface TeamBrandColors {
-  primary: string;
-  secondary?: string;
+  roles: Partial<Record<'team.surface' | 'team.text' | 'team.accent' | 'score.surface' | 'score.text', string>>;
 }
 
 const object = (value: unknown): value is Record<string, unknown> =>
@@ -15,13 +14,16 @@ const object = (value: unknown): value is Record<string, unknown> =>
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 200;
 const hex = (value: unknown): value is string => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value);
 
+const roleNames = new Set(['team.surface', 'team.text', 'team.accent', 'score.surface', 'score.text']);
+
 export function normalizeTeamColors(value: unknown): TeamBrandColors | undefined {
-  if (!object(value) || Object.keys(value).some((key) => key !== 'primary' && key !== 'secondary')) return undefined;
-  if (!hex(value.primary) || (value.secondary !== undefined && !hex(value.secondary))) return undefined;
-  return {
-    primary: value.primary.toUpperCase(),
-    ...(hex(value.secondary) && { secondary: value.secondary.toUpperCase() }),
-  };
+  if (!object(value) || Object.keys(value).some((key) => key !== 'roles') || !object(value.roles)) return undefined;
+  const roles: TeamBrandColors['roles'] = {};
+  for (const [role, color] of Object.entries(value.roles)) {
+    if (!roleNames.has(role) || !hex(color)) return undefined;
+    roles[role as keyof typeof roles] = color.toUpperCase();
+  }
+  return { roles };
 }
 
 /** Refuse malformed replacements atomically; only known fields cross the relay boundary. */

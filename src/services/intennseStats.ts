@@ -158,6 +158,7 @@ export function buildIntennseSnapshot(options: {
       options.matchUpId,
       options.tournamentId,
       getTeamMatchUpState().teamMatchUp?.sides ?? [],
+      (getTeamMatchUpState().teamMatchUp as any)?.teamPresentation,
     ),
     side1Name,
     side2Name,
