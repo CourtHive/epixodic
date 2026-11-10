@@ -1,3 +1,5 @@
+import { resolveTeamColors } from 'courthive-components/team-colors';
+
 /** Low-frequency, complete replacement of a match's TEAM identities. Sides are canonical 1/2, never server 0/1. */
 export interface TeamBrandingSnapshot {
   matchUpId: string;
@@ -5,6 +7,7 @@ export interface TeamBrandingSnapshot {
   teams: Partial<Record<1 | 2, { participantId: string; participantName?: string; colors?: TeamBrandColors }>>;
 }
 
+/** Resolved display values for the relay; this is not Participant.teamColors. */
 export interface TeamBrandColors {
   primary: string;
   secondary?: string;
@@ -15,7 +18,7 @@ const object = (value: unknown): value is Record<string, unknown> =>
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 200;
 const hex = (value: unknown): value is string => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value);
 
-export function normalizeTeamColors(value: unknown): TeamBrandColors | undefined {
+export function normalizeDisplayColors(value: unknown): TeamBrandColors | undefined {
   if (!object(value) || Object.keys(value).some((key) => key !== 'primary' && key !== 'secondary')) return undefined;
   if (!hex(value.primary) || (value.secondary !== undefined && !hex(value.secondary))) return undefined;
   return {
@@ -39,7 +42,7 @@ export function parseTeamBranding(value: unknown): TeamBrandingSnapshot | undefi
       (typeof team.participantName !== 'string' || team.participantName.length > 200)
     )
       return undefined;
-    const colors = team.colors === undefined ? undefined : normalizeTeamColors(team.colors);
+    const colors = team.colors === undefined ? undefined : normalizeDisplayColors(team.colors);
     if (team.colors !== undefined && !colors) return undefined;
     teams[side] = {
       participantId: team.participantId,
@@ -63,7 +66,7 @@ export function brandingFromSides(
     const team = side.teamParticipant ?? (side.participant?.participantType === 'TEAM' ? side.participant : undefined);
     if (!id(team?.participantId)) continue;
     if (team.participantType !== undefined && team.participantType !== 'TEAM') continue;
-    const colors = normalizeTeamColors(team.teamColors);
+    const colors = resolveTeamColors(team.teamColors);
     teams[side.sideNumber as 1 | 2] = {
       participantId: team.participantId,
       ...(typeof team.participantName === 'string' && { participantName: team.participantName.slice(0, 200) }),

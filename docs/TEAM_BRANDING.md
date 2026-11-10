@@ -1,10 +1,10 @@
 # TEAM branding
 
-TEAM colors live on the tournament participant as `teamColors: { primary, secondary? }`, opaque six-digit hex. Epixodic reads only hydrated TEAM sides; a participant privacy policy that excludes colors deliberately produces neutral branding. Individual/PAIR colors are never a source. The shared tournament scorecard opts into `renderScorecard({ teamBranding: true })`; explicit composition `configuration.sideColors` maps/callbacks remain authoritative, including partial/empty results.
+The CODES TEAM palette lives on the tournament participant as `teamColors: { palette, display }`: named hex entries with stable IDs, plus explicit accent/trim references. Epixodic uses the shared components resolver to obtain only the selected opaque hex values. The unmerged two-field storage proposal has no compatibility adapter. Full palettes and brand labels do not enter the relay event. Epixodic reads only hydrated TEAM sides; a participant privacy policy that excludes colors deliberately produces neutral branding. Individual/PAIR colors are never a source. The shared tournament scorecard opts into `renderScorecard({ teamBranding: true })`; explicit composition `configuration.sideColors` maps/callbacks remain authoritative, including partial/empty results.
 
 INTENNSE horizontal/vertical views draw accent borders and retain the existing readable text, score and serving colors. The display's side-swap projection moves team identity and colors together. Published relay sides stay canonical 1/2; `server` remains its separate legacy 0/1 contract.
 
-## Wire event
+## Wire event (selected display colors)
 
 `teamBranding` travels from the authenticated `/tracker` namespace to `/live`. It is a low-frequency complete metadata replacement, separate from `score`, `intennse` and 10 Hz ticks:
 

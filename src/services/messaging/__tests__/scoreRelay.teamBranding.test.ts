@@ -47,10 +47,21 @@ it('retains only the current match while offline and reconnects with its complet
 });
 it('maps by canonical side and TEAM identity while omitting invalid/private colors', () => {
   const result = brandingFromSides('one', undefined, [
-    { sideNumber: 2, participant: { participantId: 'b', participantType: 'TEAM', teamColors: { primary: '#aabbcc' } } },
+    {
+      sideNumber: 2,
+      participant: {
+        participantId: 'b',
+        participantType: 'TEAM',
+        teamColors: { palette: [{ colorId: 'accent', value: '#aabbcc' }], display: { primary: 'accent' } },
+      },
+    },
     {
       sideNumber: 1,
-      participant: { participantId: 'player', participantType: 'PAIR', teamColors: { primary: '#ffffff' } },
+      participant: {
+        participantId: 'player',
+        participantType: 'PAIR',
+        teamColors: { palette: [{ colorId: 'accent', value: '#ffffff' }], display: { primary: 'accent' } },
+      },
     },
   ]);
   expect(result.teams).toEqual({ 2: { participantId: 'b', colors: { primary: '#AABBCC' } } });
@@ -67,9 +78,32 @@ it('does not publish an explicitly non-TEAM hydrated identity', () => {
         teamParticipant: {
           participantId: 'pair',
           participantType: 'PAIR',
-          teamColors: { primary: '#FFFFFF' },
+          teamColors: { palette: [{ colorId: 'accent', value: '#FFFFFF' }], display: { primary: 'accent' } },
         },
       },
     ]).teams,
   ).toEqual({});
+});
+
+it('publishes only selected display values from a multi-color CODES palette', () => {
+  const teamColors = {
+    palette: [
+      { colorId: 'red', value: '#ce1126', group: 'Primary' },
+      { colorId: 'white', value: '#ffffff', group: 'Primary' },
+      { colorId: 'black', value: '#000000', group: 'Primary' },
+      { colorId: 'gold', value: '#fcd116', group: 'Primary' },
+    ],
+    display: { primary: 'gold', secondary: 'red' },
+  };
+  const side = { sideNumber: 1, teamParticipant: { participantId: 'team', teamColors } };
+  const frame = brandingFromSides('one', undefined, [side]);
+  sendTeamBranding(frame);
+  expect(frames()).toEqual([
+    { matchUpId: 'one', teams: { 1: { participantId: 'team', colors: { primary: '#FCD116', secondary: '#CE1126' } } } },
+  ]);
+  expect(JSON.stringify(frames())).not.toContain('palette');
+  expect(JSON.stringify(frames())).not.toContain('group');
+  expect(
+    brandingFromSides('one', undefined, [{ ...side, teamParticipant: { participantId: 'team' } }]).teams[1],
+  ).not.toHaveProperty('colors');
 });
