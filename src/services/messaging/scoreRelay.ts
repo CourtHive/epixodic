@@ -1,3 +1,4 @@
+import { parseTeamBranding, type TeamBrandingSnapshot } from '../teamBranding';
 import { getJwtTokenStorageKey } from '../../config/getJwtTokenStorageKey';
 import { browserStorage } from '../../state/browserStorage';
 import { io, Socket } from 'socket.io-client';
@@ -28,6 +29,9 @@ const relayConfig = getRelayConfig();
 let trackerSocket: Socket | null = null;
 let listenerSocket: Socket | null = null;
 
+// One current match, bounded for this producer's lifecycle; never enqueue static metadata on every point/tick.
+let latestBranding: TeamBrandingSnapshot | undefined;
+
 // --- Connection status ---
 
 export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -57,9 +61,15 @@ let errorLogged = false;
 let logAck = false;
 let logEmit = false;
 
-export function setRelayLogAck(on: boolean) { logAck = on; }
-export function setRelayLogEmit(on: boolean) { logEmit = on; }
-export function getRelayLogFlags() { return { logAck, logEmit }; }
+export function setRelayLogAck(on: boolean) {
+  logAck = on;
+}
+export function setRelayLogEmit(on: boolean) {
+  logEmit = on;
+}
+export function getRelayLogFlags() {
+  return { logAck, logEmit };
+}
 
 function attachStatusHandlers(socket: Socket, label: string) {
   socket.on('connect', () => {
@@ -144,6 +154,9 @@ export function connectTracker(): Socket {
   trackerSocket = socket;
 
   attachStatusHandlers(socket, 'tracker');
+  socket.on('connect', () => {
+    if (latestBranding) socket.emit('teamBranding', latestBranding);
+  });
 
   // A refusal by the relay's auth middleware leaves the socket inactive, and
   // Socket.IO does not retry it. Retry on a delay; the handshake re-reads the
@@ -306,15 +319,26 @@ export function sendClockSync(data: {
   tracker.emit('clockSync', data);
 }
 
+export function sendTeamBranding(data: unknown): void {
+  const snapshot = parseTeamBranding(data);
+  if (!snapshot || JSON.stringify(snapshot) === JSON.stringify(latestBranding)) return;
+  latestBranding = snapshot;
+  const tracker = connectTracker();
+  if (tracker.connected) tracker.emit('teamBranding', snapshot);
+}
+
 /**
  * Broadcast enriched INTENNSE update with per-player stats, aggregate scores,
  * penalty box state, and clock data. External displays subscribe to these
  * for rich scoreboard rendering.
  */
 export function sendIntennseUpdate(snapshot: any): void {
+  const { teamBranding, ...frame } = snapshot;
+  if (teamBranding) sendTeamBranding(teamBranding);
+  else if (latestBranding && latestBranding.matchUpId !== snapshot.matchUpId) latestBranding = undefined;
   const tracker = connectTracker();
   if (logEmit) console.log('[scoreRelay] emit intennse:', snapshot);
-  tracker.emit('intennse', snapshot);
+  tracker.emit('intennse', frame);
 }
 
 // --- Listener connection (for receiving live scores as a display/dashboard) ---
@@ -398,10 +422,7 @@ export function subscribeToMatch(
   };
 }
 
-export function subscribeToAll(
-  onScore: (update: any) => void,
-  onActive?: (matchIds: string[]) => void,
-): () => void {
+export function subscribeToAll(onScore: (update: any) => void, onActive?: (matchIds: string[]) => void): () => void {
   const socket = connectListener();
   const subscriber: AllSubscriber = { onScore, onActive };
 
@@ -415,6 +436,7 @@ export function subscribeToAll(
 }
 
 export function disconnectAll(): void {
+  latestBranding = undefined;
   trackerSocket?.disconnect();
   listenerSocket?.disconnect();
   trackerSocket = null;

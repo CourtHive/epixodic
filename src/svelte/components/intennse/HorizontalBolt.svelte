@@ -1,15 +1,17 @@
 <script lang="ts">
+  import PlayerPanel, { type PlayerSlot } from './PlayerPanel.svelte';
   import PenaltyBoxIndicator from './PenaltyBoxIndicator.svelte';
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
+  import PointHistoryStream from './PointHistoryStream.svelte';
+  import { isTimeoutButtonDisabled } from './boltControls';
   import ClockDisplay from './ClockDisplay.svelte';
   import ScoreDisplay from './ScoreDisplay.svelte';
   import ActionPanel from './ActionPanel.svelte';
-  import PlayerPanel, { type PlayerSlot } from './PlayerPanel.svelte';
   import ControlBar from './ControlBar.svelte';
-  import PointHistoryStream from './PointHistoryStream.svelte';
-  import { isTimeoutButtonDisabled } from './boltControls';
 
   let {
+    side1Color,
+    side2Color,
     side1Name = '',
     side2Name = '',
     boltLabel = '',
@@ -78,6 +80,8 @@
     sidesSwapped = false,
     compactFooter = false,
   }: {
+    side1Color?: string;
+    side2Color?: string;
     side1Name: string;
     side2Name: string;
     boltLabel: string;
@@ -176,7 +180,7 @@
   </div>
 
   <!-- Left side: Side 1 player + actions + penalty box -->
-  <div class="intennse-h-side intennse-h-side--left">
+  <div class="intennse-h-side intennse-h-side--left" style:border-top={`3px solid ${side1Color ?? 'transparent'}`}>
     <PlayerPanel
       players={side1Players}
       teamName={side1Name}
@@ -262,7 +266,7 @@
   </div>
 
   <!-- Right side: Side 2 player + actions + penalty box -->
-  <div class="intennse-h-side intennse-h-side--right">
+  <div class="intennse-h-side intennse-h-side--right" style:border-top={`3px solid ${side2Color ?? 'transparent'}`}>
     <PlayerPanel
       players={side2Players}
       teamName={side2Name}

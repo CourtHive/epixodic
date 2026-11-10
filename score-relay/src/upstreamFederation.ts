@@ -1,3 +1,4 @@
+import { getActiveMatchIds, getMatch } from './matchUpStore.js';
 import { io as ioClient, Socket } from 'socket.io-client';
 
 const MAX_BACKOFF_MS = 30_000;
@@ -33,6 +34,10 @@ export function connectUpstream(url: string, token?: string): (event: string, da
 
   upstream.on('connect', () => {
     console.log(`[federation] connected to upstream ${url}/tracker`);
+    for (const matchUpId of getActiveMatchIds()) {
+      const branding = getMatch(matchUpId)?.teamBranding;
+      if (branding) upstream?.emit('teamBranding', branding);
+    }
   });
 
   upstream.on('disconnect', (reason: string) => {

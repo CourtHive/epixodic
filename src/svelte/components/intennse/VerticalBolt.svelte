@@ -1,14 +1,16 @@
 <script lang="ts">
   import PenaltyBoxIndicator from './PenaltyBoxIndicator.svelte';
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
-  import ClockDisplay from './ClockDisplay.svelte';
-  import ActionPanel from './ActionPanel.svelte';
   import PointHistoryStream from './PointHistoryStream.svelte';
   import { isTimeoutButtonDisabled } from './boltControls';
-  import { getClockSnapshot } from '../../../clock';
   import type { PlayerSlot } from './PlayerPanel.svelte';
+  import { getClockSnapshot } from '../../../clock';
+  import ClockDisplay from './ClockDisplay.svelte';
+  import ActionPanel from './ActionPanel.svelte';
 
   let {
+    side1Color,
+    side2Color,
     side1Name = '',
     side2Name = '',
     boltLabel = '',
@@ -77,6 +79,8 @@
     onHistoryEntryTap,
     onDeleteChallengeEntry,
   }: {
+    side1Color?: string;
+    side2Color?: string;
     side1Name: string;
     side2Name: string;
     boltLabel: string;
@@ -276,7 +280,7 @@
       class="iv-score-side"
       class:iv-score-side--needs-select={!boltStarted && side1Players.length === 0}
     >
-      <span class="iv-team-name">{side1Name}</span>
+      <span class="iv-team-name" style:border-bottom={`3px solid ${side1Color ?? 'transparent'}`}>{side1Name}</span>
       <span class="iv-score-value" class:iv-score-value--pop={side1Pop}>{aggregateScore.side1}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 0}>{side1Label}</span>
     </div>
@@ -287,7 +291,7 @@
       class="iv-score-side"
       class:iv-score-side--needs-select={!boltStarted && side2Players.length === 0}
     >
-      <span class="iv-team-name">{side2Name}</span>
+      <span class="iv-team-name" style:border-bottom={`3px solid ${side2Color ?? 'transparent'}`}>{side2Name}</span>
       <span class="iv-score-value" class:iv-score-value--pop={side2Pop}>{aggregateScore.side2}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 1}>{side2Label}</span>
     </div>

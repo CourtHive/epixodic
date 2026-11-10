@@ -18,6 +18,7 @@
 
   function mountScorecard(node: HTMLElement) {
     const element = renderScorecard({
+      teamBranding: true,
       matchUp: matchUp as any,
       composition,
       swapSides,

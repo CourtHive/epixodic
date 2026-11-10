@@ -1,18 +1,25 @@
 <script lang="ts">
-  import HorizontalBolt from './HorizontalBolt.svelte';
-  import VerticalBolt from './VerticalBolt.svelte';
+  import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock, setClockRemaining } from '../../../clock';
+  import { sendScore, sendIntennseUpdate, sendClockSync, sendTeamBranding } from '../../../services/messaging/scoreRelay';
+  import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/matchUpHistoryApi';
+  import { submitOfficialScore } from '../../../services/messaging/scoreSubmitApi';
+  import { buildIntennseSnapshot } from '../../../services/intennseStats';
+  import { buildScoreOutcome } from '../../../intennse/buildScoreOutcome';
+  import PenaltyBoxDetailModal from './PenaltyBoxDetailModal.svelte';
+  import { brandingFromSides } from '../../../services/teamBranding';
+  import { getLoginState } from '../../../services/auth/loginState';
   import SubstitutionModal from './SubstitutionModal.svelte';
   import PlayerSelectModal from './PlayerSelectModal.svelte';
-  import CoinTossModal from './CoinTossModal.svelte';
-  import PenaltyModal from './PenaltyModal.svelte';
-  import PenaltyBoxDetailModal from './PenaltyBoxDetailModal.svelte';
   import PlayerTimeWarning from './PlayerTimeWarning.svelte';
   import PointDetailModal from './PointDetailModal.svelte';
-  import {
-    buildEditWinnerPayload,
-    buildWinnerEditDecorations,
-    type PointHistoryEntry,
-  } from './historyStream';
+  import { getAuthState } from '../../stores/auth.svelte';
+  import HorizontalBolt from './HorizontalBolt.svelte';
+  import LoginModal from '../shared/LoginModal.svelte';
+  import { fixtures } from 'tods-competition-factory';
+  import CoinTossModal from './CoinTossModal.svelte';
+  import VerticalBolt from './VerticalBolt.svelte';
+  import PenaltyModal from './PenaltyModal.svelte';
+  import { onMount, onDestroy } from 'svelte';
   import {
     getScoringState,
     getEngineState,
@@ -33,6 +40,19 @@
     recordChallengeEntry,
     removeChallengeEntry,
   } from '../../stores/scoringEngine.svelte';
+  import {
+    getTieMatchUp,
+    getTeamMatchUpState,
+    persistTieMatchUpState,
+    applyServerDocument,
+    restoreTeamMatchUp,
+    findParentMatchUpId,
+    setTeamMatchUp,
+    setTieMatchUpActiveParticipant,
+    setActiveTieMatchUp,
+    getNextTieMatchUpId,
+    getCompletedBoltCount,
+  } from '../../stores/teamMatchUp.svelte';
   import {
     getPlayerTimeState,
     registerPlayers,
@@ -58,44 +78,25 @@
     type BoltGender,
     type PenaltyPoint,
   } from '../../stores/penaltyBox.svelte';
-  import { buildIntennseSnapshot } from '../../../services/intennseStats';
-  import { sendScore, sendIntennseUpdate, sendClockSync } from '../../../services/messaging/scoreRelay';
-  import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock, setClockRemaining } from '../../../clock';
   import {
-    getTieMatchUp,
-    getTeamMatchUpState,
-    persistTieMatchUpState,
-    applyServerDocument,
-    restoreTeamMatchUp,
-    findParentMatchUpId,
-    setTeamMatchUp,
-    setTieMatchUpActiveParticipant,
-    setActiveTieMatchUp,
-    getNextTieMatchUpId,
-    getCompletedBoltCount,
-  } from '../../stores/teamMatchUp.svelte';
-  import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/matchUpHistoryApi';
-  import { getLoginState } from '../../../services/auth/loginState';
-  import { getAuthState } from '../../stores/auth.svelte';
-  import { submitOfficialScore } from '../../../services/messaging/scoreSubmitApi';
-  import { buildScoreOutcome } from '../../../intennse/buildScoreOutcome';
-  import LoginModal from '../shared/LoginModal.svelte';
-  import { fixtures } from 'tods-competition-factory';
-  import { onMount, onDestroy } from 'svelte';
+    buildEditWinnerPayload,
+    buildWinnerEditDecorations,
+    type PointHistoryEntry,
+  } from './historyStream';
 
   const INTENNSE_STANDARD = fixtures.competitionFormats.INTENNSE_STANDARD;
 
   // Business logic — independently testable
+  import { getServingState, getServeSide, updateSideServerIndices, type ServeSide } from '../../../intennse/servingRules';
+  import { getCurrentBoltScore, getAggregateScore } from '../../../intennse/scoreComputation';
   import { resolvePointAttribution, type Side } from '../../../intennse/pointRules';
+  import { getScoringPrefs } from '../../stores/scoringPrefs.svelte';
   import {
     onBoltStart, onRallyStart, onPointComplete, onTimeoutStart, onTimeoutEnd,
     BOLT_DURATION_MS, SERVE_CLOCK_DURATION_MS, BOLT_TICK_MS, SERVE_TICK_MS,
     setBoltDuration,
     type ClockCommand,
   } from '../../../intennse/clockOrchestration';
-  import { getCurrentBoltScore, getAggregateScore } from '../../../intennse/scoreComputation';
-  import { getServingState, getServeSide, updateSideServerIndices, type ServeSide } from '../../../intennse/servingRules';
-  import { getScoringPrefs } from '../../stores/scoringPrefs.svelte';
 
   let { matchUpId = '', boltLabel = '', side1Name: propSide1Name = '', side2Name: propSide2Name = '' }: {
     matchUpId: string;
@@ -1663,7 +1664,18 @@
   const flipSide = (side: Side): Side => swapped ? (1 - side) as Side : side;
   const flipSideNum = (side: 1 | 2): (1 | 2) => swapped ? (3 - side) as 1 | 2 : side;
 
+  const teamBranding = $derived(brandingFromSides(
+    matchUpId,
+    (getTeamMatchUpState().teamMatchUp as any)?.tournamentId,
+    getTeamMatchUpState().teamMatchUp?.sides ?? [],
+  ));
+
+  // Publish once on load and again on identity/branding refresh, even before the first point.
+  $effect(() => sendTeamBranding(teamBranding));
+
   const layoutProps = $derived({
+    side1Color: teamBranding.teams[swapped ? 2 : 1]?.colors?.primary,
+    side2Color: teamBranding.teams[swapped ? 1 : 2]?.colors?.primary,
     side1Name: swapped ? side2Name : side1Name,
     side2Name: swapped ? side1Name : side2Name,
     boltLabel: boltLabel || `BOLT ${globalBoltNumber}`,

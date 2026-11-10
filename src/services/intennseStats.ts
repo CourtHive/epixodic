@@ -1,3 +1,4 @@
+import { brandingFromSides, type TeamBrandingSnapshot } from './teamBranding';
 import { getTeamMatchUpState } from '../svelte/stores/teamMatchUp.svelte';
 import { getEngineState } from '../svelte/stores/scoringEngine.svelte';
 import { getAllCourtTimes } from '../svelte/stores/playerTime.svelte';
@@ -26,6 +27,7 @@ export interface ParticipantDetail {
 }
 
 export interface IntennseSnapshot {
+  teamBranding?: TeamBrandingSnapshot;
   matchUpId?: string;
   tournamentId?: string;
   boltScore: { side1: number; side2: number };
@@ -152,6 +154,11 @@ export function buildIntennseSnapshot(options: {
   const { roster, side1Name, side2Name } = buildRoster();
   return {
     ...options,
+    teamBranding: brandingFromSides(
+      options.matchUpId,
+      options.tournamentId,
+      getTeamMatchUpState().teamMatchUp?.sides ?? [],
+    ),
     side1Name,
     side2Name,
     playerStats: computePlayerStats(),
