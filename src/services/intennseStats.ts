@@ -1,4 +1,4 @@
-import { brandingFromSides, type TeamBrandingSnapshot } from './teamBranding';
+import { brandingForMatchUp, type TeamBrandingSnapshot } from './teamBranding';
 import { getTeamMatchUpState } from '../svelte/stores/teamMatchUp.svelte';
 import { getEngineState } from '../svelte/stores/scoringEngine.svelte';
 import { getAllCourtTimes } from '../svelte/stores/playerTime.svelte';
@@ -154,12 +154,7 @@ export function buildIntennseSnapshot(options: {
   const { roster, side1Name, side2Name } = buildRoster();
   return {
     ...options,
-    teamBranding: brandingFromSides(
-      options.matchUpId,
-      options.tournamentId,
-      getTeamMatchUpState().teamMatchUp?.sides ?? [],
-      (getTeamMatchUpState().teamMatchUp as any)?.teamPresentation,
-    ),
+    teamBranding: brandingForMatchUp(options.matchUpId, getTeamMatchUpState().teamMatchUp, options.tournamentId),
     side1Name,
     side2Name,
     playerStats: computePlayerStats(),

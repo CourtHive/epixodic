@@ -13,8 +13,15 @@ const h = vi.hoisted(() => {
   return { socket, handlers };
 });
 vi.mock('socket.io-client', () => ({ io: () => h.socket }));
-import { disconnectAll, sendIntennseUpdate, sendTeamBranding } from '../scoreRelay';
-import { brandingFromSides } from '../../teamBranding';
+import {
+  disconnectAll,
+  sendClockSync,
+  sendIntennseUpdate,
+  sendScore,
+  sendTeamBranding,
+  setScoredMatchUp,
+} from '../scoreRelay';
+import { brandingForMatchUp, brandingFromSides } from '../../teamBranding';
 
 const frame = {
   matchUpId: 'one',
@@ -37,16 +44,16 @@ it('deduplicates static metadata, strips it from per-point frames, and replays o
   for (const callback of h.handlers.get('connect') ?? []) callback();
   expect(frames()).toHaveLength(2);
   sendTeamBranding({ matchUpId: 'one', teams: {} });
-  expect(frames().pop()?.teams).toEqual({});
+  expect(frames()).toHaveLength(2);
 });
 it('retains only the current match while offline and reconnects with its complete replacement', () => {
   h.socket.connected = false;
   sendTeamBranding(frame);
-  sendTeamBranding({ matchUpId: 'two', teams: {} });
+  sendTeamBranding({ matchUpId: 'two', teams: { 1: { participantId: 'b' } } });
   expect(frames()).toHaveLength(0);
   h.socket.connected = true;
   for (const callback of h.handlers.get('connect') ?? []) callback();
-  expect(frames()).toEqual([{ matchUpId: 'two', teams: {} }]);
+  expect(frames()).toEqual([{ matchUpId: 'two', teams: { 1: { participantId: 'b' } } }]);
 });
 it('maps by canonical side and TEAM identity while omitting invalid/private colors', () => {
   const result = brandingFromSides('one', undefined, [
@@ -73,9 +80,9 @@ it('maps by canonical side and TEAM identity while omitting invalid/private colo
       },
     },
   ]);
-  expect(result.teams).toEqual({ 2: { participantId: 'b', colors: { roles: { 'team.accent': '#AABBCC' } } } });
+  expect(result?.teams).toEqual({ 2: { participantId: 'b', colors: { roles: { 'team.accent': '#AABBCC' } } } });
   expect(
-    brandingFromSides('one', undefined, [{ sideNumber: 1, teamParticipant: { participantId: 'team' } }]).teams,
+    brandingFromSides('one', undefined, [{ sideNumber: 1, teamParticipant: { participantId: 'team' } }])?.teams,
   ).toEqual({ 1: { participantId: 'team' } });
 });
 
@@ -93,8 +100,8 @@ it('does not publish an explicitly non-TEAM hydrated identity', () => {
           },
         },
       },
-    ]).teams,
-  ).toEqual({});
+    ]),
+  ).toBeUndefined();
 });
 
 it('publishes only selected display values from a multi-color CODES palette', () => {
@@ -121,7 +128,7 @@ it('publishes only selected display values from a multi-color CODES palette', ()
   expect(JSON.stringify(frames())).not.toContain('palette');
   expect(JSON.stringify(frames())).not.toContain('group');
   expect(
-    brandingFromSides('one', undefined, [{ ...side, teamParticipant: { participantId: 'team' } }]).teams[1],
+    brandingFromSides('one', undefined, [{ ...side, teamParticipant: { participantId: 'team' } }])?.teams[1],
   ).not.toHaveProperty('colors');
 });
 
@@ -141,6 +148,72 @@ it('carries named role overrides without producer theme decisions or palette met
     roles: { 'score.surface': '#FFFFFF' },
     teams: { alpha: { roles: { 'team.surface': { theme: true as const } } } },
   });
-  expect(frame.teams[2]?.colors).toEqual({ roles: { 'team.text': '#FFFFFF', 'score.surface': '#FFFFFF' } });
-  expect(frame.teams[1]).toBeUndefined();
+  expect(frame?.teams[2]?.colors).toEqual({ roles: { 'team.text': '#FFFFFF', 'score.surface': '#FFFFFF' } });
+  expect(frame?.teams[1]).toBeUndefined();
+});
+
+const sent = { ...frame, teams: { 1: { participantId: 'a', colors: { roles: { 'team.accent': '#FFFFFF' } } } } };
+const connect = () => {
+  for (const callback of h.handlers.get('connect') ?? []) callback();
+};
+const teamMatchUp = {
+  matchUpId: 'team-one',
+  tournamentId: 't',
+  tieMatchUps: [{ matchUpId: 'one' }],
+  sides: [{ sideNumber: 1, participant: { participantId: 'a', participantType: 'TEAM', participantName: 'A' } }],
+};
+
+it('builds branding only for the TEAM matchUp that owns the scored matchUp, and never an empty snapshot', () => {
+  expect(brandingForMatchUp('one', teamMatchUp)).toEqual({
+    matchUpId: 'one',
+    tournamentId: 't',
+    teams: { 1: { participantId: 'a', participantName: 'A' } },
+  });
+  expect(brandingForMatchUp('team-one', teamMatchUp)?.matchUpId).toBe('team-one');
+  // Still the previous match's TEAM matchUp, or none loaded yet.
+  expect(brandingForMatchUp('two', teamMatchUp)).toBeUndefined();
+  expect(brandingForMatchUp('one', null)).toBeUndefined();
+  expect(brandingForMatchUp(undefined, teamMatchUp)).toBeUndefined();
+  expect(brandingForMatchUp('one', { ...teamMatchUp, sides: [] })).toBeUndefined();
+  expect(brandingFromSides('one', undefined, [])).toBeUndefined();
+});
+
+it('never publishes a snapshot with no teams, so held branding is not erased', () => {
+  sendTeamBranding(frame);
+  sendTeamBranding({ matchUpId: 'one', teams: {} });
+  sendIntennseUpdate({ matchUpId: 'one', teamBranding: { matchUpId: 'one', teams: {} } });
+  expect(frames()).toEqual([sent]);
+  connect();
+  expect(frames()).toEqual([sent, sent]);
+});
+
+it('does not publish branding that names a different matchUp than the scored frame', () => {
+  sendIntennseUpdate({ matchUpId: 'two', teamBranding: frame });
+  expect(frames()).toHaveLength(0);
+  connect();
+  expect(frames()).toHaveLength(0);
+});
+
+it.each([
+  ['intennse', () => sendIntennseUpdate({ matchUpId: 'two', boltScore: 0 })],
+  ['score', () => sendScore({ matchUpId: 'two', score: {} })],
+  [
+    'clockSync',
+    () => sendClockSync({ matchUpId: 'two', boltTimerRemainingMs: 1, serveClockRemainingMs: 1, clockState: 'running' }),
+  ],
+  ['setScoredMatchUp', () => setScoredMatchUp('two')],
+])('drops the previous match branding when %s moves to a new match, so reconnect cannot replay it', (_, move) => {
+  sendTeamBranding(frame);
+  expect(frames()).toHaveLength(1);
+  move();
+  connect();
+  expect(frames()).toHaveLength(1);
+});
+
+it('keeps the current match branding across frames for the same match', () => {
+  sendTeamBranding(frame);
+  sendScore({ matchUpId: 'one', score: {} });
+  setScoredMatchUp('one');
+  connect();
+  expect(frames()).toEqual([sent, sent]);
 });

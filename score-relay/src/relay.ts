@@ -177,13 +177,16 @@ export function createRelay(io: Server, config: RelayConfig): void {
       forward?.('score', data);
     });
 
-    onFrame(socket, 'teamBranding', (data: unknown) => {
+    onFrame(socket, 'teamBranding', (data: any) => {
+      // Ownership + rate limit run on the raw frame BEFORE validation, so a malformed snapshot still
+      // costs a token and cannot buy an unthrottled stream of `error` replies. guardFrame stamps a
+      // score-audience token's tournamentId onto the frame, so the parsed snapshot keeps that scope.
+      if (!guardFrame(socket, data, controlLimits)) return;
       const snapshot = parseTeamBranding(data);
       if (!snapshot) {
         socket.emit('error', { message: 'Invalid teamBranding snapshot' });
         return;
       }
-      if (!guardFrame(socket, snapshot, controlLimits)) return;
       setTeamBranding(snapshot);
       listeners.to(snapshot.matchUpId).emit('teamBranding', snapshot);
       if (snapshot.tournamentId) listeners.to(`tournament:${snapshot.tournamentId}`).emit('teamBranding', snapshot);
@@ -499,14 +502,23 @@ function guardFrame(
   data: { matchUpId?: string; tournamentId?: string } | undefined,
   limits: TrackerLimits,
 ): boolean {
+  const socketData = socket.data as TrackerSocketData | undefined;
   if (!guardOwnership(socket, data)) {
+    // A refused frame still costs its sender a token, so refusals cannot be an unthrottled flood. It is
+    // charged to the socket (and user), never to the claimed matchUpId: a non-owner must not be able
+    // to drain the owner's bucket.
+    const limit = limits.tryConsume(`refused:${socket.id}`, socketData?.userId);
+    if (!limit.allowed) {
+      socket.emit('rejected', {
+        reason: limit.scope === 'user' ? 'user-rate-limited' : 'rate-limited',
+        retryAfter: limit.retryAfter,
+      });
+      return false;
+    }
     socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
     return false;
   }
-  // Shape-check before any state changes: a frame that would fail later in the
-  // handler must not be half-applied (stored and fanned out) first.
-  readStatus(data as { matchUpStatus?: unknown });
-  const socketData = socket.data as TrackerSocketData | undefined;
+  // Charge the token before the shape check, so a frame refused as malformed is throttled too.
   const limit = limits.tryConsume(data!.matchUpId!, socketData?.userId);
   if (!limit.allowed) {
     socket.emit('rejected', {
@@ -516,6 +528,9 @@ function guardFrame(
     });
     return false;
   }
+  // Shape-check before any state changes: a frame that would fail later in the
+  // handler must not be half-applied (stored and fanned out) first.
+  readStatus(data as { matchUpStatus?: unknown });
   return true;
 }
 

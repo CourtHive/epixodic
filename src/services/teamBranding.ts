@@ -30,6 +30,9 @@ export function normalizeDisplayColors(value: unknown): TeamBrandColors | undefi
 }
 
 /** Refuse malformed replacements atomically; only known fields cross the relay boundary. */
+export const hasTeams = (snapshot: TeamBrandingSnapshot | undefined): boolean =>
+  !!snapshot && (!!snapshot.teams[1] || !!snapshot.teams[2]);
+
 export function parseTeamBranding(value: unknown): TeamBrandingSnapshot | undefined {
   if (!object(value) || !id(value.matchUpId) || !object(value.teams)) return undefined;
   if (value.tournamentId !== undefined && !id(value.tournamentId)) return undefined;
@@ -56,13 +59,16 @@ export function parseTeamBranding(value: unknown): TeamBrandingSnapshot | undefi
   return { matchUpId: value.matchUpId, ...(id(value.tournamentId) && { tournamentId: value.tournamentId }), teams };
 }
 
-/** The hydrated TEAM object is the privacy boundary; never look up raw tournament participants here. */
+/** The hydrated TEAM object is the privacy boundary; never look up raw tournament participants here.
+ * Returns undefined when no side resolves to a TEAM: every frame is a whole replacement downstream,
+ * so an empty snapshot would erase branding a consumer already holds. */
 export function brandingFromSides(
   matchUpId: string,
   tournamentId: string | undefined,
   sides: any[],
   presentation?: TeamPresentation,
-): TeamBrandingSnapshot {
+): TeamBrandingSnapshot | undefined {
+  if (!id(matchUpId)) return undefined;
   const teams: TeamBrandingSnapshot['teams'] = {};
   for (const side of sides ?? []) {
     if (side.sideNumber !== 1 && side.sideNumber !== 2) continue;
@@ -76,5 +82,31 @@ export function brandingFromSides(
       ...(colors && { colors }),
     };
   }
+  if (!teams[1] && !teams[2]) return undefined;
   return { matchUpId, ...(tournamentId && { tournamentId }), teams };
+}
+
+/** True when `teamMatchUp` is the scored match or the TEAM parent of the scored tie matchUp. */
+export function teamMatchUpOwns(teamMatchUp: any, matchUpId: string | undefined): boolean {
+  if (!id(matchUpId) || !teamMatchUp) return false;
+  if (teamMatchUp.matchUpId === matchUpId) return true;
+  return (teamMatchUp.tieMatchUps ?? []).some((tieMatchUp: any) => tieMatchUp?.matchUpId === matchUpId);
+}
+
+/**
+ * Branding for the scored matchUp, or undefined while the loaded TEAM matchUp is missing or still
+ * belongs to a previous match: publishing another match's teams (or none) would replace good branding.
+ */
+export function brandingForMatchUp(
+  matchUpId: string | undefined,
+  teamMatchUp: any,
+  tournamentId?: string,
+): TeamBrandingSnapshot | undefined {
+  if (!teamMatchUpOwns(teamMatchUp, matchUpId)) return undefined;
+  return brandingFromSides(
+    matchUpId,
+    tournamentId ?? teamMatchUp.tournamentId,
+    teamMatchUp.sides ?? [],
+    teamMatchUp.teamPresentation,
+  );
 }

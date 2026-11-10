@@ -141,6 +141,48 @@ describe('teamBranding delivery and lifecycle', () => {
     expect(getMatch('one')).toBeUndefined();
     expect(getMatch('unbranded-legacy')).toBeUndefined();
   });
+  it.each([
+    ['pruned', () => expect(pruneStaleMatches(-1)).toBe(1)],
+    ['removed', () => removeMatch('one')],
+  ])('stops replaying branding once its match is %s', async (_, drop) => {
+    const tracker = await client('tracker');
+    await publish(tracker, frame);
+    drop();
+    // A later score for the same id must not resurrect the dropped branding.
+    updateMatch({ matchUpId: 'one', tournamentId: 't', score: { sets: [] } });
+    const listener = await client('live');
+    const replayed: unknown[] = [];
+    listener.on('teamBranding', (data) => replayed.push(data));
+    const score = event(listener, 'score');
+    listener.emit('subscribe', 'one');
+    listener.emit('subscribe:tournament', 't');
+    // Frames arrive in order, so `active` lands after every replay the earlier subscribes produced.
+    const active = event(listener, 'active');
+    listener.emit('subscribe:all');
+    await score;
+    expect(await active).toEqual(['one']);
+    expect(replayed).toEqual([]);
+  });
+  it('rate-limits malformed snapshots before validating them, so refusals cannot flood', async () => {
+    const tracker = await client('tracker');
+    const errors: unknown[] = [];
+    tracker.on('error', (data) => errors.push(data));
+    const rejected = event(tracker, 'rejected');
+    for (let index = 0; index < 11; index++)
+      tracker.emit('teamBranding', { matchUpId: 'malformed', teams: { 1: { participantId: '' } } });
+    expect(await rejected).toMatchObject({ matchUpId: 'malformed', reason: 'rate-limited' });
+    expect(errors).toHaveLength(10);
+    expect(getMatch('malformed')).toBeUndefined();
+  });
+  it('rate-limits frames refused for a missing matchUpId against the sender, not a claimed match', async () => {
+    const tracker = await client('tracker');
+    const rejected = event(tracker, 'rejected');
+    for (let index = 0; index < 11; index++) tracker.emit('teamBranding', { teams: {} });
+    expect((await rejected).reason).toBe('rate-limited');
+    // The sender's refusals spent no token from a real match's bucket.
+    await publish(tracker, frame);
+    expect(getMatch('one')?.teamBranding).toEqual(parseTeamBranding(frame));
+  });
 });
 
 it('refuses invalid side numbering, duplicate identities, unknown color keys and malformed hex', () => {

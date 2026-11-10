@@ -1,12 +1,12 @@
 <script lang="ts">
   import { getClockSnapshot, createClock, destroyClock, restartClock, pauseClock, resumeClock, setClockRemaining } from '../../../clock';
-  import { sendScore, sendIntennseUpdate, sendClockSync, sendTeamBranding } from '../../../services/messaging/scoreRelay';
+  import { sendScore, sendIntennseUpdate, sendClockSync, sendTeamBranding, setScoredMatchUp } from '../../../services/messaging/scoreRelay';
   import { fetchParentMatchUp, hydrateBoltHistoryOnMount } from '../../../services/messaging/matchUpHistoryApi';
   import { submitOfficialScore } from '../../../services/messaging/scoreSubmitApi';
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { buildScoreOutcome } from '../../../intennse/buildScoreOutcome';
   import PenaltyBoxDetailModal from './PenaltyBoxDetailModal.svelte';
-  import { brandingFromSides } from '../../../services/teamBranding';
+  import { brandingForMatchUp } from '../../../services/teamBranding';
   import { getLoginState } from '../../../services/auth/loginState';
   import SubstitutionModal from './SubstitutionModal.svelte';
   import PlayerSelectModal from './PlayerSelectModal.svelte';
@@ -1664,19 +1664,19 @@
   const flipSide = (side: Side): Side => swapped ? (1 - side) as Side : side;
   const flipSideNum = (side: 1 | 2): (1 | 2) => swapped ? (3 - side) as 1 | 2 : side;
 
-  const teamBranding = $derived(brandingFromSides(
-    matchUpId,
-    (getTeamMatchUpState().teamMatchUp as any)?.tournamentId,
-    getTeamMatchUpState().teamMatchUp?.sides ?? [],
-    (getTeamMatchUpState().teamMatchUp as any)?.teamPresentation,
-  ));
+  // Undefined while the loaded TEAM matchUp is missing or still the previous match's.
+  const teamBranding = $derived(brandingForMatchUp(matchUpId, getTeamMatchUpState().teamMatchUp));
 
   // Publish once on load and again on identity/branding refresh, even before the first point.
-  $effect(() => sendTeamBranding(teamBranding));
+  // With no branding for this match, still drop the previous match's so a reconnect cannot replay it.
+  $effect(() => {
+    if (teamBranding) sendTeamBranding(teamBranding);
+    else setScoredMatchUp(matchUpId);
+  });
 
   const layoutProps = $derived({
-    side1Colors: teamBranding.teams[swapped ? 2 : 1]?.colors,
-    side2Colors: teamBranding.teams[swapped ? 1 : 2]?.colors,
+    side1Colors: teamBranding?.teams[swapped ? 2 : 1]?.colors,
+    side2Colors: teamBranding?.teams[swapped ? 1 : 2]?.colors,
     side1Name: swapped ? side2Name : side1Name,
     side2Name: swapped ? side1Name : side2Name,
     boltLabel: boltLabel || `BOLT ${globalBoltNumber}`,

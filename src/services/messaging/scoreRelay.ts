@@ -1,4 +1,4 @@
-import { parseTeamBranding, type TeamBrandingSnapshot } from '../teamBranding';
+import { hasTeams, parseTeamBranding, type TeamBrandingSnapshot } from '../teamBranding';
 import { getJwtTokenStorageKey } from '../../config/getJwtTokenStorageKey';
 import { browserStorage } from '../../state/browserStorage';
 import { io, Socket } from 'socket.io-client';
@@ -253,6 +253,7 @@ export function sendScore(update: {
   matchUpStatus?: string;
   winningSide?: number;
 }): void {
+  setScoredMatchUp(update.matchUpId);
   const tracker = connectTracker();
   const { points, ...frame } = update;
   let payload: Record<string, any> = frame;
@@ -314,14 +315,24 @@ export function sendClockSync(data: {
   /** 'running' | 'paused' | 'completed' */
   clockState: string;
 }): void {
+  setScoredMatchUp(data.matchUpId);
   const tracker = connectTracker();
   if (logEmit) console.log('[scoreRelay] emit clockSync:', data);
   tracker.emit('clockSync', data);
 }
 
+/**
+ * Declare which matchUp this producer is scoring. Branding held for any other match is dropped, so
+ * the replay on (re)connect can never re-send the previous match's teams.
+ */
+export function setScoredMatchUp(matchUpId: string | undefined): void {
+  if (latestBranding && latestBranding.matchUpId !== matchUpId) latestBranding = undefined;
+}
+
+/** A snapshot with no teams is refused: consumers replace wholesale, so it would erase good branding. */
 export function sendTeamBranding(data: unknown): void {
   const snapshot = parseTeamBranding(data);
-  if (!snapshot || JSON.stringify(snapshot) === JSON.stringify(latestBranding)) return;
+  if (!hasTeams(snapshot) || JSON.stringify(snapshot) === JSON.stringify(latestBranding)) return;
   latestBranding = snapshot;
   const tracker = connectTracker();
   if (tracker.connected) tracker.emit('teamBranding', snapshot);
@@ -334,8 +345,9 @@ export function sendTeamBranding(data: unknown): void {
  */
 export function sendIntennseUpdate(snapshot: any): void {
   const { teamBranding, ...frame } = snapshot;
-  if (teamBranding) sendTeamBranding(teamBranding);
-  else if (latestBranding && latestBranding.matchUpId !== snapshot.matchUpId) latestBranding = undefined;
+  setScoredMatchUp(snapshot.matchUpId);
+  // Only the scored match's branding may ride along; anything else would be replayed as this match's.
+  if (teamBranding?.matchUpId === snapshot.matchUpId) sendTeamBranding(teamBranding);
   const tracker = connectTracker();
   if (logEmit) console.log('[scoreRelay] emit intennse:', snapshot);
   tracker.emit('intennse', frame);
