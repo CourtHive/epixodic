@@ -1,14 +1,17 @@
 <script lang="ts">
+  import { teamRoleStyles, type TeamDisplayColors } from 'courthive-components/team-colors';
   import PenaltyBoxIndicator from './PenaltyBoxIndicator.svelte';
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
-  import ClockDisplay from './ClockDisplay.svelte';
-  import ActionPanel from './ActionPanel.svelte';
   import PointHistoryStream from './PointHistoryStream.svelte';
   import { isTimeoutButtonDisabled } from './boltControls';
-  import { getClockSnapshot } from '../../../clock';
   import type { PlayerSlot } from './PlayerPanel.svelte';
+  import { getClockSnapshot } from '../../../clock';
+  import ClockDisplay from './ClockDisplay.svelte';
+  import ActionPanel from './ActionPanel.svelte';
 
   let {
+    side1Colors,
+    side2Colors,
     side1Name = '',
     side2Name = '',
     boltLabel = '',
@@ -77,6 +80,8 @@
     onHistoryEntryTap,
     onDeleteChallengeEntry,
   }: {
+    side1Colors?: TeamDisplayColors;
+    side2Colors?: TeamDisplayColors;
     side1Name: string;
     side2Name: string;
     boltLabel: string;
@@ -276,8 +281,8 @@
       class="iv-score-side"
       class:iv-score-side--needs-select={!boltStarted && side1Players.length === 0}
     >
-      <span class="iv-team-name">{side1Name}</span>
-      <span class="iv-score-value" class:iv-score-value--pop={side1Pop}>{aggregateScore.side1}</span>
+      <span class="iv-team-name" style={teamRoleStyles(side1Colors, { background: '#111827', text: '#FFFFFF' })}>{side1Name}</span>
+      <span class="iv-score-value" class:iv-score-value--pop={side1Pop} style={teamRoleStyles(side1Colors, { background: '#111827', text: '#FFFFFF' }, 'score')}>{aggregateScore.side1}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 0}>{side1Label}</span>
     </div>
 
@@ -287,8 +292,8 @@
       class="iv-score-side"
       class:iv-score-side--needs-select={!boltStarted && side2Players.length === 0}
     >
-      <span class="iv-team-name">{side2Name}</span>
-      <span class="iv-score-value" class:iv-score-value--pop={side2Pop}>{aggregateScore.side2}</span>
+      <span class="iv-team-name" style={teamRoleStyles(side2Colors, { background: '#111827', text: '#FFFFFF' })}>{side2Name}</span>
+      <span class="iv-score-value" class:iv-score-value--pop={side2Pop} style={teamRoleStyles(side2Colors, { background: '#111827', text: '#FFFFFF' }, 'score')}>{aggregateScore.side2}</span>
       <span class="iv-player-name" class:iv-player-name--serving={server === 1}>{side2Label}</span>
     </div>
   </div>

@@ -1,6 +1,15 @@
+import { extractTrackerToken, TrackerAuthError, verifyTrackerToken, type TrackerSocketData } from './trackerAuth.js';
+import { persistPoint, persistPointCorrection } from './pointHistoryPersistence.js';
+import { connectUpstream } from './upstreamFederation.js';
+import { broadcastLiveScore } from './liveBroadcast.js';
+import { persistMatchHistory } from './persistence.js';
+import { parseTeamBranding } from './teamBranding.js';
+import { TrackerLimits } from './trackerLimits.js';
+import { ConnectLimits } from './connectLimits.js';
 import { Server, Socket } from 'socket.io';
 import {
   setMatchHistory,
+  setTeamBranding,
   getMatch,
   getActiveMatchIds,
   getMatchUpsByTournament,
@@ -10,19 +19,9 @@ import {
   setClockTimer,
   clearClockTimer,
 } from './matchUpStore.js';
-import { persistPoint, persistPointCorrection } from './pointHistoryPersistence.js';
-import { connectUpstream } from './upstreamFederation.js';
-import { persistMatchHistory } from './persistence.js';
-import {
-  extractTrackerToken,
-  TrackerAuthError,
-  verifyTrackerToken,
-  type TrackerSocketData,
-} from './trackerAuth.js';
+
+// constants and types
 import type { ScoreUpdate, MatchHistory, PointsCorrection, RelayConfig, RelayMetrics } from './types.js';
-import { broadcastLiveScore } from './liveBroadcast.js';
-import { TrackerLimits } from './trackerLimits.js';
-import { ConnectLimits } from './connectLimits.js';
 
 /** Far above any match's point count, so the cap only bounds a hostile frame. */
 const MAX_CORRECTION_POINTS = 5000;
@@ -49,9 +48,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
   const tickerIdleMs = (config.tickerIdleTimeoutSeconds ?? 1800) * 1000;
 
   // Upstream federation: forward tracker events to the cloud relay
-  const forward = config.upstreamRelayUrl
-    ? connectUpstream(config.upstreamRelayUrl, config.upstreamRelayToken)
-    : null;
+  const forward = config.upstreamRelayUrl ? connectUpstream(config.upstreamRelayUrl, config.upstreamRelayToken) : null;
 
   // --- Tracker namespace: mobile trackers push scores here ---
   const tracker = io.of('/tracker');
@@ -137,7 +134,9 @@ export function createRelay(io: Server, config: RelayConfig): void {
   tracker.on('connection', (socket: Socket) => {
     trackerCount++;
     const socketData = socket.data as TrackerSocketData;
-    console.log(`[tracker] connected: ${socket.id} user=${socketData.userId} aud=${socketData.audience} (${trackerCount} active)`);
+    console.log(
+      `[tracker] connected: ${socket.id} user=${socketData.userId} aud=${socketData.audience} (${trackerCount} active)`,
+    );
 
     onFrame(socket, 'score', (data: ScoreUpdate) => {
       if (!guardFrame(socket, data, trackerLimits)) return;
@@ -176,6 +175,24 @@ export function createRelay(io: Server, config: RelayConfig): void {
       }
 
       forward?.('score', data);
+    });
+
+    onFrame(socket, 'teamBranding', (data: any) => {
+      // Ownership + rate limit run on the raw frame BEFORE validation, so a malformed snapshot still
+      // costs a token and cannot buy an unthrottled stream of `error` replies. guardFrame stamps a
+      // score-audience token's tournamentId onto the frame, so the parsed snapshot keeps that scope.
+      if (!guardFrame(socket, data, controlLimits)) return;
+      const snapshot = parseTeamBranding(data);
+      if (!snapshot) {
+        socket.emit('error', { message: 'Invalid teamBranding snapshot' });
+        return;
+      }
+      setTeamBranding(snapshot);
+      listeners.to(snapshot.matchUpId).emit('teamBranding', snapshot);
+      if (snapshot.tournamentId) listeners.to(`tournament:${snapshot.tournamentId}`).emit('teamBranding', snapshot);
+      listeners.to('all').emit('teamBranding', snapshot);
+      socket.emit('ack', { matchUpId: snapshot.matchUpId, received: true });
+      forward?.('teamBranding', snapshot);
     });
 
     // INTENNSE enriched snapshots: fan out to listeners + anchor clocks
@@ -245,7 +262,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
         running,
         activeClock,
         serveClockRunning,
-        activeClockRemainingMs: typeof data.activeClockRemainingMs === 'number' ? data.activeClockRemainingMs : undefined,
+        activeClockRemainingMs:
+          typeof data.activeClockRemainingMs === 'number' ? data.activeClockRemainingMs : undefined,
         tournamentId: data.tournamentId,
       });
 
@@ -327,6 +345,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
       const match = getMatch(matchUpId);
       if (match) {
         socket.emit('score', match.lastUpdate);
+        if (match.teamBranding) socket.emit('teamBranding', match.teamBranding);
       }
     });
 
@@ -345,6 +364,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
       const matches = getMatchUpsByTournament(tournamentId);
       for (const update of matches) {
         socket.emit('score', update);
+        const branding = getMatch(update.matchUpId)?.teamBranding;
+        if (branding) socket.emit('teamBranding', branding);
       }
     });
 
@@ -359,6 +380,10 @@ export function createRelay(io: Server, config: RelayConfig): void {
 
       // Send list of active matches
       socket.emit('active', getActiveMatchIds());
+      for (const matchUpId of getActiveMatchIds()) {
+        const branding = getMatch(matchUpId)?.teamBranding;
+        if (branding) socket.emit('teamBranding', branding);
+      }
     });
 
     onFrame(socket, 'unsubscribe:all', () => {
@@ -412,9 +437,8 @@ export function createRelay(io: Server, config: RelayConfig): void {
         : anchor.serveRemainingMs;
 
       // For timeout/break clocks, extrapolate the secondary countdown.
-      const activeClockMs = anchor.activeClockRemainingMs !== undefined
-        ? Math.max(0, anchor.activeClockRemainingMs - elapsed)
-        : undefined;
+      const activeClockMs =
+        anchor.activeClockRemainingMs !== undefined ? Math.max(0, anchor.activeClockRemainingMs - elapsed) : undefined;
 
       const tickPayload = {
         kind: 'tick' as const,
@@ -424,9 +448,9 @@ export function createRelay(io: Server, config: RelayConfig): void {
         serveClockRemainingMs: serveMs,
         // Only include the secondary clock when it's the active one.
         ...(anchor.activeClock === 'timeout' && activeClockMs !== undefined
-          ? { timeoutRemainingMs: activeClockMs } : {}),
-        ...(anchor.activeClock === 'break' && activeClockMs !== undefined
-          ? { breakRemainingMs: activeClockMs } : {}),
+          ? { timeoutRemainingMs: activeClockMs }
+          : {}),
+        ...(anchor.activeClock === 'break' && activeClockMs !== undefined ? { breakRemainingMs: activeClockMs } : {}),
         generatedAt: new Date().toISOString(),
       };
 
@@ -478,14 +502,23 @@ function guardFrame(
   data: { matchUpId?: string; tournamentId?: string } | undefined,
   limits: TrackerLimits,
 ): boolean {
+  const socketData = socket.data as TrackerSocketData | undefined;
   if (!guardOwnership(socket, data)) {
+    // A refused frame still costs its sender a token, so refusals cannot be an unthrottled flood. It is
+    // charged to the socket (and user), never to the claimed matchUpId: a non-owner must not be able
+    // to drain the owner's bucket.
+    const limit = limits.tryConsume(`refused:${socket.id}`, socketData?.userId);
+    if (!limit.allowed) {
+      socket.emit('rejected', {
+        reason: limit.scope === 'user' ? 'user-rate-limited' : 'rate-limited',
+        retryAfter: limit.retryAfter,
+      });
+      return false;
+    }
     socket.emit('error', { message: 'matchUpId required or tournament-mismatch' });
     return false;
   }
-  // Shape-check before any state changes: a frame that would fail later in the
-  // handler must not be half-applied (stored and fanned out) first.
-  readStatus(data as { matchUpStatus?: unknown });
-  const socketData = socket.data as TrackerSocketData | undefined;
+  // Charge the token before the shape check, so a frame refused as malformed is throttled too.
   const limit = limits.tryConsume(data!.matchUpId!, socketData?.userId);
   if (!limit.allowed) {
     socket.emit('rejected', {
@@ -495,6 +528,9 @@ function guardFrame(
     });
     return false;
   }
+  // Shape-check before any state changes: a frame that would fail later in the
+  // handler must not be half-applied (stored and fanned out) first.
+  readStatus(data as { matchUpStatus?: unknown });
   return true;
 }
 
@@ -507,10 +543,7 @@ function guardFrame(
  * to that tournament — otherwise an omit-tournamentId frame would slip
  * the mismatch check and reach `listeners.to('all')` as if global.
  */
-function guardOwnership(
-  socket: Socket,
-  data: { matchUpId?: string; tournamentId?: string } | undefined,
-): boolean {
+function guardOwnership(socket: Socket, data: { matchUpId?: string; tournamentId?: string } | undefined): boolean {
   if (!data || typeof data !== 'object' || !isId(data.matchUpId)) return false;
   if (data.tournamentId !== undefined && !isId(data.tournamentId)) return false;
   const socketData = socket.data as TrackerSocketData | undefined;

@@ -1,3 +1,4 @@
+import { hasTeams, parseTeamBranding, type TeamBrandingSnapshot } from '../teamBranding';
 import { getJwtTokenStorageKey } from '../../config/getJwtTokenStorageKey';
 import { browserStorage } from '../../state/browserStorage';
 import { io, Socket } from 'socket.io-client';
@@ -28,6 +29,9 @@ const relayConfig = getRelayConfig();
 let trackerSocket: Socket | null = null;
 let listenerSocket: Socket | null = null;
 
+// One current match, bounded for this producer's lifecycle; never enqueue static metadata on every point/tick.
+let latestBranding: TeamBrandingSnapshot | undefined;
+
 // --- Connection status ---
 
 export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -57,9 +61,15 @@ let errorLogged = false;
 let logAck = false;
 let logEmit = false;
 
-export function setRelayLogAck(on: boolean) { logAck = on; }
-export function setRelayLogEmit(on: boolean) { logEmit = on; }
-export function getRelayLogFlags() { return { logAck, logEmit }; }
+export function setRelayLogAck(on: boolean) {
+  logAck = on;
+}
+export function setRelayLogEmit(on: boolean) {
+  logEmit = on;
+}
+export function getRelayLogFlags() {
+  return { logAck, logEmit };
+}
 
 function attachStatusHandlers(socket: Socket, label: string) {
   socket.on('connect', () => {
@@ -144,6 +154,9 @@ export function connectTracker(): Socket {
   trackerSocket = socket;
 
   attachStatusHandlers(socket, 'tracker');
+  socket.on('connect', () => {
+    if (latestBranding) socket.emit('teamBranding', latestBranding);
+  });
 
   // A refusal by the relay's auth middleware leaves the socket inactive, and
   // Socket.IO does not retry it. Retry on a delay; the handshake re-reads the
@@ -240,6 +253,7 @@ export function sendScore(update: {
   matchUpStatus?: string;
   winningSide?: number;
 }): void {
+  setScoredMatchUp(update.matchUpId);
   const tracker = connectTracker();
   const { points, ...frame } = update;
   let payload: Record<string, any> = frame;
@@ -301,9 +315,27 @@ export function sendClockSync(data: {
   /** 'running' | 'paused' | 'completed' */
   clockState: string;
 }): void {
+  setScoredMatchUp(data.matchUpId);
   const tracker = connectTracker();
   if (logEmit) console.log('[scoreRelay] emit clockSync:', data);
   tracker.emit('clockSync', data);
+}
+
+/**
+ * Declare which matchUp this producer is scoring. Branding held for any other match is dropped, so
+ * the replay on (re)connect can never re-send the previous match's teams.
+ */
+export function setScoredMatchUp(matchUpId: string | undefined): void {
+  if (latestBranding && latestBranding.matchUpId !== matchUpId) latestBranding = undefined;
+}
+
+/** A snapshot with no teams is refused: consumers replace wholesale, so it would erase good branding. */
+export function sendTeamBranding(data: unknown): void {
+  const snapshot = parseTeamBranding(data);
+  if (!hasTeams(snapshot) || JSON.stringify(snapshot) === JSON.stringify(latestBranding)) return;
+  latestBranding = snapshot;
+  const tracker = connectTracker();
+  if (tracker.connected) tracker.emit('teamBranding', snapshot);
 }
 
 /**
@@ -312,9 +344,13 @@ export function sendClockSync(data: {
  * for rich scoreboard rendering.
  */
 export function sendIntennseUpdate(snapshot: any): void {
+  const { teamBranding, ...frame } = snapshot;
+  setScoredMatchUp(snapshot.matchUpId);
+  // Only the scored match's branding may ride along; anything else would be replayed as this match's.
+  if (teamBranding?.matchUpId === snapshot.matchUpId) sendTeamBranding(teamBranding);
   const tracker = connectTracker();
   if (logEmit) console.log('[scoreRelay] emit intennse:', snapshot);
-  tracker.emit('intennse', snapshot);
+  tracker.emit('intennse', frame);
 }
 
 // --- Listener connection (for receiving live scores as a display/dashboard) ---
@@ -398,10 +434,7 @@ export function subscribeToMatch(
   };
 }
 
-export function subscribeToAll(
-  onScore: (update: any) => void,
-  onActive?: (matchIds: string[]) => void,
-): () => void {
+export function subscribeToAll(onScore: (update: any) => void, onActive?: (matchIds: string[]) => void): () => void {
   const socket = connectListener();
   const subscriber: AllSubscriber = { onScore, onActive };
 
@@ -415,6 +448,7 @@ export function subscribeToAll(
 }
 
 export function disconnectAll(): void {
+  latestBranding = undefined;
   trackerSocket?.disconnect();
   listenerSocket?.disconnect();
   trackerSocket = null;
