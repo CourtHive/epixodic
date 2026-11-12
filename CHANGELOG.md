@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.9.0](https://github.com/CourtHive/epixodic/compare/v2.8.0...v2.9.0) (2026-11-12)
+
+
+### Features
+
+* propagate named team display roles through scoring and relay ([#513](https://github.com/CourtHive/epixodic/issues/513)) ([f26b961](https://github.com/CourtHive/epixodic/commit/f26b9610b678b77fe85bedb5d4011462f9b34391))
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 7.16.0 ([#515](https://github.com/CourtHive/epixodic/issues/515)) ([343131a](https://github.com/CourtHive/epixodic/commit/343131a81acc64ac1967b9365293f41a03a0d91e))
+* **deps:** update tods-competition-factory to 7.33.0 ([2b73cc0](https://github.com/CourtHive/epixodic/commit/2b73cc018bcfd7e0af7c688fd80ecc4a112b4c4b))
+* **deps:** update tods-competition-factory to 7.33.0 ([327a4b5](https://github.com/CourtHive/epixodic/commit/327a4b5bbfbb1130736dc4854fa2accd7330b6db))
+* **deps:** update tods-competition-factory to 7.36.0 ([#514](https://github.com/CourtHive/epixodic/issues/514)) ([2b7fee8](https://github.com/CourtHive/epixodic/commit/2b7fee8ac06ec4787f3384950e68a95139e35fe7))
+* **deps:** update tods-competition-factory to 7.36.1 ([#517](https://github.com/CourtHive/epixodic/issues/517)) ([9726c39](https://github.com/CourtHive/epixodic/commit/9726c39680e22f897530f96d913c7ce657274728))
+
 ## [2.8.0](https://github.com/CourtHive/epixodic/compare/v2.7.1...v2.8.0) (2026-11-07)
 
 
