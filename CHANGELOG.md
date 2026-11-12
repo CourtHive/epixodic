@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.1](https://github.com/CourtHive/epixodic/compare/v2.9.0...v2.9.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **score-relay:** verify /tracker against JWT_SECRET, the trust root /crowd uses ([#521](https://github.com/CourtHive/epixodic/issues/521)) ([01a8051](https://github.com/CourtHive/epixodic/commit/01a805114a286f6930dce7b267628660d625a80a))
+
 ## [2.9.0](https://github.com/CourtHive/epixodic/compare/v2.8.0...v2.9.0) (2026-11-12)
 
 
