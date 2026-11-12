@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/CourtHive/epixodic/compare/score-relay-v0.8.0...score-relay-v0.8.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **score-relay:** verify /tracker against JWT_SECRET, the trust root /crowd uses ([#521](https://github.com/CourtHive/epixodic/issues/521)) ([01a8051](https://github.com/CourtHive/epixodic/commit/01a805114a286f6930dce7b267628660d625a80a))
+
 ## [0.8.0](https://github.com/CourtHive/epixodic/compare/score-relay-v0.7.2...score-relay-v0.8.0) (2026-11-12)
 
 
