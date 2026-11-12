@@ -80,7 +80,7 @@ export interface RelayConfig {
    *  federation identity (`UPSTREAM_RELAY_TOKEN`). Required when the upstream
    *  runs with TRACKER_REQUIRE_AUTH. */
   upstreamRelayToken?: string;
-  /** Shared HS256 secret (CFS `JWT_SECRET`). When set, /tracker handshake
+  /** Shared HS256 secret (CFS `JWT_SECRET`, via `resolveTrackerSecret`). When set, /tracker handshake
    *  verifies a JWT and stashes audience + tournamentId on the socket.
    *  Unset = legacy permissive mode (existing epixodic + TMX trackers
    *  keep working without auth during the rollout). */
