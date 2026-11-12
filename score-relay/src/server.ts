@@ -13,6 +13,7 @@ import { runMigrations } from './crowd/migrationRunner.js';
 import { CrowdScoringStorage } from './crowd/storage.js';
 import { configurePersistence } from './persistence.js';
 import { createRelay, getMetrics } from './relay.js';
+import { resolveTrackerSecret } from './trackerSecret.js';
 import { loadEs256Keys } from './crowd/jwtVerify.js';
 import { UserLimits } from './crowd/userLimits.js';
 import type { RelayConfig } from './types.js';
@@ -26,6 +27,10 @@ import { Pool } from 'pg';
 // signer publishes); empty until keys are provisioned, then dual-accept begins.
 const es256Keys = loadEs256Keys();
 
+// /tracker verifies against JWT_SECRET, the trust root /crowd uses; TRACKER_JWT_SECRET is a deprecated override.
+const trackerSecret = resolveTrackerSecret();
+if (trackerSecret.warning) console.warn(`[relay] ${trackerSecret.warning}`);
+
 const config: RelayConfig = {
   port: parseInt(process.env.RELAY_PORT || '8384', 10),
   factoryServerUrl: process.env.FACTORY_SERVER_URL || undefined,
@@ -36,7 +41,7 @@ const config: RelayConfig = {
   tickerIdleTimeoutSeconds: parseInt(process.env.TICKER_IDLE_TIMEOUT_SECONDS || '1800', 10),
   upstreamRelayUrl: process.env.UPSTREAM_RELAY_URL?.trim() || undefined,
   upstreamRelayToken: process.env.UPSTREAM_RELAY_TOKEN?.trim() || undefined,
-  trackerJwtSecret: process.env.TRACKER_JWT_SECRET?.trim() || undefined,
+  trackerJwtSecret: trackerSecret.secret,
   es256Keys,
   trackerRequireAuth: process.env.TRACKER_REQUIRE_AUTH === 'true',
   trackerMaxEventsPerSecond: parseFloat(process.env.TRACKER_MAX_EVENTS_PER_SECOND || '10'),
@@ -45,16 +50,16 @@ const config: RelayConfig = {
 // Strict-auth-without-a-secret check. Without this gate the relay would
 // silently admit every /tracker connection as anonymous-admin — exactly
 // the misconfiguration an operator is most likely to hit under deploy
-// pressure (TRACKER_REQUIRE_AUTH gets toggled, TRACKER_JWT_SECRET gets
+// pressure (TRACKER_REQUIRE_AUTH gets toggled, JWT_SECRET gets
 // forgotten or unset, env file load order swaps).
 // See Mentat/standards/architectural-standards.md A3 (open defaults are
 // fail-open).
 if (config.trackerRequireAuth && !config.trackerJwtSecret) {
   console.error(
-    '[relay] FATAL: TRACKER_REQUIRE_AUTH=true but TRACKER_JWT_SECRET is unset.\n' +
+    '[relay] FATAL: TRACKER_REQUIRE_AUTH=true but JWT_SECRET is unset.\n' +
       '         Strict auth without a secret would admit every connection as\n' +
-      "         anonymous-admin. Set TRACKER_JWT_SECRET to the same value as CFS's\n" +
-      '         JWT_SECRET, or unset TRACKER_REQUIRE_AUTH to run in legacy permissive mode.',
+      "         anonymous-admin. Set JWT_SECRET to CFS's JWT_SECRET, or unset\n" +
+      '         TRACKER_REQUIRE_AUTH to run in legacy permissive mode.',
   );
   process.exit(1);
 }
