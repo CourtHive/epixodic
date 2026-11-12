@@ -1,15 +1,18 @@
 <script lang="ts">
+  import type { TeamDisplayColors } from 'courthive-components/team-colors';
+  import PlayerPanel, { type PlayerSlot } from './PlayerPanel.svelte';
   import PenaltyBoxIndicator from './PenaltyBoxIndicator.svelte';
   import PlayerTimeInfoPanel from './PlayerTimeInfoPanel.svelte';
+  import PointHistoryStream from './PointHistoryStream.svelte';
+  import { isTimeoutButtonDisabled } from './boltControls';
   import ClockDisplay from './ClockDisplay.svelte';
   import ScoreDisplay from './ScoreDisplay.svelte';
   import ActionPanel from './ActionPanel.svelte';
-  import PlayerPanel, { type PlayerSlot } from './PlayerPanel.svelte';
   import ControlBar from './ControlBar.svelte';
-  import PointHistoryStream from './PointHistoryStream.svelte';
-  import { isTimeoutButtonDisabled } from './boltControls';
 
   let {
+    side1Colors,
+    side2Colors,
     side1Name = '',
     side2Name = '',
     boltLabel = '',
@@ -78,6 +81,8 @@
     sidesSwapped = false,
     compactFooter = false,
   }: {
+    side1Colors?: TeamDisplayColors;
+    side2Colors?: TeamDisplayColors;
     side1Name: string;
     side2Name: string;
     boltLabel: string;
@@ -180,6 +185,7 @@
     <PlayerPanel
       players={side1Players}
       teamName={side1Name}
+      teamColors={side1Colors}
       isServingTeam={server === 0}
       {serveSide}
       side={1}
@@ -206,6 +212,7 @@
       {/if}
     {/if}
     <ScoreDisplay
+      {side1Colors} {side2Colors}
       side1Score={aggregateScore.side1}
       side2Score={aggregateScore.side2}
       {server}
@@ -266,6 +273,7 @@
     <PlayerPanel
       players={side2Players}
       teamName={side2Name}
+      teamColors={side2Colors}
       isServingTeam={server === 1}
       {serveSide}
       side={2}

@@ -1,3 +1,5 @@
+// constants and types
+import type { TeamBrandingSnapshot } from './teamBranding.js';
 import type { ScoreUpdate, MatchHistory } from './types.js';
 
 /** In-memory store of active match state keyed by matchUpId */
@@ -31,6 +33,7 @@ interface MatchState {
   tournamentId?: string;
   lastUpdate: ScoreUpdate;
   history?: MatchHistory;
+  teamBranding?: TeamBrandingSnapshot;
   updatedAt: number;
   clockAnchor?: ClockAnchor;
   clockTimer?: ReturnType<typeof setInterval>;
@@ -43,6 +46,7 @@ export function updateMatch(update: ScoreUpdate): void {
     tournamentId: update.tournamentId ?? existing?.tournamentId,
     lastUpdate: update,
     history: existing?.history,
+    teamBranding: existing?.teamBranding,
     updatedAt: Date.now(),
     clockAnchor: existing?.clockAnchor,
     clockTimer: existing?.clockTimer,
@@ -137,4 +141,14 @@ export function pruneStaleMatches(maxAgeMs: number): number {
     }
   }
   return pruned;
+}
+
+/** Metadata shares the existing match expiry/removal lifecycle; a score update must preserve it. */
+export function setTeamBranding(snapshot: TeamBrandingSnapshot): void {
+  const existing = activeMatches.get(snapshot.matchUpId);
+  if (!existing) updateMatch({ matchUpId: snapshot.matchUpId, tournamentId: snapshot.tournamentId, score: {} });
+  const state = activeMatches.get(snapshot.matchUpId)!;
+  state.teamBranding = snapshot;
+  state.tournamentId = snapshot.tournamentId ?? state.tournamentId;
+  state.updatedAt = Date.now();
 }

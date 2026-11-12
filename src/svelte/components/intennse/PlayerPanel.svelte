@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { teamRoleStyles, type TeamDisplayColors } from 'courthive-components/team-colors';
   import { formatTime } from '../../../clock/formatTime';
 
   export type PlayerSlot = {
@@ -14,6 +15,7 @@
   let {
     players = [],
     teamName = '',
+    teamColors,
     isServingTeam = false,
     serveSide = 'DEUCE',
     side,
@@ -21,6 +23,7 @@
   }: {
     players: PlayerSlot[];
     teamName?: string;
+    teamColors?: TeamDisplayColors;
     isServingTeam?: boolean;
     serveSide?: string;
     side: 1 | 2;
@@ -43,7 +46,7 @@
   class:intennse-player-panel--empty={players.length === 0}
 >
   {#if teamName}
-    <div class="intennse-team-name">{teamName}</div>
+    <div class="intennse-team-name" style={teamRoleStyles(teamColors, { background: '#111827', text: '#FFFFFF' })}>{teamName}</div>
   {/if}
 
   {#if players.length === 0}
