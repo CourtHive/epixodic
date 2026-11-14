@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.2](https://github.com/CourtHive/epixodic/compare/score-relay-v0.8.1...score-relay-v0.8.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.37.0 ([#527](https://github.com/CourtHive/epixodic/issues/527)) ([d77e5dd](https://github.com/CourtHive/epixodic/commit/d77e5dd02c628f0a2c5f7a0b03f8fe319ee3dc8e))
+* **deps:** update tods-competition-factory to 7.38.0 ([#529](https://github.com/CourtHive/epixodic/issues/529)) ([b0cc849](https://github.com/CourtHive/epixodic/commit/b0cc8495f8122f179f6efc37a7f0eb9ed19892d4))
+
 ## [0.8.1](https://github.com/CourtHive/epixodic/compare/score-relay-v0.8.0...score-relay-v0.8.1) (2026-11-12)
 
 
