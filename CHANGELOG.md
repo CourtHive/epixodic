@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.3](https://github.com/CourtHive/epixodic/compare/v2.9.2...v2.9.3) (2026-11-16)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 7.16.3 ([#537](https://github.com/CourtHive/epixodic/issues/537)) ([796e53d](https://github.com/CourtHive/epixodic/commit/796e53d0a47b1e48c0621e0d4c2889c42dfd0ee0))
+
 ## [2.9.2](https://github.com/CourtHive/epixodic/compare/v2.9.1...v2.9.2) (2026-11-16)
 
 
