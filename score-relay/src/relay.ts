@@ -4,6 +4,7 @@ import { connectUpstream } from './upstreamFederation.js';
 import { broadcastLiveScore } from './liveBroadcast.js';
 import { persistMatchHistory } from './persistence.js';
 import { parseTeamBranding } from './teamBranding.js';
+import { clientAddress } from './clientAddress.js';
 import { TrackerLimits } from './trackerLimits.js';
 import { ConnectLimits } from './connectLimits.js';
 import { Server, Socket } from 'socket.io';
@@ -53,7 +54,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
   // --- Tracker namespace: mobile trackers push scores here ---
   const tracker = io.of('/tracker');
 
-  // Per-IP connect-rate cap. Runs BEFORE token validation so a flood
+  // Per-IP connect-rate cap, keyed on the real client behind a proxy (clientAddress.ts). Runs BEFORE token validation so a flood
   // of bad-token connects can't dominate the auth path either. The
   // default ceiling (60/min) is well above any legitimate reconnect
   // storm; abuse looks like hundreds.
@@ -63,7 +64,7 @@ export function createRelay(io: Server, config: RelayConfig): void {
   setInterval(() => connectLimits.prune(), pruneIntervalMs).unref();
 
   tracker.use((socket, next) => {
-    const ip = socket.handshake.address || 'unknown';
+    const ip = clientAddress(socket.handshake, config.clientIpHeader);
     if (!connectLimits.tryConnect(ip)) {
       console.warn(`[tracker] reject ${socket.id}: connect-rate-limited (ip=${ip})`);
       next(new Error('connect-rate-limited'));
