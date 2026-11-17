@@ -34,7 +34,8 @@ let latestBranding: TeamBrandingSnapshot | undefined;
 
 // --- Connection status ---
 
-export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+// `unauthorized`: the relay refused the tracker's credential (or its lack of one); scores wait for a sign-in.
+export type RelayStatus = 'disconnected' | 'connecting' | 'connected' | 'error' | 'unauthorized';
 
 let statusValue: RelayStatus = 'disconnected';
 const statusListeners = new Set<(status: RelayStatus) => void>();
@@ -117,12 +118,13 @@ function tokenAudiences(aud: unknown): string[] {
 
 /**
  * The tracker handshake credential: the signed-in user's JWT, read afresh at
- * every (re)connect so a login or token refresh is picked up. A relay with a
- * secret but strict mode off admits a socket with no token, yet refuses one
- * whose token fails verification, so only a token it would accept is sent:
- * unexpired, with an `admin` or `score` audience. The storage key is shared
- * across courthive.net, and a HiveID sign-in on courthive-public leaves a
- * `hiveid`-only token there; that scorer connects without one, as before.
+ * every (re)connect so a login or token refresh is picked up. Only a token the
+ * relay would accept is sent: unexpired, with an `admin` or `score` audience.
+ * A relay with strict mode off admits a socket with no token yet refuses one
+ * that fails verification. A strict relay (production) refuses a socket with
+ * no token, so a scorer without an accepted token (none, or the `hiveid`-only
+ * token a HiveID sign-in on courthive-public leaves under the shared storage
+ * key) is refused there and waits for a sign-in.
  */
 function trackerAuth(): Record<string, string> {
   const token = browserStorage.get(getJwtTokenStorageKey());
@@ -136,6 +138,20 @@ function trackerAuth(): Record<string, string> {
   }
   return { token };
 }
+
+/** The relay's one refusal that is not about the credential. */
+const TRANSIENT_REFUSALS = new Set(['connect-rate-limited']);
+
+function isCredentialRefusal(err: Error | undefined): boolean {
+  return !!err?.message && !TRANSIENT_REFUSALS.has(err.message);
+}
+
+/** The credential the next handshake would present; '' when it presents none. */
+function credentialKey(): string {
+  return trackerAuth().token ?? '';
+}
+
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
 /**
  * The tracker socket. One instance for the module's lifetime (until
@@ -159,13 +175,25 @@ export function connectTracker(): Socket {
   });
 
   // A refusal by the relay's auth middleware leaves the socket inactive, and
-  // Socket.IO does not retry it. Retry on a delay; the handshake re-reads the
-  // token, so an expired one is dropped and a fresh login is used.
-  socket.on('connect_error', () => {
+  // Socket.IO does not retry it. A rate-limit refusal is retried on a delay.
+  // Any other refusal is about the credential, and the same credential will be
+  // refused again: a strict relay refuses a tokenless handshake every time. So
+  // the socket waits, checking storage on the same delay without touching the
+  // network, until a login or token refresh stores a different one.
+  socket.on('connect_error', (err) => {
     if (socket.active) return;
-    setTimeout(() => {
-      if (trackerSocket === socket && !socket.connected) socket.connect();
-    }, HANDSHAKE_RETRY_MS);
+    const refused = isCredentialRefusal(err) ? credentialKey() : undefined;
+    if (refused !== undefined) setStatus('unauthorized');
+    const retry = () => {
+      if (trackerSocket !== socket || socket.connected) return;
+      if (refused !== undefined && credentialKey() === refused) {
+        retryTimer = setTimeout(retry, HANDSHAKE_RETRY_MS);
+        return;
+      }
+      socket.connect();
+    };
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(retry, HANDSHAKE_RETRY_MS);
   });
 
   socket.on('ack', (data: any) => {
@@ -449,6 +477,8 @@ export function subscribeToAll(onScore: (update: any) => void, onActive?: (match
 
 export function disconnectAll(): void {
   latestBranding = undefined;
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
   trackerSocket?.disconnect();
   listenerSocket?.disconnect();
   trackerSocket = null;

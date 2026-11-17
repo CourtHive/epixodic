@@ -11,15 +11,20 @@
 
   onDestroy(() => unsub?.());
 
-  const label = $derived(
-    status === 'connected' ? 'Relay' : status === 'connecting' ? 'Connecting...' : 'Relay offline',
-  );
+  const LABELS: Record<RelayStatus, string> = {
+    connected: 'Relay',
+    connecting: 'Connecting...',
+    unauthorized: 'Sign in to relay scores',
+    error: 'Relay offline',
+    disconnected: 'Relay offline',
+  };
+  const label = $derived(LABELS[status]);
 
   const showIndicator = $derived(status !== 'disconnected');
 </script>
 
 {#if showIndicator}
-  <div class="relay-status" class:connected={status === 'connected'} class:error={status === 'error'} class:connecting={status === 'connecting'} title={label}>
+  <div class="relay-status" class:connected={status === 'connected'} class:error={status === 'error'} class:connecting={status === 'connecting'} class:unauthorized={status === 'unauthorized'} title={label}>
     <span class="relay-dot"></span>
     <span class="relay-label">{label}</span>
   </div>
@@ -51,6 +56,12 @@
   }
   .connected .relay-dot {
     background: #22c55e;
+  }
+  .relay-status.unauthorized {
+    background: rgba(245, 158, 11, 0.1);
+  }
+  .unauthorized .relay-dot {
+    background: #f59e0b;
   }
   .connecting .relay-dot {
     background: #f59e0b;

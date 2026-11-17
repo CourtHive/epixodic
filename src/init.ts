@@ -126,6 +126,11 @@ function createRelayIndicator() {
       label.textContent = 'Connecting...';
       el.style.background = 'rgba(245, 158, 11, 0.15)';
       el.style.opacity = '1';
+    } else if (status === 'unauthorized') {
+      dot.style.background = '#f59e0b';
+      label.textContent = 'Sign in to relay scores';
+      el.style.background = 'rgba(245, 158, 11, 0.15)';
+      el.style.opacity = '1';
     } else if (status === 'error') {
       dot.style.background = '#ef4444';
       label.textContent = 'Relay offline';

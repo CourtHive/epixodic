@@ -41,6 +41,7 @@ vi.mock('../../../state/browserStorage', () => ({
 
 import {
   disconnectAll,
+  onRelayStatusChange,
   sendClockSync,
   sendIntennseUpdate,
   sendScore,
@@ -85,19 +86,74 @@ describe('tracker socket ownership', () => {
     expect(trackers()).toHaveLength(2);
     expect(trackers()[0].disconnect).toHaveBeenCalled();
   });
+});
 
-  it('retries the handshake after the server refuses it, re-reading the token', () => {
-    vi.useFakeTimers();
-    try {
-      sendScore({ matchUpId: 'm', score: {} });
-      const socket = trackers()[0];
-      socket.active = false; // a middleware refusal: Socket.IO will not reconnect by itself
-      socket.fire('connect_error', new Error('token-expired'));
-      vi.advanceTimersByTime(30_000);
-      expect(socket.connect).toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
+// A middleware refusal leaves the socket inactive: Socket.IO will not reconnect it by itself.
+function refuse(socket: any, reason: string) {
+  socket.active = false;
+  socket.fire('connect_error', new Error(reason));
+}
+
+describe('tracker handshake refusals', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const freshToken = () => jwt({ userId: 'u', exp: Math.floor(Date.now() / 1000) + 600 });
+
+  // A strict relay refuses a tokenless handshake every time; retrying on a timer
+  // was an unbounded loop (prod 2026-11-17: 249 refusals from one open tab).
+  it('does not retry a tokenless handshake a strict relay refused', () => {
+    let lastStatus: string | undefined;
+    const unsubscribe = onRelayStatusChange((status) => (lastStatus = status));
+    sendScore({ matchUpId: 'm', score: {} });
+    const socket = trackers()[0];
+    refuse(socket, 'missing-token');
+    vi.advanceTimersByTime(10 * 60_000);
+    expect(socket.connect).not.toHaveBeenCalled();
+    expect(lastStatus).toBe('unauthorized');
+    unsubscribe();
+  });
+
+  it('reconnects once a sign-in stores a token the relay accepts, re-reading it', () => {
+    sendScore({ matchUpId: 'm', score: {} });
+    const socket = trackers()[0];
+    refuse(socket, 'missing-token');
+    vi.advanceTimersByTime(60_000);
+    expect(socket.connect).not.toHaveBeenCalled();
+    stored.token = freshToken();
+    vi.advanceTimersByTime(5_000);
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+    expect(handshakeAuth(socket)).toEqual({ token: stored.token });
+  });
+
+  it('does not re-present a token the relay refused, but presents a refreshed one', () => {
+    stored.token = freshToken();
+    sendScore({ matchUpId: 'm', score: {} });
+    const socket = trackers()[0];
+    refuse(socket, 'bad-signature');
+    vi.advanceTimersByTime(60_000);
+    expect(socket.connect).not.toHaveBeenCalled();
+    stored.token = jwt({ userId: 'u', exp: Math.floor(Date.now() / 1000) + 900 });
+    vi.advanceTimersByTime(5_000);
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a rate-limited handshake with the same credential', () => {
+    sendScore({ matchUpId: 'm', score: {} });
+    const socket = trackers()[0];
+    refuse(socket, 'connect-rate-limited');
+    vi.advanceTimersByTime(5_000);
+    expect(socket.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops waiting after disconnectAll', () => {
+    sendScore({ matchUpId: 'm', score: {} });
+    const socket = trackers()[0];
+    refuse(socket, 'missing-token');
+    disconnectAll();
+    stored.token = freshToken();
+    vi.advanceTimersByTime(60_000);
+    expect(socket.connect).not.toHaveBeenCalled();
   });
 });
 
