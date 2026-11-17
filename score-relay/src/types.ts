@@ -104,6 +104,11 @@ export interface RelayConfig {
    *  previously-unlimited handshake — defense-in-depth against
    *  connection floods (legit reconnect storms stay well under). */
   trackerMaxConnectsPerMinute?: number;
+  /** Header the local reverse proxy sets to the real client address
+   *  (`CLIENT_IP_HEADER`, e.g. `cf-connecting-ip`), believed only from a
+   *  loopback peer. Unset = key per-IP limits on the socket address, which
+   *  behind a proxy is the proxy's. See `clientAddress.ts`. */
+  clientIpHeader?: string;
 }
 
 export interface RelayMetrics {

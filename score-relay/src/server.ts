@@ -10,10 +10,11 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createChatPublishHandler } from './chat/chatPublish.js';
 import { createProjectionIntake } from './projectionIntake.js';
 import { runMigrations } from './crowd/migrationRunner.js';
+import { resolveClientIpHeader } from './clientAddress.js';
+import { resolveTrackerSecret } from './trackerSecret.js';
 import { CrowdScoringStorage } from './crowd/storage.js';
 import { configurePersistence } from './persistence.js';
 import { createRelay, getMetrics } from './relay.js';
-import { resolveTrackerSecret } from './trackerSecret.js';
 import { loadEs256Keys } from './crowd/jwtVerify.js';
 import { UserLimits } from './crowd/userLimits.js';
 import type { RelayConfig } from './types.js';
@@ -45,7 +46,14 @@ const config: RelayConfig = {
   es256Keys,
   trackerRequireAuth: process.env.TRACKER_REQUIRE_AUTH === 'true',
   trackerMaxEventsPerSecond: parseFloat(process.env.TRACKER_MAX_EVENTS_PER_SECOND || '10'),
+  clientIpHeader: resolveClientIpHeader(process.env.CLIENT_IP_HEADER),
 };
+
+console.log(
+  config.clientIpHeader
+    ? `[relay] per-IP limits key on the ${config.clientIpHeader} header from loopback peers`
+    : '[relay] per-IP limits key on the socket address (set CLIENT_IP_HEADER behind a proxy)',
+);
 
 // Strict-auth-without-a-secret check. Without this gate the relay would
 // silently admit every /tracker connection as anonymous-admin — exactly
