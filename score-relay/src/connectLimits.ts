@@ -7,11 +7,12 @@
  * deploys don't trip it; abuse looks like hundreds of attempts per
  * minute.
  *
- * Keyed on client IP. Behind a reverse proxy this rolls up to the
- * proxy's egress IP — that's by design: the cap acts as
- * defense-in-depth on total handshake traffic rather than a per-end-user
- * gate. Individual end-users are handled by the per-user token bucket
- * in `TrackerLimits` once their JWT lands.
+ * Keyed on the client address from `clientAddress.ts`. Behind a reverse
+ * proxy that is the proxy's address unless `CLIENT_IP_HEADER` names the
+ * header the proxy sets: until 2026-11-17 production ran without it, so the
+ * cap was one budget shared by every tracker, and one tab retrying a refused
+ * handshake every 5s spent a fifth of it. Per-user frame limits stay with
+ * `TrackerLimits` once a JWT lands.
  */
 
 const PRUNE_AFTER_MS = 5 * 60 * 1000;

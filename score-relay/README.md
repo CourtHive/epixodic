@@ -40,6 +40,7 @@ npx tsx test-manual.ts       # E2E manual test (requires running server)
 | `CORS_ORIGIN` | `*` | Comma-separated allowed origins |
 | `STALE_MATCH_HOURS` | `4` | Hours before a match is pruned from memory |
 | `PRUNE_INTERVAL_MINUTES` | `30` | How often to run the prune check |
+| `CLIENT_IP_HEADER` | — | Header the local reverse proxy sets to the real client address (`cf-connecting-ip` behind Cloudflare). Believed only from a loopback peer, and only when it holds one IP. Unset: per-IP limits key on the socket address, which behind a proxy is the proxy's, so every client shares one cap |
 | `FACTORY_SERVER_URL` | — | Factory server URL for persistence (dormant if unset) |
 | `PERSIST_SCORES` | `true` | Enable/disable persistence (requires FACTORY_SERVER_URL) |
 
