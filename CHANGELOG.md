@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.9.4](https://github.com/CourtHive/epixodic/compare/v2.9.3...v2.9.4) (2026-11-18)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 7.17.0 ([#544](https://github.com/CourtHive/epixodic/issues/544)) ([ddbc419](https://github.com/CourtHive/epixodic/commit/ddbc419dac20b100be60ef47f2f54aa86ffda097))
+* **deps:** update tods-competition-factory to 7.40.0 ([#543](https://github.com/CourtHive/epixodic/issues/543)) ([5c39239](https://github.com/CourtHive/epixodic/commit/5c392396de131176b235bc6cfe905a9f0526c249))
+* **relay-client:** stop retrying a tracker handshake the relay refused for its credential ([#541](https://github.com/CourtHive/epixodic/issues/541)) ([350e433](https://github.com/CourtHive/epixodic/commit/350e433db658dcdb8c98ba86b29f1c1ed3c53078))
+* **score-relay:** key the tracker connect cap on the real client behind a proxy ([#542](https://github.com/CourtHive/epixodic/issues/542)) ([be913f9](https://github.com/CourtHive/epixodic/commit/be913f9918be85b4aad8a292114e0144b8424a9c))
+
 ## [2.9.3](https://github.com/CourtHive/epixodic/compare/v2.9.2...v2.9.3) (2026-11-16)
 
 
