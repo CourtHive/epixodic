@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.3](https://github.com/CourtHive/epixodic/compare/score-relay-v0.8.2...score-relay-v0.8.3) (2026-11-18)
+
+
+### Bug Fixes
+
+* **deps:** update tods-competition-factory to 7.40.0 ([#543](https://github.com/CourtHive/epixodic/issues/543)) ([5c39239](https://github.com/CourtHive/epixodic/commit/5c392396de131176b235bc6cfe905a9f0526c249))
+* **score-relay:** key the tracker connect cap on the real client behind a proxy ([#542](https://github.com/CourtHive/epixodic/issues/542)) ([be913f9](https://github.com/CourtHive/epixodic/commit/be913f9918be85b4aad8a292114e0144b8424a9c))
+
 ## [0.8.2](https://github.com/CourtHive/epixodic/compare/score-relay-v0.8.1...score-relay-v0.8.2) (2026-11-16)
 
 
