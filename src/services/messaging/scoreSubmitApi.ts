@@ -5,7 +5,8 @@ export interface ScoreSubmitParams {
   matchUpId: string;
   drawId: string;
   outcome: {
-    score: { sets: any[] };
+    /** a tieMatchUp's sets; a TEAM dual decided outside its score carries `overtime` alone (its aggregate is kept) */
+    score: { sets?: any[]; overtime?: any };
     winningSide?: number;
     matchUpStatus: string;
   };

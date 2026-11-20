@@ -5,6 +5,7 @@
   import { submitOfficialScore } from '../../../services/messaging/scoreSubmitApi';
   import { buildIntennseSnapshot } from '../../../services/intennseStats';
   import { buildScoreOutcome } from '../../../intennse/buildScoreOutcome';
+  import { arcIsLevel, arcWinningSide, buildArcDecisionOutcome } from '../../../intennse/arcDecision';
   import PenaltyBoxDetailModal from './PenaltyBoxDetailModal.svelte';
   import { brandingForMatchUp } from '../../../services/teamBranding';
   import { getLoginState } from '../../../services/auth/loginState';
@@ -143,6 +144,11 @@
   let showArcResult = $state(false);
   /** True when the final bolt ended in an aggregate tie — one deciding point must be played. */
   let decidingPoint = $state(false);
+  /**
+   * The side that won the Arc's deciding point. The point is the TEAM matchUp's, played outside the tieMatchUp engine
+   * (which is already complete and would refuse it): see intennse/arcDecision.ts (PORTFOLIO-016).
+   */
+  let decidingPointSide = $state<1 | 2 | undefined>(undefined);
   const isMobile = matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) < 768;
   let isLandscape = $state(window.innerWidth > window.innerHeight);
   const scoringPrefs = getScoringPrefs();
@@ -882,6 +888,12 @@
     const { winner, result } = resolvePointAttribution(action, side);
     if (winner === null) return;
 
+    // The Arc's deciding point is the team matchUp's: it is not added to the completed tieMatchUp
+    if (decidingPoint) {
+      settleDecidingPoint((winner + 1) as 1 | 2);
+      return;
+    }
+
     const previousServer = scoring.server as 0 | 1;
     addPoint(winner, {
       result,
@@ -1046,6 +1058,11 @@
   function handleServeViolationConfirm() {
     const previousServer = scoring.server as 0 | 1;
     const receiver = (previousServer === 0 ? 1 : 0) as 0 | 1;
+    if (decidingPoint) {
+      serveClockExpired = false;
+      settleDecidingPoint((receiver + 1) as 1 | 2);
+      return;
+    }
     addPoint(receiver, {
       result: 'Serve Clock Violation',
       ...buildPointAttribution(receiver),
@@ -1420,15 +1437,35 @@
     return arcUsed[side] < 1;
   }
 
-  function getArcWinnerName(): string {
+  function getArcTotal() {
     const freshLocal = getAggregateScore(getEngineState());
-    const agg = {
+    return {
       side1: arcBaseScore.side1 + freshLocal.side1,
       side2: arcBaseScore.side2 + freshLocal.side2,
     };
-    if (agg.side1 > agg.side2) return side1Name;
-    if (agg.side2 > agg.side1) return side2Name;
-    return ''; // tied (shouldn't happen after deciding point)
+  }
+
+  function getArcWinnerName(): string {
+    const winningSide = arcWinningSide(getArcTotal(), decidingPointSide);
+    if (winningSide === 1) return side1Name;
+    if (winningSide === 2) return side2Name;
+    return ''; // level and the deciding point not yet played
+  }
+
+  /**
+   * Record the deciding point's winner on the TEAM dual. The final tieMatchUp's own score is submitted first, so the
+   * dual's level aggregate is complete before its decision lands on it.
+   */
+  async function settleDecidingPoint(side: 1 | 2) {
+    if (!arcIsLevel(getArcTotal())) return;
+    decidingPointSide = side;
+    afterPoint();
+    if (!auth.isAuthenticated) return;
+    const dto = buildArcDecisionOutcome({ teamMatchUp: getTeamMatchUpState().teamMatchUp, decidingPointSide: side });
+    if (!dto) return;
+    await submitCurrentBoltScore();
+    const result = await submitOfficialScore(dto);
+    if (!result.success) console.warn('[score submit] Arc deciding point failed:', result.error);
   }
 
   function handleChallenge(side: 1 | 2) {
