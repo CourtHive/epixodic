@@ -189,7 +189,7 @@ Svelte 5 with `@sveltejs/vite-plugin-svelte` and `vitePreprocess`. TypeScript wi
 - Svelte 5 runes syntax (`$state`, `$derived`, `$effect`)
 - Commitlint with conventional commits (husky pre-commit)
 - ESLint with sonarjs plugin
-- `strictNullChecks` is OFF, `noImplicitAny` is OFF
+- `strictNullChecks` is ON (2026-11-20: Svelte 5.59's `mount()` types assume it; off, every DOM mount failed to type-check), `noImplicitAny` is OFF
 - Target: ES2020
 
 ## E2E Testing (Playwright)
