@@ -8,7 +8,9 @@ export function validateToken(token) {
   const decodedToken = jwtDecode(token);
   const dateNow = new Date();
 
-  const tokenExpired = decodedToken?.exp < dateNow.getTime() / 1000;
+  // a token without `exp` never reads as expired, as before (undefined < n is false)
+  const expiry = decodedToken?.exp;
+  const tokenExpired = expiry !== undefined && expiry < dateNow.getTime() / 1000;
   if (tokenExpired) return undefined;
 
   return decodedToken;

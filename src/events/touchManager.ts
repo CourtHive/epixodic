@@ -7,7 +7,10 @@ try {
       return true;
     }
   });
-  window.addEventListener('test', null, opts);
+  // a no-op listener: the probe only needs the options object read
+  const noop = () => {};
+  window.addEventListener('test', noop, opts);
+  window.removeEventListener('test', noop, opts);
 } catch {
   // passive events not supported
 }
@@ -54,12 +57,12 @@ function preventDoubleTap(evt) {
   last_touch = now;
 }
 
-let xDown = null;
-let yDown = null;
-let xDiff = null;
-let yDiff = null;
-let timeDown = null;
-let touch_target = null;
+let xDown: number | null = null;
+let yDown: number | null = null;
+let xDiff: number | null = null;
+let yDiff: number | null = null;
+let timeDown: number | null = null;
+let touch_target: any = null;
 let last_touch = new Date().getTime();
 
 function handleTouchMove(evt) {
@@ -110,21 +113,29 @@ function invokeSwipeHandler(handlerName: string) {
   }
 }
 
-function dispatchSwipe() {
-  if (Math.abs(xDiff) > Math.abs(yDiff)) {
-    invokeSwipeHandler(xDiff > 0 ? 'swipeLeft' : 'swipeRight');
+function dispatchSwipe(dx: number, dy: number) {
+  if (Math.abs(dx) > Math.abs(dy)) {
+    invokeSwipeHandler(dx > 0 ? 'swipeLeft' : 'swipeRight');
   } else {
-    invokeSwipeHandler(yDiff > 0 ? 'swipeUp' : 'swipeDown');
+    invokeSwipeHandler(dy > 0 ? 'swipeUp' : 'swipeDown');
   }
 }
 
+function resetTouch() {
+  xDown = null;
+  yDown = null;
+  timeDown = null;
+}
+
 function swipeTouchEnd() {
+  // no touch started (an end without a start): nothing to measure, as before (the elapsed time read as huge)
+  if (timeDown === null || xDiff === null || yDiff === null) return resetTouch();
   const timeDiff = Date.now() - timeDown;
   const exceedsThreshold =
     (Math.abs(xDiff) > behaviors.diff_threshold || Math.abs(yDiff) > behaviors.diff_threshold) &&
     timeDiff < behaviors.time_threshold;
 
-  if (exceedsThreshold) dispatchSwipe();
+  if (exceedsThreshold) dispatchSwipe(xDiff, yDiff);
 
   xDown = null;
   yDown = null;
@@ -132,6 +143,8 @@ function swipeTouchEnd() {
 }
 
 function pressAndHoldEnd() {
+  // no touch started: before, this called findAncestor(null) and threw
+  if (timeDown === null) return resetTouch();
   const timeDiff = Date.now() - timeDown;
   if (timeDiff > behaviors.press_hold_threshold && typeof behaviors.pressAndHold == 'function')
     behaviors.pressAndHold(findAncestor(touch_target, 'pressAndHold'));
