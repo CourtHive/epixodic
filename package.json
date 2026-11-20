@@ -5,7 +5,7 @@
   "version": "2.9.4",
   "type": "module",
   "engines": {
-    "node": ">=24",
+    "node": ">=26",
     "pnpm": ">=8",
     "npm": "please-use-pnpm"
   },
@@ -67,11 +67,11 @@
   "dependencies": {
     "@courthive/scoring-visualizations": "^0.2.24",
     "axios": "^1.6.5",
-    "courthive-components": "7.17.0",
+    "courthive-components": "7.20.0",
     "d3": "^7.9.0",
     "jwt-decode": "^4.0.0",
     "navigo": "^8.11.1",
     "svelte": "^5.53.6",
-    "tods-competition-factory": "7.40.0"
+    "tods-competition-factory": "7.43.0"
   }
 }
