@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.9.5](https://github.com/CourtHive/epixodic/compare/v2.9.4...v2.9.5) (2026-11-20)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 7.18.0 ([#549](https://github.com/CourtHive/epixodic/issues/549)) ([a4ac929](https://github.com/CourtHive/epixodic/commit/a4ac929eb9f1442ebc271995d80e9956a6cdca54))
+* **deps:** update courthive-components to 7.19.0 ([#551](https://github.com/CourtHive/epixodic/issues/551)) ([ec8809a](https://github.com/CourtHive/epixodic/commit/ec8809ab612e46ad2614d2516db2abd4bedbe1cd))
+* **deps:** update courthive-components to 7.19.1 ([#552](https://github.com/CourtHive/epixodic/issues/552)) ([221750a](https://github.com/CourtHive/epixodic/commit/221750a91d8c9d78d00ff985031d5fb287b7fb85))
+* **deps:** update courthive-components to 7.19.2 ([#553](https://github.com/CourtHive/epixodic/issues/553)) ([2a96b66](https://github.com/CourtHive/epixodic/commit/2a96b6697329f443294bf069a69593b7e33da06b))
+* **deps:** update courthive-components to 7.20.0 ([#556](https://github.com/CourtHive/epixodic/issues/556)) ([eeb8b93](https://github.com/CourtHive/epixodic/commit/eeb8b93a95fa392799c2493a7695423df46a4aeb))
+* **deps:** update tods-competition-factory to 7.41.0 ([#550](https://github.com/CourtHive/epixodic/issues/550)) ([bd5fc8f](https://github.com/CourtHive/epixodic/commit/bd5fc8f5f8c4288c46896bef858ed6e5515c2fee))
+* **deps:** update tods-competition-factory to 7.43.0 ([#554](https://github.com/CourtHive/epixodic/issues/554)) ([99e60d9](https://github.com/CourtHive/epixodic/commit/99e60d989daa7817127156efdb6f789cfb3c3b7c))
+
 ## [2.9.4](https://github.com/CourtHive/epixodic/compare/v2.9.3...v2.9.4) (2026-11-18)
 
 
