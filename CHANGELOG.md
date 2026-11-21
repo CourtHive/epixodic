@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.9.6](https://github.com/CourtHive/epixodic/compare/v2.9.5...v2.9.6) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 7.21.0 ([#560](https://github.com/CourtHive/epixodic/issues/560)) ([733bb7e](https://github.com/CourtHive/epixodic/commit/733bb7e47a715ea0e36b8d631ec6d8ce3ab9fa91))
+* **deps:** update courthive-components to 7.21.1 ([#565](https://github.com/CourtHive/epixodic/issues/565)) ([da0543b](https://github.com/CourtHive/epixodic/commit/da0543b6514c553c25d0a7d01687c9d785944aae))
+* **deps:** update tods-competition-factory to 7.44.0 ([#564](https://github.com/CourtHive/epixodic/issues/564)) ([039a923](https://github.com/CourtHive/epixodic/commit/039a923ee0f3979bedec1658868897c50512fb83))
+* **intennse:** record the Arc's deciding point on the team matchUp ([#562](https://github.com/CourtHive/epixodic/issues/562)) ([2e6fb4a](https://github.com/CourtHive/epixodic/commit/2e6fb4a1b26a422d43d7632fae08a1c2fa058eac))
+* **types:** turn strictNullChecks on, so Svelte 5.59's mount() types check ([#561](https://github.com/CourtHive/epixodic/issues/561)) ([efc7e9f](https://github.com/CourtHive/epixodic/commit/efc7e9f2436b1d3c9bac36c2b90de6c214f2048d))
+* **vizSupport:** gate the points-to chart on real tuple support (SCORING-102) ([#563](https://github.com/CourtHive/epixodic/issues/563)) ([92121fd](https://github.com/CourtHive/epixodic/commit/92121fdea0d84b06796dd9df64d481b65387239f))
+
 ## [2.9.5](https://github.com/CourtHive/epixodic/compare/v2.9.4...v2.9.5) (2026-11-20)
 
 
