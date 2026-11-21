@@ -102,7 +102,8 @@ export function brandingForMatchUp(
   teamMatchUp: any,
   tournamentId?: string,
 ): TeamBrandingSnapshot | undefined {
-  if (!teamMatchUpOwns(teamMatchUp, matchUpId)) return undefined;
+  // teamMatchUpOwns is false for a missing id already; the explicit check is what narrows the type
+  if (!matchUpId || !teamMatchUpOwns(teamMatchUp, matchUpId)) return undefined;
   return brandingFromSides(
     matchUpId,
     tournamentId ?? teamMatchUp.tournamentId,

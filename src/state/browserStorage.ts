@@ -4,7 +4,8 @@
  */
 const _hasLocalStorageSupport = (function () {
   try {
-    return typeof window !== 'undefined' && window.localStorage !== null;
+    // typed as always present, but null in some embedded browsers (and a throw in sandboxed ones, caught below)
+    return typeof window !== 'undefined' && !!window.localStorage;
   } catch {
     return false;
   }
