@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.9.9](https://github.com/CourtHive/epixodic/compare/v2.9.8...v2.9.9) (2026-11-23)
+
+
+### Bug Fixes
+
+* **deps:** update @courthive/scoring-visualizations to 0.2.31 ([3d6825e](https://github.com/CourtHive/epixodic/commit/3d6825e3e78ee5b56feab318a2bb532e65c30ed8))
+* **deps:** update @courthive/scoring-visualizations to 0.2.31 ([8c94786](https://github.com/CourtHive/epixodic/commit/8c94786195c0ece57090e5e3e5a2c275ad11b1b1))
+* **deps:** update courthive-components to 7.22.2 ([aed0780](https://github.com/CourtHive/epixodic/commit/aed0780967edb5f30c990f145a34b81a4292b03a))
+* **deps:** update courthive-components to 7.22.2 ([ae2ea81](https://github.com/CourtHive/epixodic/commit/ae2ea81841ad9b8052a5b2922d3c67b6f4fd6cf9))
+* **deps:** update tods-competition-factory to 7.47.0 ([#586](https://github.com/CourtHive/epixodic/issues/586)) ([e2f68f8](https://github.com/CourtHive/epixodic/commit/e2f68f85aa0ac474062b0e14371d9ec78240a533))
+* **deps:** update tods-competition-factory to 7.48.0 ([9b6d004](https://github.com/CourtHive/epixodic/commit/9b6d0041fffcc95eb1727828a6d801431675b6b0))
+* **deps:** update tods-competition-factory to 7.48.0 ([cba541b](https://github.com/CourtHive/epixodic/commit/cba541bf8b6361f96469d586216289ae0c3853c4))
+
 ## [2.9.8](https://github.com/CourtHive/epixodic/compare/v2.9.7...v2.9.8) (2026-11-23)
 
 
