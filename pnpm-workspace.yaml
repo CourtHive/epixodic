@@ -14,7 +14,7 @@ overrides:
   # still LOOKS present, and the package still resolves, just not to the checkout.
   '@courthive/scoring-visualizations': link:../scoringVisualizations
   courthive-components: link:../courthive-components
-  tods-competition-factory: link:../factory
+  tods-competition-factory: link:../factory/packages/competition-factory
   # Security overrides for transitive deps (all dev/CI-scope; epixodic is not
   # published). minimatch is scoped to the vulnerable <3.1.3 range so 5.x/10.x
   # in the tree are left untouched.
