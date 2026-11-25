@@ -1,4 +1,4 @@
-import { matchUpFormatCode } from 'tods-competition-factory';
+import { tools } from 'tods-competition-factory';
 
 /**
  * Stub for the game-visualization support check removed from @courthive/scoring-visualizations.
@@ -26,7 +26,7 @@ function setHasPointsTo(setFormat: any): boolean {
  */
 export function supportsPointsToVisualization(format: any): boolean {
   if (!format || typeof format !== 'string') return false;
-  const parsed: any = matchUpFormatCode.parse(format);
+  const parsed: any = tools.formats.parse(format);
   if (!parsed?.setFormat) return false;
 
   const setCount = parsed.exactly || parsed.bestOf || 1;
