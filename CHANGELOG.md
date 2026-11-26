@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.9.10](https://github.com/CourtHive/epixodic/compare/v2.9.9...v2.9.10) (2026-11-26)
+
+
+### Bug Fixes
+
+* **deps:** update courthive-components to 7.23.0 ([#595](https://github.com/CourtHive/epixodic/issues/595)) ([0455029](https://github.com/CourtHive/epixodic/commit/04550292d636a2814c776b7cf8401f2d37d40a91))
+* **deps:** update courthive-components to 7.24.0 ([#597](https://github.com/CourtHive/epixodic/issues/597)) ([d2d49d5](https://github.com/CourtHive/epixodic/commit/d2d49d57c68296cf9c3f34481c0f1b78c7a89bc0))
+* **deps:** update tods-competition-factory to 7.49.0 ([#594](https://github.com/CourtHive/epixodic/issues/594)) ([76180ef](https://github.com/CourtHive/epixodic/commit/76180ef47fd924cce5acc983404f8550852f57af))
+* **deps:** update tods-competition-factory to 7.50.0 ([#598](https://github.com/CourtHive/epixodic/issues/598)) ([d6db0d0](https://github.com/CourtHive/epixodic/commit/d6db0d079e2413471ff57d7b4819a6820595b3e6))
+
+
+### Documentation
+
+* keep the agent guide self-contained and ignore CLAUDE.local.md ([#596](https://github.com/CourtHive/epixodic/issues/596)) ([a9c86ca](https://github.com/CourtHive/epixodic/commit/a9c86ca564061b8f7207ab332a827911e6952e78))
+
 ## [2.9.9](https://github.com/CourtHive/epixodic/compare/v2.9.8...v2.9.9) (2026-11-23)
 
 
