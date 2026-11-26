@@ -1,4 +1,4 @@
-import { governors, matchUpFormatCode } from 'tods-competition-factory';
+import { governors, tools } from 'tods-competition-factory';
 import axios from 'axios';
 
 // constants and types
@@ -85,7 +85,7 @@ export async function persistMatchHistory(history: MatchHistory): Promise<void> 
  * win-by format (P32DP, P32WB2) never ends level, so it is never a completed tie.
  */
 function isCompletedCombinedPointTie(sets: any[] | undefined, matchUpFormat?: string): boolean {
-  const setFormat = matchUpFormatCode.parse(matchUpFormat ?? '')?.setFormat;
+  const setFormat = tools.formats.parse(matchUpFormat ?? '')?.setFormat;
   if (!setFormat?.combinedPointTotal || setFormat.tieResolution !== 'ALLOW') return false;
   if (sets?.length !== 1) return false;
   const [set] = sets;
