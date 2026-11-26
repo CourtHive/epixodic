@@ -2,10 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Mentat Orchestration (READ FIRST)
-
-Before doing anything else, read `../Mentat/CLAUDE.md`, `../Mentat/TASKS.md`, `../Mentat/standards/coding-standards.md`, and every file in `../Mentat/in-flight/`. Mentat is the orchestration layer for the entire CourtHive ecosystem; its standards override per-repo conventions when they conflict. If you are about to start **building** (not just planning), you must claim a surface in `../Mentat/in-flight/` and run the air-traffic-control conflict check first. See the parent `../CLAUDE.md` "Mentat Orchestration" section for the full protocol.
-
 ## Branching — cut from `dev`, not `master` (CA, 2026-10-04)
 
 `dev` is this repo's integration branch, as in the factory, courthive-components and TMX. **Branch from
@@ -29,8 +25,6 @@ merged feature branches delete themselves, and a checkpoint PR (head `dev`) cann
 GitHub's auto-delete skips protected branches. Renovate targets `dev` (`baseBranches` in `renovate.json`). CI runs on every PR
 (`pull_request:` has no branch filter), so a PR into `dev` gets the full gate; a direct push to `dev`
 gets none, so land work by PR.
-
-Full rationale: `../Mentat/standards/coding-standards.md` § "Branch off `dev`, not `master`".
 
 ## Project Overview
 
@@ -136,7 +130,7 @@ The relay (`score-relay/`) is a Socket.IO + hand-rolled-HTTP server that broadca
 - **Frame safety** — every handler runs behind an error boundary (`onFrame` in `relay.ts`). Socket.IO 4 dispatches handlers in `process.nextTick`, so a throw would otherwise end the process. A malformed frame gets `error: invalid-frame`.
 - **Rate limits** — per-matchUp + per-user token buckets (`src/trackerLimits.ts`, default 10 events/sec/matchUp with a 5× per-user fan-out ceiling that closes the cross-matchUp bypass); the `/crowd` namespace uses `UserLimits` (`src/crowd/userLimits.ts`, 5 events/sec/user, 3 concurrent sessions/user).
 - **One trust root** — /tracker verifies against CFS's `JWT_SECRET` (plus the shared ES256 keys), as /crowd does (`src/trackerSecret.ts`). `TRACKER_JWT_SECRET` is a deprecated override: still honoured, with a startup warning that says whether it equals `JWT_SECRET` or has drifted.
-- **Fail-closed startup** — `server.ts` exits if `TRACKER_REQUIRE_AUTH=true` but no tracker secret resolves (a strict-auth-without-secret config would otherwise admit every connection as anonymous-admin; see Mentat architectural-standards A3).
+- **Fail-closed startup** — `server.ts` exits if `TRACKER_REQUIRE_AUTH=true` but no tracker secret resolves (a strict-auth-without-secret config would otherwise admit every connection as anonymous-admin).
 
 #### Relay event schema
 
@@ -194,7 +188,7 @@ Svelte 5 with `@sveltejs/vite-plugin-svelte` and `vitePreprocess`. TypeScript wi
 
 ## E2E Testing (Playwright)
 
-37 E2E tests covering the INTENNSE scoring interface. Planning: `Mentat/planning/EPIXODIC_PLAYWRIGHT_E2E.md`.
+37 E2E tests covering the INTENNSE scoring interface.
 
 ```
 e2e/
@@ -222,7 +216,6 @@ e2e/
 ## Ecosystem Coding Standards
 
 This project follows the CourtHive ecosystem coding standards.
-See [CourtHive/Mentat/standards/coding-standards.md](https://github.com/CourtHive/Mentat/blob/main/standards/coding-standards.md) for the full reference.
 
 Key repo-specific notes:
 - Package manager: pnpm only
