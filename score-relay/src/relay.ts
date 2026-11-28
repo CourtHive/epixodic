@@ -85,7 +85,9 @@ export function createRelay(io: Server, config: RelayConfig): void {
     }
     if (!token) {
       if (config.trackerRequireAuth) {
-        console.warn(`[tracker] reject ${socket.id}: missing-token`);
+        // A signed-out scorer is refused here on every visit, by design, so this is routine and goes to stdout;
+        // stderr is for refusals that can mean something is wrong (a bad or expired token, a connect storm).
+        console.log(`[tracker] reject ${socket.id}: missing-token`);
         next(new Error('missing-token'));
         return;
       }
