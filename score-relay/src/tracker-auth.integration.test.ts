@@ -4,7 +4,7 @@
  * test so the auth config can differ from the shared baseline relay
  * in relay.test.ts.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Server as IoServer } from 'socket.io';
 import { io as ioClient, type Socket as ClientSocket } from 'socket.io-client';
 import { createServer, type Server as HttpServer } from 'node:http';
@@ -69,6 +69,25 @@ describe('/tracker auth (strict mode)', () => {
     const err = await new Promise<Error>((resolve) => client.on('connect_error', resolve));
     expect(err.message).toMatch(/missing-token/);
     client.disconnect();
+  });
+
+  it('logs a missing-token refusal on stdout, not stderr', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const client = connect(undefined);
+      await new Promise<Error>((resolve) => client.on('connect_error', resolve));
+      client.disconnect();
+      const refusal = (call: unknown[]) => String(call[0]).includes('missing-token');
+      expect(log.mock.calls.some(refusal)).toBe(true);
+      expect(warn.mock.calls.some(refusal)).toBe(false);
+      expect(error.mock.calls.some(refusal)).toBe(false);
+    } finally {
+      log.mockRestore();
+      warn.mockRestore();
+      error.mockRestore();
+    }
   });
 
   it('rejects a connection with a bad signature', async () => {
