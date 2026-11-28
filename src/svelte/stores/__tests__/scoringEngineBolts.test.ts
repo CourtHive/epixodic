@@ -2,11 +2,11 @@
  * The INTENNSE bolt flow against the real factory ScoringEngine (7.16.0): what BoltScoringPage does on a
  * bolt's expiry, at a level tieMatchUp, after an undo, and with the engine's per-point `serveSide`.
  */
+import { competitionFormats } from '@courthive/competition-catalogue';
 import { buildScoreOutcome } from '../../../intennse/buildScoreOutcome';
 import { getAggregateScore } from '../../../intennse/scoreComputation';
 import { getServingState } from '../../../intennse/servingRules';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { fixtures } from 'tods-competition-factory';
 import {
   initScoringEngine,
   destroyScoringEngine,
@@ -18,7 +18,7 @@ import {
   getEngineState,
 } from '../scoringEngine.svelte';
 
-const INTENNSE_STANDARD = (fixtures as any).competitionFormats.INTENNSE_STANDARD;
+const INTENNSE_STANDARD = competitionFormats.INTENNSE_STANDARD;
 
 /** What BoltScoringPage's point handler does: add the point, then name the next server from the rules. */
 function scorePoint(winner: 0 | 1) {

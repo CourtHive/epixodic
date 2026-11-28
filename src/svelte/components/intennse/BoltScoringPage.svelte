@@ -16,7 +16,7 @@
   import { getAuthState } from '../../stores/auth.svelte';
   import HorizontalBolt from './HorizontalBolt.svelte';
   import LoginModal from '../shared/LoginModal.svelte';
-  import { fixtures } from 'tods-competition-factory';
+  import { competitionFormats } from '@courthive/competition-catalogue';
   import CoinTossModal from './CoinTossModal.svelte';
   import VerticalBolt from './VerticalBolt.svelte';
   import PenaltyModal from './PenaltyModal.svelte';
@@ -85,7 +85,7 @@
     type PointHistoryEntry,
   } from './historyStream';
 
-  const INTENNSE_STANDARD = fixtures.competitionFormats.INTENNSE_STANDARD;
+  const INTENNSE_STANDARD = competitionFormats.INTENNSE_STANDARD;
 
   // Business logic — independently testable
   import { getServingState, getServeSide, updateSideServerIndices, type ServeSide } from '../../../intennse/servingRules';
